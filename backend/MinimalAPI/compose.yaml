@@ -1,0 +1,7 @@
+﻿services:
+  minimalapi:
+    image: minimalapi
+    build:
+      context: .
+      dockerfile: Dockerfile
+
