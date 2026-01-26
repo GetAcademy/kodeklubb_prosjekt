@@ -9,6 +9,7 @@
     "build-only": "vite build",
     "test:e2e": "playwright test",
     "type-check": "vue-tsc --build",
+    "sass": "sass --watch sass:dist/assets",
     "build": "run-p type-check \"build-only {@}\" --"
   },
   "dependencies": {
