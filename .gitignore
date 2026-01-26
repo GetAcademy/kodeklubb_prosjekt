@@ -137,3 +137,49 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+
+# Frontend folders
+frontend/logs
+frontend/dist
+frontend/coverage
+frontend/dist-ssr
+frontend/node_modules
+
+# Cypress
+frontend/cypress/videos/
+frontend/cypress/screenshots/
+
+# Vitest
+frontend/__screenshots__/
+
+frontend/test-results/
+frontend/playwright-report/
+
+# Editor
+.vscode/*
+!.vscode/GETklubb.code-workspace
+
+# Frontend Files
+
+# Logs
+frontend/*.log
+frontend/*.local
+frontend/.DS_Store
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+frontend/lerna-debug.log*
+
+
+# Editor
+.idea
+*.sln
+*.sw?
+*.suo
+*.ntvs*
+*.njsproj
+.eslintcache
+*.tsbuildinfo
+!.vscode/GETklubb.code-workspace
