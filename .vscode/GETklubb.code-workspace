@@ -16,7 +16,8 @@
 		"conventionalCommits.scopes": [
 			".gitignore",
 			"Package.json",
-			"Workspace"
+			"Workspace",
+			"README"
 		]
 	},
 	"recommendations": [
