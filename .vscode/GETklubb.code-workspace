@@ -23,7 +23,8 @@
 			"Makefile",
 			"Cleanup",
 			"Backend",
-			"Discord"
+			"Discord",
+			"Types"
 		]
 	},
 	"recommendations": [
