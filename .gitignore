@@ -183,3 +183,7 @@ frontend/lerna-debug.log*
 .eslintcache
 *.tsbuildinfo
 !.vscode/GETklubb.code-workspace
+
+#   Backend directories
+backend/MinimalAPI/obj
+
