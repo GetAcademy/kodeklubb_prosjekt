@@ -1,5 +1,9 @@
 using Microsoft.AspNetCore.Mvc.Diagnostics;
 using Microsoft.Extensions.Http;
+using Microsoft.EntityFrameworkCore;
+using Persistence;
+using Persistence.Repositories;
+using Api.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,15 +12,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
 
-var app = builder.Build();
+// Add PostgreSQL database context
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(connectionString));
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
-app.UseCors();
+// Register generic repository
+builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 
 builder.Services.AddCors(options =>
 {
@@ -29,12 +31,23 @@ builder.Services.AddCors(options =>
     });
 });
 
+var app = builder.Build();
+
+app.UseCors("DevCors");
 app.UseHttpsRedirection();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
+// Map user endpoints
+app.MapUserEndpoints();
 
 app.MapGet("/auth/discord/login", (IConfiguration config) =>
 {
-    var clientId = config["Discord:ClientId"];
-    var redirectUri = Uri.EscapeDataString(config["Discord:RedirectUri"]);
+    var clientId = config["Discord:ClientId"]!;
+    var redirectUri = Uri.EscapeDataString(config["Discord:RedirectUri"]!);
     var scope = "identify email";
 
     var url =

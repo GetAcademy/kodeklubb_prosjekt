@@ -190,3 +190,13 @@ backend/MinimalAPI/bin
 backend/MinimalAPI/Properties
 
 
+
+*.dll
+bin
+obj
+*.pdb
+*.exe
+*Up2Date
+!?*.[Cc]ache/
+.dtbcache.v2
+.vs/
