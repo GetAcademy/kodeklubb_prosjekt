@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "preview": "vite preview",
+    "serve": "vite preview",
     "build-only": "vite build",
     "test:e2e": "playwright test",
     "type-check": "vue-tsc --build",
