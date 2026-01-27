@@ -183,3 +183,13 @@ frontend/lerna-debug.log*
 .eslintcache
 *.tsbuildinfo
 !.vscode/GETklubb.code-workspace
+
+*.dll
+bin
+obj
+*.pdb
+*.exe
+*Up2Date
+!?*.[Cc]ache/
+.dtbcache.v2
+.vs/

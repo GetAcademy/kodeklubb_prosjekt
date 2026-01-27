@@ -1,5 +1,9 @@
 using Microsoft.AspNetCore.Mvc.Diagnostics;
 using Microsoft.Extensions.Http;
+using Microsoft.EntityFrameworkCore;
+using Persistence;
+using Persistence.Repositories;
+using Api.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,6 +11,14 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
+
+// Add PostgreSQL database context
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
+// Register generic repository
+builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 
 var app = builder.Build();
 
@@ -17,6 +29,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Map user endpoints
+app.MapUserEndpoints();
 
 app.MapGet("/auth/discord/login", (IConfiguration config) =>
 {
