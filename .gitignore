@@ -185,9 +185,8 @@ frontend/lerna-debug.log*
 !.vscode/GETklubb.code-workspace
 
 #   Backend directories
-backend/MinimalAPI/obj
-backend/MinimalAPI/bin
-backend/MinimalAPI/Properties
+backend/src/obj
+backend/src/bin
 
 
 
