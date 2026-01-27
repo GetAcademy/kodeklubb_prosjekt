@@ -44,10 +44,7 @@ if (app.Environment.IsDevelopment())
 // Map user endpoints
 app.MapUserEndpoints();
 
-app.MapGet("/login", () =>
-{
-    "It works"
-});
+app.MapGet("/login", () => "It works");
 app.MapGet("/auth/discord/login", (IConfiguration config) =>
 {
     var clientId = config["Discord:ClientId"]!;
@@ -84,6 +81,8 @@ app.MapGet("/auth/discord/callback", async (string code, IConfiguration config, 
     {
         return Results.BadRequest("Token exchange failed");
     }
+
+    var rawJson = tokenResponse.Content.ReadAsStringAsync();
     
     return Results.Ok(rawJson);
 });
