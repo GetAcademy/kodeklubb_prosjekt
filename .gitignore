@@ -187,3 +187,13 @@ frontend/lerna-debug.log*
 #   Backend directories
 backend/MinimalAPI/obj
 
+
+*.dll
+bin
+obj
+*.pdb
+*.exe
+*Up2Date
+!?*.[Cc]ache/
+.dtbcache.v2
+.vs/
