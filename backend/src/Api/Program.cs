@@ -20,9 +20,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Register generic repository
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 
-
-
-
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DevCors", policy =>
@@ -33,10 +30,10 @@ builder.Services.AddCors(options =>
             .AllowCredentials();
     });
 });
+app.UseCors();
 
 var app = builder.Build();
 
-app.UseCors();
 app.UseHttpsRedirection();
 
 // Configure the HTTP request pipeline.
