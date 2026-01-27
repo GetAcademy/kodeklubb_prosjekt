@@ -186,6 +186,7 @@ frontend/lerna-debug.log*
 
 #   Backend directories
 backend/MinimalAPI/obj
+backend/MinimalAPI/bin
 backend/MinimalAPI/Properties
 
 
