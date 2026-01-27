@@ -30,10 +30,10 @@ builder.Services.AddCors(options =>
             .AllowCredentials();
     });
 });
-app.UseCors();
 
 var app = builder.Build();
 
+app.UseCors("DevCors");
 app.UseHttpsRedirection();
 
 // Configure the HTTP request pipeline.
