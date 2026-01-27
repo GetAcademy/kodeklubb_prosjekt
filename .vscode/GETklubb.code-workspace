@@ -21,7 +21,10 @@
 			"Compnents",
 			"Header",
 			"Makefile",
-			"Cleanup"
+			"Cleanup",
+			"Backend",
+			"Discord",
+			"Types"
 		]
 	},
 	"recommendations": [
