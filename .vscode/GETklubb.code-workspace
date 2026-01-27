@@ -17,7 +17,11 @@
 			".gitignore",
 			"Package.json",
 			"Workspace",
-			"README"
+			"README",
+			"Compnents",
+			"Header",
+			"Makefile",
+			"Cleanup"
 		]
 	},
 	"recommendations": [
