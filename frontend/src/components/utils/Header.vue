@@ -16,6 +16,12 @@
     const router = useRouter();
 
 
+    async function discordCallBack()
+    {
+        try{
+            const response = await axios.get('/auth/discord/callback');
+        } catch (e) {console.log(e)}
+    }
     async function loginWithDiscord()
     {
         const code = route.query.code;
@@ -26,11 +32,11 @@
                 const response = await axios.post('/auth/discord/login', {code});
                 localStorage.setItem('user_token', response.data.token);
                 router.push('/dashboard');
+                discordCallBack();
             } catch (e){
                 console.error('Innlogging feilet', e);
             }
         }
-        console.log(code)
     }
     // -- Debugging Logic
     console.log("connecting to :", apiUrl);
