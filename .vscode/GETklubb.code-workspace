@@ -20,7 +20,8 @@
 			"README",
 			"Compnents",
 			"Header",
-			"Makefile"
+			"Makefile",
+			"Cleanup"
 		]
 	},
 	"recommendations": [
