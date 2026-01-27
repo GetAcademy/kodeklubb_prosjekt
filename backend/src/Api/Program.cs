@@ -20,15 +20,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Register generic repository
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 
-var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
 
-app.UseCors();
 
 builder.Services.AddCors(options =>
 {
@@ -41,15 +34,23 @@ builder.Services.AddCors(options =>
     });
 });
 
+var app = builder.Build();
+
+app.UseCors();
 app.UseHttpsRedirection();
 
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
 // Map user endpoints
 app.MapUserEndpoints();
 
 app.MapGet("/auth/discord/login", (IConfiguration config) =>
 {
-    var clientId = config["Discord:ClientId"];
-    var redirectUri = Uri.EscapeDataString(config["Discord:RedirectUri"]);
+    var clientId = config["Discord:ClientId"]!;
+    var redirectUri = Uri.EscapeDataString(config["Discord:RedirectUri"]!);
     var scope = "identify email";
 
     var url =
