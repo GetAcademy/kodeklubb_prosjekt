@@ -184,6 +184,10 @@ frontend/lerna-debug.log*
 *.tsbuildinfo
 !.vscode/GETklubb.code-workspace
 
+#   Backend directories
+backend/MinimalAPI/obj
+
+
 *.dll
 bin
 obj
