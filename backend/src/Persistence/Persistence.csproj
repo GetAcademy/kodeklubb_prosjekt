@@ -15,4 +15,9 @@
     <ProjectReference Include="..\Core\Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="DbModels\" />
+    <Folder Include="Queries\Models\" />
+  </ItemGroup>
+
 </Project>
