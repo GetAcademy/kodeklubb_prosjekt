@@ -7,7 +7,7 @@
 
     // --- Importing Dependencies
     import axios from 'axios';
-    import { computed } from 'vue';
+    import { computed, onMounted } from 'vue';
 
 
     const meta = import.meta.env;
@@ -15,16 +15,29 @@
     const apiUrl =  meta.VITE_DISCORD_API_LOGIN;
     const isLoggedIn = computed(() => false);
 
-    async function discordCallBack()
-    {
-        try{
-            const response = await axios.get('/auth/discord/callback');
+    onMounted(() => {
+        // Check if user data is in URL (after Discord redirect)
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const userDataEncoded = urlParams.get('user');
+        
+        if (token && userDataEncoded) {
+            const userData = JSON.parse(decodeURIComponent(userDataEncoded));
+            console.log('Discord User Information:', userData);
+            localStorage.setItem('user_token', token);
+            localStorage.setItem('user_data', JSON.stringify(userData));
+            
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        
+        // Check if user is already logged in
+        const storedUserData = localStorage.getItem('user_data');
+        if (storedUserData) {
+            console.log('Logged in user:', JSON.parse(storedUserData));
+        }
+    });
 
-            localStorage.setItem('user_token', response.data.token);
-            console.log(response)
-
-        } catch (e) {console.error(e)}
-    }
     async function loginWithDiscord()
     {
         
@@ -33,15 +46,7 @@
 
         window.location.href = LOGIN_API;
 
-        try {
-            
-            discordCallBack();
-
-        } catch (e){
-            console.error('Innlogging feilet :', e);
-        }
-
     }
     // -- Debugging Logic
     console.log("connecting to :", apiUrl);
-</script>>
+</script>

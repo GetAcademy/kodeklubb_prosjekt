@@ -61,19 +61,30 @@ app.MapGet("/auth/discord/login", (IConfiguration config) =>
     return Results.Redirect(url);
 });
 
-app.MapGet("/auth/discord/callback", async (string code, IConfiguration config, IHttpClientFactory httpClientFactory) =>
+app.MapGet("/auth/discord/callback", async (string? code, string? error, string? error_description, IConfiguration config, IHttpClientFactory httpClientFactory) =>
 {
     var client = httpClientFactory.CreateClient();
 
+    if (string.IsNullOrWhiteSpace(code))
+    {
+        if (!string.IsNullOrWhiteSpace(error))
+        {
+            return Results.BadRequest($"Discord OAuth error: {error}. {error_description}");
+        }
+
+        return Results.BadRequest("Missing code query parameter");
+    }
+
+    
     var tokenResponse = await client.PostAsync(
         "https://discord.com/api/oauth2/token",
         new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["client_id"] = config["Discord:ClientId"]!,
-            ["client_secret"] = config["Discord:ClientSecret"],
+            ["client_secret"] = config["Discord:ClientSecret"]!,
             ["grant_type"] = "authorization_code",
             ["code"] = code,
-            ["redirect_uri"] = config["Discord:RedirectUri"]
+            ["redirect_uri"] = config["Discord:RedirectUri"]!
         })
     );
 
@@ -82,9 +93,27 @@ app.MapGet("/auth/discord/callback", async (string code, IConfiguration config, 
         return Results.BadRequest("Token exchange failed");
     }
 
-    var rawJson = tokenResponse.Content.ReadAsStringAsync();
+    var tokenData = await tokenResponse.Content.ReadFromJsonAsync<DiscordTokenResponse>();
     
-    return Results.Ok(rawJson);
+    if (tokenData?.AccessToken == null)
+    {
+        return Results.BadRequest("Failed to get access token");
+    }
+
+    
+    client.DefaultRequestHeaders.Authorization = 
+        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenData.AccessToken);
+    
+    var userResponse = await client.GetAsync("https://discord.com/api/users/@me");
+    
+    if (!userResponse.IsSuccessStatusCode)
+    {
+        return Results.BadRequest("Failed to get user information");
+    }
+
+    var userData = await userResponse.Content.ReadFromJsonAsync<object>();
+    
+    return Results.Redirect($"{config["Discord:RedirectUri"]}?token={tokenData.AccessToken}&user={Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(userData))}");
 });
 
 
