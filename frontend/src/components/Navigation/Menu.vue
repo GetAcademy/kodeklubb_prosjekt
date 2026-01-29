@@ -14,7 +14,9 @@
                         :data="item.anchor"
                         :cls="[cls[3]]"/>
 
-                    
+                    <NavigationButton v-if="!!isButton && !!item.action"
+                        :data="item"
+                        :cls="[cls[3]]" />
             </li>
         </ul>
     </nav>
