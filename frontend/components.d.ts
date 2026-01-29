@@ -19,6 +19,8 @@ declare module 'vue' {
     ProfileProfile: typeof import('./src/components/profile/Profile.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    UtilsDashboard: typeof import('./src/components/utils/Dashboard.vue')['default']
+    UtilsDashoard: typeof import('./src/components/utils/Dashoard.vue')['default']
     UtilsFooter: typeof import('./src/components/utils/Footer.vue')['default']
     UtilsHeader: typeof import('./src/components/utils/Header.vue')['default']
   }
@@ -33,6 +35,8 @@ declare global {
   const ProfileProfile: typeof import('./src/components/profile/Profile.vue')['default']
   const RouterLink: typeof import('vue-router')['RouterLink']
   const RouterView: typeof import('vue-router')['RouterView']
+  const UtilsDashboard: typeof import('./src/components/utils/Dashboard.vue')['default']
+  const UtilsDashoard: typeof import('./src/components/utils/Dashoard.vue')['default']
   const UtilsFooter: typeof import('./src/components/utils/Footer.vue')['default']
   const UtilsHeader: typeof import('./src/components/utils/Header.vue')['default']
 }
