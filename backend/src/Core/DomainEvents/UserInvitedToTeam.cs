@@ -1,3 +1,11 @@
 namespace Core.DomainEvents;
 
-public record UserInvitedToTeam();
+public record UserInvitedToTeam(
+    Guid TeamId,
+    Guid UserId,
+    Guid InvitedByUserId,
+    DateTime OccuredAt
+) : IDomainEvent
+{
+    public DateTime TimeStamp { get; } = OccuredAt;
+}

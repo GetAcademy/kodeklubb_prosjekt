@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Persistence;
 using Persistence.Repositories;
 using Api.Endpoints;
+using Worker;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
+// builder.Services.AddHostedService<OutboxWorker>();
 
 // Add PostgreSQL database context
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
