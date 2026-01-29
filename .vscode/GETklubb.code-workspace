@@ -26,7 +26,11 @@
 			"Discord",
 			"Types",
 			"Route",
-			"UI"
+			"UI",
+			"Dashboard",
+			"Component",
+			"Navigation",
+			"Store"
 		]
 	},
 	"recommendations": [
