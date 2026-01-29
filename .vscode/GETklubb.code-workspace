@@ -24,7 +24,9 @@
 			"Cleanup",
 			"Backend",
 			"Discord",
-			"Types"
+			"Types",
+			"Route",
+			"UI"
 		]
 	},
 	"recommendations": [
