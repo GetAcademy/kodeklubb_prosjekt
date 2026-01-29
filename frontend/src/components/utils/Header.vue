@@ -1,10 +1,9 @@
 <template>
     <p> Logo</p>
     <NavigationMenu v-if="isAuthenticated" :data="authMenu"/>
-
+    <NavigationMenu v-else :data="menu"/>
     <h1> GET - Kode Klubb</h1>
-    <!--NavigationMenu v-if="!isAuthenticated" :data="menu"/-->
-    <button v-if="!isAuthenticated" @click="loginDiscord" class = 'discord-btn'> Login with discord</button>
+    
 
 </template>
 <script setup lang="ts">
@@ -23,13 +22,13 @@
 
     const menu = 
     [
-        //{ type: 'button', label:"Logg inn with Discord", action: loginDiscord}
+        { type: 'button', label:"Logg inn with Discord", action: () => loginDiscord()}
     ]
 
     const authMenu =
     [
         { type: 'router', path:"/profile", label:"Min Side"},
-        { type: 'button', path:"/logout", label:"Logg deg ut", action: handleLogout }
+        { type: 'button', path:"/logout", label:"Logg deg ut", action: () => handleLogout() }
     ];
  
     async function  loginDiscord() { window.location.href = discordAPI;}
