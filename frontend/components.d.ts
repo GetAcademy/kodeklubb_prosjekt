@@ -12,6 +12,11 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    NavigationAnchor: typeof import('./src/components/Navigation/Anchor.vue')['default']
+    NavigationButton: typeof import('./src/components/Navigation/Button.vue')['default']
+    NavigationMenu: typeof import('./src/components/Navigation/Menu.vue')['default']
+    ProfileBar: typeof import('./src/components/profile/Bar.vue')['default']
+    ProfileProfile: typeof import('./src/components/profile/Profile.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     UtilsFooter: typeof import('./src/components/utils/Footer.vue')['default']
@@ -21,6 +26,11 @@ declare module 'vue' {
 
 // For TSX support
 declare global {
+  const NavigationAnchor: typeof import('./src/components/Navigation/Anchor.vue')['default']
+  const NavigationButton: typeof import('./src/components/Navigation/Button.vue')['default']
+  const NavigationMenu: typeof import('./src/components/Navigation/Menu.vue')['default']
+  const ProfileBar: typeof import('./src/components/profile/Bar.vue')['default']
+  const ProfileProfile: typeof import('./src/components/profile/Profile.vue')['default']
   const RouterLink: typeof import('vue-router')['RouterLink']
   const RouterView: typeof import('vue-router')['RouterView']
   const UtilsFooter: typeof import('./src/components/utils/Footer.vue')['default']
