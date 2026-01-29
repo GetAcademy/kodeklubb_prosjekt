@@ -1,14 +1,18 @@
 <template>
-  <div class="dashboard">
-    <h1>Dashboard</h1>
-    <div v-if="userData">
-      <h2>Welcome, {{ userData.username }}!</h2>
-      <pre>{{ JSON.stringify(userData, null, 2) }}</pre>
-    </div>
-    <div v-else>
-      <p>Loading user data...</p>
-    </div>
-  </div>
+    <h2>Dashboard</h2>
+    <p> Velkommen til Kodeklubben, <b>{{ userData.username }}</b> - <b>{{ userData.email }}</b></p>
+    
+    <ProfileBar :data="userData"/>
+
+    <section>
+      <h2> Dine Teams </h2>
+    </section>
+
+    <section>
+      <h2> Discover new Teams</h2>
+    </section>
+    {{ userData }}
+
 </template>
 
 <script setup lang="ts">
