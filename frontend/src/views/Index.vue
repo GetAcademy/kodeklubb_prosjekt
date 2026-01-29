@@ -4,7 +4,7 @@
         <p> 
             Velkommen til Kodeklubben, <b>{{ userName }}</b> - <b>{{ user.email }}</b>
         </p>
-            {{ authStore.user }}
+            {{ user }}
 
         <ProfileBar :data="user"/>
 
@@ -17,6 +17,7 @@
         </section>
     </section>
     <section v-else>
+        {{ isAuthenticated }}
     </section>
 </template>
 
@@ -24,8 +25,8 @@
 <script lang="ts" setup>
 
     // --- Importing Dependencies & Types
-    import { storeToRefs } from 'pinia';    
     import { onMounted } from 'vue';
+    import { storeToRefs } from 'pinia';
     import { useAuthStore } from '@/stores/authStore';
 
     // --- State Management
@@ -43,11 +44,11 @@
         if (token && userDataEncoded && (!authStore.isAuthenticated && authStore.user))
         {
             const userData = JSON.parse(decodeURIComponent(userDataEncoded));
-            
             authStore.setToken(token);
             authStore.setUser(userData);
 
-            //console.log("AuthStore Information:",authStore.user)
+            //  --- Debug logic
+            //console.log("AuthStore Information:", userData)
 
             // Clean up URL
             window.history.replaceState({}, document.title, window.location.pathname);
@@ -67,8 +68,8 @@
                 authStore.setUser(parsedUserData);
                 //localStorage.setItem('user_data', parsedUserData)
 
-                //console.log("test", JSON.stringify(parsedUserData))
-                console.log('Discord User Information:', parsedUserData);
+                //  --- Debug logic
+                //console.log('Discord User Information:', parsedUserData);
 
                 // Clean up URL
                 window.history.replaceState({}, document.title, window.location.pathname);
@@ -85,5 +86,5 @@
             if (authStore.isAuthenticated && authStore.user) { return;}
         }
     });
-    console.log(localStorage.getItem('user_data'))
+    //console.log(localStorage.getItem('user_data'))
 </script>
