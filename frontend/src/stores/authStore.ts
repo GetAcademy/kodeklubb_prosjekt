@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue';
+import { ref, computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import type { User } from '@/types/stores/userAuth';
@@ -6,39 +6,38 @@ import type { User } from '@/types/stores/userAuth';
 
 export const useAuthStore = defineStore('auth', () => {
 
-    // --- STATE ---
-    const loading = ref<boolean>(false);
-    const rawUserData = ref<User | any >(null);
+    
+    const rawUserData = computed(() => localStorage.getItem('user_data'));
 
-    const user = computed(() => {
+    const userData = computed(() => {
         if (!rawUserData.value) return null;
-        console.log(rawUserData.value)
-        console.log(localStorage.getItem('user_data'))
         return JSON.parse(rawUserData.value) as User;
-    })
+    });
 
-    const token = ref<string | null>(null);
+    // --- STATE
+    const loading = ref<boolean>(false);
+    const user = ref<User | null>(userData.value);
+    const token = ref<string | null>(localStorage.getItem('user_token'));
 
 
-    // --- GETTERS ---
+    // --- GETTERS
     const userName = computed(() => user.value?.username || '??');
     const isAuthenticated = computed(() => !!token.value && user.value !== null);
 
-    // --- ACTIONS ---
+    // --- ACTIONS
+    async function setToken (key: string) {localStorage.setItem('user_token', key);}
     async function setUser(data: User) {localStorage.setItem('user_data', JSON.stringify(data));}
 
-    async function setToken (key: string) {
-        //token.value = key;
-        localStorage.setItem('user_token', key);}
-
-
-    function logout() {
+    function logout()
+    {
         user.value = null;
         token.value = null;
+        localStorage.removeItem('user_data');
         localStorage.removeItem('user_token');
     }
 
-    async function fetchCurrentUser() {
+    async function fetchCurrentUser()
+    {
         loading.value = true;
         try {
         // Her ville du vanligvis hatt et API-kall
