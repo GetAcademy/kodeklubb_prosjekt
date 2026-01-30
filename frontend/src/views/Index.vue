@@ -64,14 +64,12 @@
             try 
             {
                 const parsedUserData = JSON.parse(decodeURIComponent(userDataEncoded));
-
+                console.log('Setting token and user:', { token: token.substring(0, 20) + '...', user: parsedUserData });
                 authStore.setToken(token);
                 authStore.setUser(parsedUserData);
-                //localStorage.setItem('user_data', parsedUserData)
-
-                //  --- Debug logic
-                //console.log('Discord User Information:', parsedUserData);
-
+                console.log('After setUser - isAuthenticated:', authStore.isAuthenticated);
+                console.log('Discord User Information:', parsedUserData);
+                
                 // Clean up URL
                 window.history.replaceState({}, document.title, window.location.pathname);
                 } catch (error) {console.error('Error parsing user data:', error);}

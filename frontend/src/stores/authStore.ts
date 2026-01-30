@@ -15,7 +15,11 @@ export const useAuthStore = defineStore('auth', () => {
 
     // --- STATE
     const loading = ref<boolean>(false);
-    const user = ref<User | null>(userData.value);
+    
+    // Initialize user from localStorage
+    const storedUserData = localStorage.getItem('user_data');
+    const user = ref<User | null>(storedUserData ? JSON.parse(storedUserData) : null);
+    
     const token = ref<string | null>(localStorage.getItem('user_token'));
     
 
