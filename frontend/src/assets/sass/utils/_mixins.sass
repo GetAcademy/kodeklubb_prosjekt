@@ -1,0 +1,194 @@
+@use 'sass:map';
+@use '../colors/colors' as color
+@use '../mappings/icons' as icon
+@use '../mappings/alerts' as alerts
+@use '../mappings/flexbox' as flexbox-mapping
+@use '../mappings/devices-breakpoints' as devices
+
+@mixin text-wrap-safe()
+
+    p, h1, h2, h3, h4, h5, h6, figcaption, a, li
+        hyphens: auto
+        min-inline-size: 0
+        word-wrap: anywhere
+        white-space: pre-wrap
+        overflow-wrap: anywhere
+
+@mixin media-queries ($size: null, $breakpoint: null)
+
+    @if $breakpoint == 'prefers-color-scheme' and $size == null
+        @media (prefers-color-scheme: dark)
+            @content
+
+    @else if $breakpoint == 'XS' or $breakpoint == 'S' or $breakpoint == 'M' or $breakpoint == 'L' or $breakpoint == 'XL' or $breakpoint == '2XL' or $breakpoint == '3XL'
+        $size: map.get(devices.$breakpoints, $breakpoint)
+        @media screen and (min-width: $size)
+            @content
+
+    @else if $size == null and $breakpoint != null
+        $block-size: map.get(devices.$devices, $breakpoint, 'block-size')
+        $inline-size: map.get(devices.$devices, $breakpoint, 'inline-size')
+
+        @media screen and ($inline-size <= width <= $inline-size + 50px ) and (min-height: $block-size) and (orientation: portrait)
+            @content
+
+        @media screen and ($block-size <= height <= $block-size + 50px) and (min-width: $inline-size) and (orientation: landscape)
+            @content
+
+    @if $size != null and $breakpoint == null
+        @media screen and (min-width: $size)
+            @content
+
+@mixin apply-theme-colors($bg-color, $border, $text-color)
+
+    border: $border
+    color: $text-color
+    border-radius: 0.5em
+    background-color: $bg-color
+
+@mixin base-btn($border-color)
+
+    margin: 0.5em
+    font-weight: bold
+    padding: 0.5em 1em
+    border-radius: 0.5em
+    border: 1px solid $border-color
+
+@mixin link-color($color, $color-hover, $color-active, $color-visited)
+
+    a
+        [aria-disabled="true"]
+            color: color.$disabled
+            cursor: not-allowed
+            pointer-events: none
+            text-decoration: none
+
+        &:active
+            color: $color-active
+        
+        &.external-link
+            text-decoration: underline
+
+        @media (hover: hover)
+
+            &:hover
+                color: $color-hover
+                border-radius: 0.5em
+
+        &:visited
+            color: $color-visited
+        
+
+        h1, h2, h3, h4, h5, h6
+            color: $color !important
+
+        color: $color
+        text-decoration: none
+
+@mixin background-color($bg-color, $text-color)
+
+    color: rgba($text-color, 1)
+    background-color: rgba($bg-color, 1)
+
+@mixin font($size, $font-family: 'Nunito', $line-height: null)
+
+    @if $line-height == null
+        $line-height: 1.6
+
+    @if $font-family == null
+        $font-family: 'Nunito', sans-serif
+
+
+    font-size: $size
+    font-family: $font-family
+    line-height: $line-height
+
+@mixin transitions($property: null, $duration: null, $timing-function: null)
+
+    @if $property == null
+        $property: all
+    
+    @if $timing-function == null
+        $timing-function: ease-in-out
+
+    @if $duration == null
+        $duration: 0.3s
+
+    transition: $property $duration $timing-function
+    -o-transition: $property $duration $timing-function
+    -moz-transition: $property $duration $timing-function
+    -webkit-transition: $property $duration $timing-function
+
+@mixin flexbox-generator($flexbox-type)
+    
+    $props: map.get(flexbox-mapping.$flexbox, $flexbox-type)
+
+    @if $props
+        @each $property, $value in $props
+            #{$property}: $value
+    @else
+        @error '"#{$flexbox-type}" not found in flexbox mapping.'
+
+@mixin generate-alerts()
+
+    $props: alerts.$alerts
+    @if $props == null
+        @error 'No alerts found in alerts mapping.'
+    @else
+    
+        @each $alert, $props in alerts.$alerts
+            .#{$alert}-alert
+                p
+                    color: map.get($props, color)
+                    font-size: map.get($props, font-size)
+
+@mixin icon-generator()
+    @each $name, $group in icon.$icons
+        @each $icon, $prop in $group
+
+            .#{$icon}
+                i
+                    font-style: normal
+
+                .icon
+                    &::before
+                        @include media-queries($breakpoint: 'M')
+                            padding: 0.5em
+                        
+                        content: map.get($prop, icon)
+                        color : map.get($prop, icon-color)
+
+                    display: inline-block
+
+                @if $icon == 'calendar-date'
+                    font-size: 5em
+                @else 
+                    font-size: 1em
+                font-family: "Bootstrap-icons"
+
+@mixin input-generator($border-color)
+    @each $type, $props in icon.$inputs
+        @if $type == 'inputControls'
+            @each $input in $props
+                input[type="#{$input}"]
+                    block-size: 2em
+                    padding-block: 1em
+                    padding-inline: 2em
+                    border-radius: 0.5em
+                    max-inline-size: 100%
+                    border: 1px solid $border-color
+
+@mixin button-pallette($bg-color, $text-color, $border-color: null)
+    @if $border-color == null
+        border: none
+    @else
+        border: 1px solid $border-color
+
+    margin: 0.5em
+    font-size: 1em
+    cursor: pointer
+    font-weight: bold
+    padding: 0.5em 1em
+    border-radius: 0.5em
+    display: inline-block
+    @include background-color($bg-color, $text-color)
