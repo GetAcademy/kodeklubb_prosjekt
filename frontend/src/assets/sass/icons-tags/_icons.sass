@@ -1,0 +1,17 @@
+@use 'sass:map'
+@use './utils/mixins' as mix
+@use './colors/colors' as color
+@use './utils/mapping' as mapping
+@use './utils/functions' as functions
+
+@each $icon-type, $props in mapping.$icon-types
+
+    $file-style: functions.icon-types($icon-type)
+
+    .#{$icon-type}
+        .icon
+            &::before
+                padding: 0.5em
+                content: map.get($file-style, icon)
+
+            color: map.get($file-style, text-color)

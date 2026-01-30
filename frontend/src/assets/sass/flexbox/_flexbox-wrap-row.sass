@@ -1,0 +1,45 @@
+//  Flexbox styles for flex-wrap row
+@use '../utils/mixins' as mix
+
+.flex-wrap-row
+    @include mix.flexbox-generator('flex-wrap-row')
+
+//  Align-items
+.flex-wrap-row-align-items-center
+    align-items: center
+    @include mix.flexbox-generator('flex-wrap-row')
+
+.flex-wrap-row-align-items-end
+    align-items: flex-end
+    @include mix.flexbox-generator('flex-wrap-row')
+
+
+//  Flexbox row with wrap
+//  Justify content
+.flex-wrap-row-justify-center
+    justify-content: center
+    @include mix.flexbox-generator('flex-wrap-row')
+
+.flex-wrap-row-justify-flex-end
+    justify-content: flex-end
+    @include mix.flexbox-generator('flex-wrap-row')
+
+.flex-wrap-row-justify-flex-start
+    justify-content: flex-start
+    @include mix.flexbox-generator('flex-wrap-row')
+
+.flex-wrap-row-justify-space-evenly
+    justify-content: space-evenly
+    @include mix.flexbox-generator('flex-wrap-row')
+
+.flex-wrap-row-justify-space-between
+    justify-content: space-between
+    @include mix.flexbox-generator('flex-wrap-row')
+
+.flex-wrap-row-justify-space-around
+    justify-content: space-around
+    @include mix.flexbox-generator('flex-wrap-row')
+
+.flex-wrap-row-align-content-center
+    align-content: center
+    @include mix.flexbox-generator('flex-wrap-row')

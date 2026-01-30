@@ -1,0 +1,11 @@
+//  Miscellaneous SASS mixins and themes
+@use 'sass:map'
+@use './utils/mixins' as mix
+@use './colors/colors' as color
+
+#app
+    margin: 0 auto
+    font-weight: normal
+
+@include mix.icon-generator()
+@include mix.generate-alerts()

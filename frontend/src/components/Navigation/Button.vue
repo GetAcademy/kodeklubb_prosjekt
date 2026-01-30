@@ -1,7 +1,7 @@
 <template>
     <button
         @click="data.action()"
-        :type="data.type ? data.type : 'button'"
+        :type="data.type ?? 'button'"
         :disabled="data.disabled">
         
         {{ data.label }}
@@ -16,4 +16,5 @@
 
     const props = defineProps<ButtonProps>();
     const data = computed(() => props.data);
+
 </script>

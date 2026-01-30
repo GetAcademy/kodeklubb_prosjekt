@@ -1,0 +1,14 @@
+@use '../utils/mixins' as mix
+@use '../colors/colors' as color
+
+button
+    &:disabled
+        opacity: 0.3
+        cursor: not-allowed
+
+    cursor: pointer
+
+.discord-btn
+    font-size: .8em !important
+    @include mix.base-btn(color.$soft-white)
+    @include mix.background-color(color.$discord-blurple, color.$soft-white)

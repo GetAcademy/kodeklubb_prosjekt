@@ -16,7 +16,7 @@
 
                     <NavigationButton v-if="!!isButton && !!item.action"
                         :data="item"
-                        :cls="[cls[3]]" />
+                        :class="item.cls" />
             </li>
         </ul>
     </nav>
@@ -33,12 +33,11 @@
     //  --- Props Definition Logic
     const props = withDefaults(defineProps<NavigationProp>(),
     {
-        data: () => [],
         cls: () => [['nav-bar', 'flex-wrap-row-justify-space-between'],
                 ['nav-list', 'flex-wrap-row-align-items-center'],
                 ['nav-item'],
                 ['nav-link']]
-        });
+    });
 
     const cls = computed(() => props.cls);
     const data = computed(() => props.data);
@@ -49,7 +48,7 @@
     
 
     //  --- Debug logic
+    //console.log('isAnchor:', isAnchor.value);
     //console.error('NavMenu props data:', props.data);
     //console.log('isRouterLink:', isRouterLink.value);
-    //console.log('isAnchor:', isAnchor.value);
 </script>

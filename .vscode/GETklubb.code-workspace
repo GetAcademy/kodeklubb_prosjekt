@@ -30,7 +30,12 @@
 			"Dashboard",
 			"Component",
 			"Navigation",
-			"Store"
+			"Store",
+			"Profile",
+			"SASS",
+			"Map",
+			"appsettings.json",
+			"Media"
 		]
 	},
 	"recommendations": [

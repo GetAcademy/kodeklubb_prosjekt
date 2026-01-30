@@ -1,0 +1,13 @@
+@use '../../utils/mixins' as mix
+
+.flex-wrap-row-justify-space-around-align-center
+    align-items: center
+    align-content: center
+    justify-content: space-around
+    @include mix.flexbox-generator('flex-wrap-row')
+
+.flex-wrap-row-reversed-justify-space-around-align-center
+    align-items: center
+    align-content: center
+    justify-content: space-around
+    @include mix.flexbox-generator('flex-wrap-reversed-row')

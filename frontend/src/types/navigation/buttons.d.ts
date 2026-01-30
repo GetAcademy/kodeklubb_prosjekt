@@ -1,9 +1,10 @@
 export interface ButtonItem
 {
-    type: string,
-    label: string,
-    action: () => void,
+    type?: string;
+    label: string;
+    action: () => void;
     disabled?: boolean;
+    cls: string[] | string;
 }
 
-export interface ButtonProps { data: ButtonItem}
+export interface ButtonProps { data: ButtonItem }

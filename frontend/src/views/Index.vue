@@ -37,30 +37,32 @@
     onMounted(() => {
         // Check if user data is in URL (after Discord redirect)
         const urlParams = new URLSearchParams(window.location.search);
-        
+        console.log("url parms", urlParams.get('error'))
+
         const token = urlParams.get('token');
         const userDataEncoded = urlParams.get('user');
-        const code = urlParams.get('code');
-        const error = urlParams.get('error');
 
-        console.log('Index onMounted - URL Params:', {
-            hasToken: !!token,
-            hasUserData: !!userDataEncoded,
-            hasCode: !!code,
-            error: error,
-            fullURL: window.location.href
-        });
+        if (token && userDataEncoded && (!authStore.isAuthenticated && authStore.user))
+        {
+            const userData = JSON.parse(decodeURIComponent(userDataEncoded));
+            authStore.setToken(token);
+            authStore.setUser(userData);
 
-        // Handle errors from backend
-        if (error) {
-            console.error('Discord auth error:', error);
-            alert('Login failed: ' + error);
-            return;
+            //  --- Debug logic
+            //console.log("AuthStore Information:", userData)
+
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
         }
 
-        // Handle Discord OAuth callback with token and user data
-        if (token && userDataEncoded) {
-            try {
+        // Check if user data is in URL (after Discord redirect)
+        
+        const code = urlParams.get('code');
+        if (token && userDataEncoded)
+        {
+            console.log("token & UserDataEncoded")
+            try 
+            {
                 const parsedUserData = JSON.parse(decodeURIComponent(userDataEncoded));
                 console.log('Setting token and user:', { token: token.substring(0, 20) + '...', user: parsedUserData });
                 authStore.setToken(token);
@@ -70,14 +72,12 @@
                 
                 // Clean up URL
                 window.history.replaceState({}, document.title, window.location.pathname);
-            } catch (error) {
-                console.error('Error parsing user data:', error);
-            }
-        } 
-        // Handle authorization code from Discord
-        else if (code) {
-            console.log('Got code from Discord, redirecting to backend callback');
-            const backendAPIBase = import.meta.env.VITE_C_SERVER;
+                } catch (error) {console.error('Error parsing user data:', error);}
+
+        } else if (code)
+        {
+            // Redirect to backend API
+            const backendAPIBase = import.meta.env.VITE_BASE_API;
             window.location.href = `${backendAPIBase}/auth/discord/callback?code=${encodeURIComponent(code)}`;
         }
     });

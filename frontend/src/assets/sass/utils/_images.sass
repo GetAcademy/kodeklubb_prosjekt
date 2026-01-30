@@ -1,0 +1,13 @@
+@use './mixins' as mix
+@use '../colors/colors' as color
+
+figure
+    margin: .5em auto
+    @include mix.text-wrap-safe()
+
+    figcaption
+        font-size: 0.8em
+        font-style: italic
+        text-align: center
+        max-inline-size: 100%
+        

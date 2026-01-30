@@ -1,0 +1,32 @@
+// Mappings for Bootstrap Icons
+@use '../colors/colors' as color
+@forward './inputs'
+$misc: (
+    "user": ( icon: "\F0AC", icon-color: color.$icon-white ),
+    "email": ( icon: "\F84B", icon-color: color.$icon-white ),
+    "default": ( icon: "\F82E", icon-color: color.$icon-white ),
+    "telephone": ( icon: "\F5C1", icon-color: color.$icon-white),
+)
+
+$inputControls:(
+    'tel': (icon: '\F5BB'), 'url': (icon: '\F882'), 'text': (icon: '\F435'),
+    'search': (icon: '\F52A'), 'number': (icon: ' \F67F'), 'password': (icon: '\F44E')
+    )
+
+$booleanControls: ( 'radio': (icon: '\F1D0'), 'checkbox': (icon: '\F272') )
+
+$datetimePickers: (
+    'date': (icon: '\F073'), 'time': (icon: '\F017'), 'week': (icon: '\F4C0'),
+    'month': (icon: '\F4C1'), 'datetime-local': (icon: '\F017')
+)
+$buttons: (
+    'file': (icon: '\F0E7'), 'submit': (icon: '\F0E7'), 'reset': (icon: '\F0E7'),
+    'button': (icon: '\F0E7')
+)
+$utility-inputs: ( 'range': (icon: '\F0E7'), 'color': (icon: '\F4B0'), 'hidden': (icon: '\F0E7') )
+
+$icons: (
+    'misc': $misc, 'buttons': $buttons, 'utility-inputs': $utility-inputs,
+    'inputControls': $inputControls, 'booleanControls': $booleanControls, 'datetimePickers': $datetimePickers
+    )
+
