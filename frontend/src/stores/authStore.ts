@@ -6,13 +6,6 @@ import type { User } from '@/types/stores/userAuth';
 
 export const useAuthStore = defineStore('auth', () => {
 
-    const rawUserData = computed(() => localStorage.getItem('user_data'));
-
-    const userData = computed(() => {
-        if (!rawUserData.value) return null;
-        return JSON.parse(rawUserData.value) as User;
-    });
-
     // --- STATE
     const loading = ref<boolean>(false);
     
@@ -21,17 +14,21 @@ export const useAuthStore = defineStore('auth', () => {
     const user = ref<User | null>(storedUserData ? JSON.parse(storedUserData) : null);
     
     const token = ref<string | null>(localStorage.getItem('user_token'));
-    
 
 
     // --- GETTERS
     const userName = computed(() => user.value?.username || '??');
     const isAuthenticated = computed(() => !!token.value && user.value !== null);
 
-
     // --- ACTIONS
-    async function setToken (key: string) { localStorage.setItem('user_token', key); }
-    async function setUser(data: User) { localStorage.setItem('user_data', JSON.stringify(data)); }
+    async function setToken (key: string) {
+        token.value = key;
+        localStorage.setItem('user_token', key);
+    }
+    async function setUser(data: User) {
+        user.value = data;
+        localStorage.setItem('user_data', JSON.stringify(data));
+    }
 
     function logout()
     {
