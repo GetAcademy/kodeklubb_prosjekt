@@ -6,4 +6,4 @@ export interface ButtonItem
     disabled?: boolean;
 }
 
-export interface ButtonProps { data: ButtonItem}
+export interface ButtonProps { data: ButtonItem }
