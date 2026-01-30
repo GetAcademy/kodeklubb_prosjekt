@@ -1,21 +1,13 @@
-
-
 <template>
-  <header>
-    <UtilsHeader />
-  </header>
-  <main>
-      <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
-    <RouterView />
-  </main>
-  <footer>
-    <UtilsFooter />
-  </footer>
+    <header>
+        <UtilsHeader />
+    </header>
+    <main>
+        <RouterView />
+    </main>
+    <footer>
+        <UtilsFooter />
+    </footer>
 </template>
-<script setup lang="ts">
-
+<script lang="ts">
 </script>
