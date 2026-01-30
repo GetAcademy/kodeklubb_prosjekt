@@ -31,7 +31,11 @@
 			"Component",
 			"Navigation",
 			"Store",
-			"Profile"
+			"Profile",
+			"SASS",
+			"Map",
+			"appsettings.json",
+			"Media"
 		]
 	},
 	"recommendations": [
