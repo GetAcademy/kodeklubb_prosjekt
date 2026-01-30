@@ -49,7 +49,7 @@
     
 
     //  --- Debug logic
+    //console.log('isAnchor:', isAnchor.value);
     //console.error('NavMenu props data:', props.data);
     //console.log('isRouterLink:', isRouterLink.value);
-    //console.log('isAnchor:', isAnchor.value);
 </script>
