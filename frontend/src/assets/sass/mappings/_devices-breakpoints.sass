@@ -1,0 +1,223 @@
+//  Devices breakpoints mapping
+@use 'sass:map'
+
+$breakpoints:(
+    'XS': 150px, 'S': 200px, 'M': 500px,
+    'L': 768px, 'XL': 1024px, 'XXL': 1280px, 
+    '3XL': 1440px, '4XL': 1600px, '5XL': 1920px,
+    '6XL': 2560px, '7XL': 3840px
+    )
+
+$amazon:(
+    'kindle-fire':(
+        inline-size: 600px,
+        block-size: map.get($breakpoints, 'XL'),
+    ),
+    'kindle-fire-hd':(
+        inline-size: 800px,
+        block-size: map.get($breakpoints, '2XL'),
+    ),
+)
+
+$apple:(
+    'ipad':(
+        inline-size: 768px,
+        block-size: map.get($breakpoints, 'XL'),
+    ),
+    'ipad-air':(
+        block-size: 1180px,
+        inline-size: 820px,
+    ),
+    'ipad-pro':(
+        block-size: 1366px,
+        inline-size: 1024px,
+    ),
+    'tv-cd':(
+        block-size: 2560px,
+        inline-size: 1600px,
+    ),
+    'iphone':(
+        block-size: 480px,
+        inline-size: 320px,
+    ),
+    'iphone-7':(
+        block-size: 667px,
+        inline-size: 375px,
+    ),
+    'iphone-xr':(
+        block-size: 896px,
+        inline-size: 414px,
+    ),
+    'iphone-pro':(
+        block-size: 844px,
+        inline-size: 390px,
+    ),
+    'iphone-pro-height': 844px,
+    'iphone-plus':(
+        block-size: 736px,
+        inline-size: 412px,
+        
+    ),
+    'iphone-pro-max':(
+        block-size: 926px,
+        inline-size: 430px,
+    ),
+)
+
+$asus:(
+    'zbc':(
+        inline-size: 853px,
+        block-size: map.get(map.get($amazon, 'kindle-fire-hd'), 'block-size'),
+    ),
+    'zbf':(
+        inline-size: 1706px,
+        block-size: map.get(map.get($amazon, 'kindle-fire-hd'), 'block-size'),
+    ),
+)
+
+$black-berry:(
+    'bt':(
+        inline-size: map.get(map.get($apple, 'iphone'),'block-size') ,
+        block-size: 640px,
+        ),
+    'curve':(
+        inline-size: 360px, 
+        block-size: map.get(map.get($apple, 'iphone'),'block-size'),
+        ),
+    'original':(
+        block-size: 800px, 
+        inline-size: map.get(map.get($apple, 'iphone'),'block-size'),
+        )
+)
+
+$display:
+    (
+    'hd-720p':(
+        block-size: 720px,
+        inline-size: 1280px,
+    ),
+    'hd-1080i':(
+        block-size: 1080px,
+        inline-size: 1440px,
+    ),
+    'hd-1080p':(
+        block-size: 846px,
+        inline-size: 1839px,
+    ),
+)
+
+$google:(
+    'pixel':(
+        block-size: 915px,
+        inline-size: map.get(map.get($black-berry, 'original'), 'inline-size'),
+    ),
+    'nest-hub':(
+        block-size: 600px,
+        inline-size: map.get($breakpoints, 'XL'),
+    ),
+    'nest-hub-max':(
+        block-size: map.get($breakpoints, 'XL'),
+        inline-size: map.get(map.get($black-berry, 'original'), 'inline-size')
+        ),
+)
+
+$htc:(
+    'desire':(
+        block-size: 533px,
+        inline-size: map.get(map.get($google, 'nest-hub-max'), 'inline-size'),
+    ),
+    'sensation':(
+        block-size: 960px,
+        inline-size: 540px,
+    ),
+    'one':(
+        block-size: map.get(map.get($black-berry, 'original'), 'block-size'),
+        inline-size: map.get(map.get($google, 'nest-hub-max'), 'inline-size'),
+    ),
+)
+
+$microsoft:(
+    'surface-pro':(
+        block-size: 1368px,
+        inline-size: 912px,
+    ),
+    'surface-duoc':(
+        block-size: 720px,
+        inline-size: map.get(map.get($htc, 'sensation'), 'inline-size'),
+    ),
+)
+
+$motorola:(
+    'mobility-milestone':(
+        block-size: 570px,
+        inline-size: map.get(map.get($htc, 'desire'), 'inline-size'),
+    ),
+)
+
+$samsung:(
+    'gcz5':(
+        block-size: 740px,
+        inline-size: 344px,
+    ),
+    'gs8':(
+        block-size: 740px,
+        inline-size: map.get(map.get($black-berry, 'curve'), 'inline-size'),
+    ),
+    'gfz5':(
+            block-size: 829px,
+            inline-size: map.get(map.get($black-berry, 'curve'), 'inline-size'),
+    ),
+    'ga5171':(
+        block-size: 914px,
+        inline-size: map.get(map.get($apple, 'iphone-plus'), 'inline-size'),
+    ),
+    'tab':(
+        block-size: 683px,
+        inline-size: 400px,
+    ),
+    'gs20u':(
+        block-size: map.get(map.get($google, 'pixel'), 'block-size'),
+        inline-size: map.get(map.get($apple, 'iphone-plus'), 'inline-size'),
+    ),
+)
+
+$sony-ericson:(
+    'u':(
+        block-size: 854px,
+        inline-size: map.get(map.get($motorola, 'mobility-milestone'),'inline-size'),
+    ),
+)
+
+$sharp:(
+    'is03':(
+        block-size: map.get(map.get($htc, 'one'), 'block-size'),
+        inline-size: map.get(map.get($samsung, 'gs8'), 'inline-size'),
+    ),
+    '941sh':(
+        block-size: map.get($breakpoints, 'XL'),
+        inline-size: map.get(map.get($sony-ericson, 'u'), 'inline-size'),
+    ),
+    'sx862':(
+        block-size: map.get(map.get($sony-ericson, 'u'), 'block-size'),
+        inline-size: map.get(map.get($sony-ericson, 'u'), 'inline-size'),
+    ),
+)
+
+$misc:(
+    'tablet':(
+        block-size: 800px,
+        inline-size: 600px,
+    ),
+    'wideScreen':(
+        block-size: 768px,
+        inline-size: 1274px,
+    ),
+)
+
+//  Devices breakpoints mapping
+$devices:(
+    'htc': $htc, 'misc': $misc, 'sharp': $sharp,
+    'apple': $apple, 'google': $google, 'display': $display,
+    'samsung': $samsung, 'motorola': $motorola, 'black-berry': $black-berry,
+    'sony-ericson': $sony-ericson,
+)
