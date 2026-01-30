@@ -2,11 +2,21 @@ namespace Core.Models;
 
 public class User
 {
-    public int Id { get; set; }
-    public string? DiscordId { get; set; }
-    public string? Email { get; set; }
-    public string? Username { get; set; }
-    public string? AvatarUrl { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
+    public Guid UserId { get; private set; }
+    public int Id { get; init; }
+    public string? DiscordId { get; init; }
+    public string? Username { get; init; }
+    public string? AvatarUrl { get; init; }
+    public string? Email { get; init; } = null; //frivillig
+    public int? Phone { get; init; } = null; //frivillig
+    public string? Description { get; init; } = null; //frivillig
+    public List<Guid> TagsIds { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
+
+    public User()
+    {
+        UserId = Guid.NewGuid();
+        TagsIds = new List<Guid>();
+    }
 }
