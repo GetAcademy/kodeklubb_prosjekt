@@ -6,8 +6,9 @@ button
         opacity: 0.3
         cursor: not-allowed
 
-    .discord-btn
-        @include mix.base-btn(color.$soft-white)
-
     cursor: pointer
 
+.discord-btn
+    font-size: .8em !important
+    @include mix.base-btn(color.$soft-white)
+    @include mix.background-color(color.$discord-blurple, color.$soft-white)
