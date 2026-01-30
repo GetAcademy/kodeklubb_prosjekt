@@ -17,18 +17,18 @@
     const { isAuthenticated } = storeToRefs(authStore);
 
     const meta = import.meta.env;
-    const BASE_API = meta.VITE_C_SERVER;
+    const BASE_API = meta.VITE_BASE_API;
     const discordAPI = `${BASE_API}${meta.VITE_LOGIN_API}`;
 
     const menu = 
     [
-        { type: 'button', label:"Logg inn with Discord", action: () => loginDiscord()}
+        { type: 'button', label:"Logg inn with Discord", cls:"discord-btn", action: () => loginDiscord()}
     ]
 
     const authMenu =
     [
         { type: 'router', path:"/profile", label:"Min Side"},
-        { type: 'button', path:"/logout", label:"Logg deg ut", action: () => handleLogout() }
+        { type: 'button', path:"/logout", label:"Logg deg ut", cls:"logout-btn", action: () => handleLogout() }
     ];
  
     async function  loginDiscord() { window.location.href = discordAPI;}

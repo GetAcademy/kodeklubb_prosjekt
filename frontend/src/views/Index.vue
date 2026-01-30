@@ -37,10 +37,11 @@
     onMounted(() => {
         // Check if user data is in URL (after Discord redirect)
         const urlParams = new URLSearchParams(window.location.search);
-        
+        console.log("url parms", urlParams.get('error'))
+
         const token = urlParams.get('token');
         const userDataEncoded = urlParams.get('user');
-        
+
         if (token && userDataEncoded && (!authStore.isAuthenticated && authStore.user))
         {
             const userData = JSON.parse(decodeURIComponent(userDataEncoded));
@@ -55,8 +56,8 @@
         }
 
         // Check if user data is in URL (after Discord redirect)
+        
         const code = urlParams.get('code');
-
         if (token && userDataEncoded)
         {
             console.log("token & UserDataEncoded")
@@ -78,12 +79,8 @@
         } else if (code)
         {
             // Redirect to backend API
-            const backendAPIBase = import.meta.env.VITE_C_SERVER;
+            const backendAPIBase = import.meta.env.VITE_BASE_API;
             window.location.href = `${backendAPIBase}/auth/discord/callback?code=${encodeURIComponent(code)}`;
-        } else {
-
-            // Check if user is already logged in
-            if (authStore.isAuthenticated && authStore.user) { return;}
         }
     });
     //console.log(localStorage.getItem('user_data'))
