@@ -1,0 +1,29 @@
+@use '../utils/mixins' as mix
+
+.flex-column-align-items-center
+    align-items: center
+    @include mix.flexbox-generator('flex-column')
+
+.flex-column-justify-center
+    justify-content: center
+    @include mix.flexbox-generator('flex-column')
+
+.flex-wrap-column-align-content-center
+    align-content: center
+    @include mix.flexbox-generator('flex-wrap-column')
+
+.flex-wrap-column-align-center-justify-space-evenly
+    align-content: center
+    justify-content: space-evenly
+    @include mix.flexbox-generator('flex-wrap-column')
+
+.flex-column-align-items-end
+    align-items: flex-end
+    @include mix.flexbox-generator('flex-column')
+
+.flex-reversed-column-align-items-center
+    align-items: center
+    @include mix.flexbox-generator('flex-column-reversed')
+    
+.flex-column-reversed
+    @include mix.flexbox-generator('flex-column-reversed')

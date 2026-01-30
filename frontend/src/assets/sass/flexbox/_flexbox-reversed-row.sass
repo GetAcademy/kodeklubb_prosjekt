@@ -1,0 +1,22 @@
+//  Reversed row flexbox styles
+@use '../utils/mixins' as mix
+
+.flex-row-reversed-justify-center-align-content-center
+    align-content: center
+    justify-content: center
+    @include mix.flexbox-generator('flex-wrap-reversed-row')
+
+.flex-row-reversed-justify-space-around-align-content-center
+    align-content: center
+    justify-content: space-around
+    @include mix.flexbox-generator('flex-wrap-reversed-row')
+
+.flex-row-reversed-justify-space-between-align-content-center
+    align-content: center
+    justify-content: space-between
+    @include mix.flexbox-generator('flex-wrap-reversed-row')
+
+.flex-row-reversed-justify-space-evenly-align-content-center
+    align-content: center
+    justify-content: space-evenly
+    @include mix.flexbox-generator('flex-wrap-reversed-row')

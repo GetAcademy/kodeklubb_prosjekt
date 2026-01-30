@@ -1,0 +1,32 @@
+//  Align-items and Justify-content mix
+@use '../../utils/mixins' as mix
+
+.flex-wrap-row-align-items-center-justify-center
+    align-items: center
+    justify-content: center
+    @include mix.flexbox-generator('flex-wrap-row')
+
+.flex-wrap-row-align-items-center-justify-space-evenly
+    align-items: center
+    justify-content: space-evenly
+    @include mix.flexbox-generator('flex-wrap-row')
+
+.flex-wrap-row-align-items-center-justify-space-around
+    align-items: center
+    justify-content: space-around
+    @include mix.flexbox-generator('flex-wrap-row')
+
+.flex-wrap-row-align-items-center-justify-space-between
+    align-items: center
+    justify-content: space-between
+    @include mix.flexbox-generator('flex-wrap-row')
+
+.flex-wrap-row-align-items-flex-end-justify-space-between
+    align-items: flex-end
+    justify-content: space-evenly
+    @include mix.flexbox-generator('flex-wrap-row')
+
+.flex-wrap-row-align-items-end-justify-space-between
+    align-items: flex-end
+    justify-content: space-between
+    @include mix.flexbox-generator('flex-wrap-row')

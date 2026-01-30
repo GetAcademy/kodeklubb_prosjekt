@@ -1,0 +1,7 @@
+//  Align-content and Justify-content mix
+@use '../../utils/mixins' as mix
+
+.flex-column-justify-space-evenly-items-center
+    align-items: center
+    justify-content: space-evenly
+    @include mix.flexbox-generator('flex-column')

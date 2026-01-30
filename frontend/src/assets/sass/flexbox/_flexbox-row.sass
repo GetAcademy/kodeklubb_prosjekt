@@ -1,0 +1,28 @@
+//  Flexbox styles for nowrap row
+@use '../utils/mixins' as mix
+
+//  Align-items
+.flex-row-align-items-center
+    align-items: center
+    @include mix.flexbox-generator('flex-row')
+
+// Align-items and justify-content mix
+.flex-align-items-flex-end-justify-center
+    align-items: flex-end 
+    justify-content: center
+    @include mix.flexbox-generator('flex-row')
+
+
+
+//  Flexbox row classes / styles
+.flex-justify-center
+    justify-content: center
+    @include mix.flexbox-generator('flex-row')
+
+.flex-justify-space-between
+    justify-content: space-between
+    @include mix.flexbox-generator('flex-row')
+
+.flex-justify-space-evenly
+    justify-content: space-evenly
+    @include mix.flexbox-generator('flex-row')
