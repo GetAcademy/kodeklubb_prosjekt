@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 const requiredAuthorization: Array<any> =
 [
-  { path: "/profile", name : "profile", component: () => import(`../views/Profile.vue`) },//, meta: {requiresAuth: true} }
+  { path: "/profile", name : "profile", component: () => import(`../views/Profile.vue`), meta: {requiresAuth: true} },
   { path: "/dashboard", name : "dashboard", component: () => import(`../views/Index.vue`) }//, meta: {requiresAuth: true} }
   
 ]
