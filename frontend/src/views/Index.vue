@@ -1,3 +1,5 @@
+
+
 <template>
     <section v-if="!!isAuthenticated && user">
         <h2>Dashboard</h2>
@@ -23,7 +25,7 @@
 
 
 <script lang="ts" setup>
-
+        //--- comment 
     // --- Importing Dependencies & Types
     import { onMounted } from 'vue';
     import { storeToRefs } from 'pinia';
