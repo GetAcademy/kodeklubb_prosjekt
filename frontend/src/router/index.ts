@@ -5,6 +5,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 const requiredAuthorization: Array<any> =
 [
   { path: "/profile", name : "profile", component: () => import(`../views/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/teams", name : "teams", component: () => import(`../views/Teams.vue`), meta: {requiresAuth: true} },
   { path: "/dashboard", name : "dashboard", component: () => import(`../views/Index.vue`) }//, meta: {requiresAuth: true} }
   
 ]
@@ -29,6 +30,23 @@ router.beforeEach((to, from, next) => {
 
       authStore.setUser(user);
       authStore.setToken(token);
+
+      // Save user to database
+      const baseApi = import.meta.env.VITE_BASE_API;
+      fetch(`${baseApi}/api/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          discordId: user.id,
+          username: user.username,
+          email: user.email,
+          avatarUrl: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null
+        })
+      }).catch(err => {
+        console.error('Failed to save user to database', err);
+      });
 
     } catch (err) {
       

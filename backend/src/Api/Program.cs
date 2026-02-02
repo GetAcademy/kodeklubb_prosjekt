@@ -19,8 +19,10 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// Register generic repository
+// Register repositories
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ITeamRepository, TeamRepository>();
 
 builder.Services.AddCors(options =>
 {
@@ -38,6 +40,13 @@ var app = builder.Build();
 app.UseCors("DevCors");
 // app.UseHttpsRedirection(); // Disabled for local development
 
+// Run database migrations on startup
+if (!string.IsNullOrWhiteSpace(connectionString))
+{
+    var migrator = new DatabaseMigrator(connectionString);
+    await migrator.MigrateAsync();
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -45,6 +54,7 @@ if (app.Environment.IsDevelopment())
 }
 // Map user endpoints
 app.MapUserEndpoints();
+app.MapTeamEndpoints();
 
 app.MapGet("/login", () => "It works");
 app.MapGet("/auth/discord/login", (IConfiguration config) =>
