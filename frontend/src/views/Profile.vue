@@ -3,14 +3,14 @@
         <section>
             <h2> Profile Information </h2>
             <p>Bruker Navn : <a href="discord://-/users/{{ user.id }}">{{ userName }}</a></p>
-            <!--p v-if="!!user.email">Bruker Email : <a href="mail:{{ user.email }}">{{ user.email }}</a></p>
-            <p v-if="!!user.phone">Telefon : <a href="mail:{{ user.phone }}">{{ user.phone }}</a></p-->
-            <address>
-                <!--p v-if="!!user.location">komune: {{user.location.city}}, {{user.location.zip}}</p-->
+            <p v-if="!!user.email">Bruker Email : <a href="mail:{{ user.email }}">{{ user.email }}</a></p>
+            <p v-if="!!user.phone">Telefon : <a href="mail:{{ user.phone }}">{{ user.phone }}</a></p>
+            <address v-if="!!user.location">
+                <p>komune: {{user.location.city}}, {{user.location.zip}}</p>
             </address>
         </section>
     
-    <!--section v-if="!!user.intrest">
+    <section v-if="!!user.intrest">
         <h2> Mine Intresser </h2>
         <section>
             <ul>
@@ -20,6 +20,7 @@
             </ul>
         </section>
     </section>
+
     <section v-if="!!user.intrest">
         <h2> Anvendelses Områder </h2>
         <section>
@@ -29,12 +30,12 @@
                 </li>
             </ul>
         </section>
-    </section-->
+    </section>
+
     <section>
         {{ user }}
     </section>
-    </article>
-
+</article>
 
 </template>
 
@@ -46,7 +47,7 @@
 
     // --- State Management
     const authStore = useAuthStore();
-    const { user, isAuthenticated, userName } = storeToRefs(authStore);
+    const { user, userName } = storeToRefs(authStore);
 
 
 </script>
