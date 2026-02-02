@@ -1,3 +1,5 @@
+
+
 <template>
     <section v-if="!!isAuthenticated && user">
         <h2>Dashboard</h2>
@@ -33,9 +35,5 @@
     const authStore = useAuthStore();
     const { user, isAuthenticated, userName } = storeToRefs(authStore);
 
-
     //console.log(localStorage.getItem('user_data'))
-
 </script>
-
-
