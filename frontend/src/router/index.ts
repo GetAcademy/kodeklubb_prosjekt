@@ -5,9 +5,10 @@ import { sanitizeUrlParams } from '@/utility-tools/routeUtils.ts';
 
 const requiredAuthorization: Array<any> =
 [
+  { path: "/teams", name : "teams", component: () => import(`../views/Profile.vue`), meta: {requiresAuth: true} },
   { path: "/profile", name : "profile", component: () => import(`../views/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/dashboard", name : "dashboard", component: () => import(`../views/Index.vue`) }//, meta: {requiresAuth: true} }
-  
+  { path: "/dashboard", name : "dashboard", component: () => import(`../views/Index.vue`), meta: {requiresAuth: true} },
+  { path: "/discover-teams", name : "discover", component: () => import(`../views/Profile.vue`), meta: {requiresAuth: true} },
 ]
 
 const router = createRouter({
