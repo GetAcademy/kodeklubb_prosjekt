@@ -1,6 +1,7 @@
-import { sanitizeUrlParams } from '@/utility-tools/routeUtils.ts'
-import { useAuthStore } from '../stores/authStore.ts'
-import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '../stores/authStore.ts';
+import { createRouter, createWebHistory } from 'vue-router';
+import { sanitizeUrlParams } from '@/utility-tools/routeUtils.ts';
+
 
 const requiredAuthorization: Array<any> =
 [
@@ -36,17 +37,17 @@ router.beforeEach((to, from, next) => {
       // eslint-disable-next-line no-console
       console.error('Failed to parse user from query', err);
     }
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = [urlParams.get('code')];
-    if (code && code.length > 0) sanitizeUrlParams(code);
-    // navigate to same path without query params
-    return next({ path: to.path, query: {} });
   }
+  const urlParameters: Array<string> = [];
+  const urlSearchParams = new URLSearchParams(window.location.search);
 
-  
-  if (to.meta.requiresAuth && authStore.isAuthenticated) next() 
+  urlSearchParams.forEach((value, key) => urlParameters.push(key));
+  if (urlParameters && urlParameters.length > 0) sanitizeUrlParams(urlParameters);
+  // navigate to same path without query params
+
+  if (to.meta.requiresAuth && authStore.isAuthenticated) next();
+  else if (to.name === 'logout') authStore.logout();
   else next('/');
 })
 
 export default router
-
