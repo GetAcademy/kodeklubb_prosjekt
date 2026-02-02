@@ -39,9 +39,9 @@ router.beforeEach((to, from, next) => {
   urlSearchParams.forEach((value, key) => urlParameters.push(key));
   if (urlParameters && urlParameters.length > 0) sanitizeUrlParams(urlParameters);
 
-  if (to.meta.requiresAuth && authStore.isAuthenticated) next();
-  else if (to.name === 'logout') authStore.logout();
-  else next('/');
+  if (to.meta.requiresAuth && authStore.isAuthenticated) next('/');
+  else if (!to.meta.requiresAuth && !authStore.isAuthenticated) next('/');
+  else next();
 })
 
 export default router
