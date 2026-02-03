@@ -24,7 +24,13 @@
 
     const authMenu = computed(() =>
     {
-        return router.getRoutes().filter(route =>route.meta?.requiresAuth).map(route =>
+        return router.getRoutes().filter(route => {
+            const isIndex = route.path === '/';
+            const isHidden = route.meta?.isHidden;
+            const isPrivate = route.meta?.requiresAuth;
+            
+            return isPrivate && !isHidden || isIndex;
+        }).map(route =>
         {
             switch (route.path)
             {
