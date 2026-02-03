@@ -13,6 +13,55 @@ public class TeamRepository : ITeamRepository
         _context = context;
     }
 
+    public async Task<TeamEntity?> CreateTeamAsync(CreateTeamCommand command)
+    {
+        try
+        {
+            // Verify the admin user exists
+            var userExists = await _context.Users.AnyAsync(u => u.Id == command.AdminUserId);
+            if (!userExists)
+            {
+                return null;
+            }
+
+            // Create the team
+            var team = new TeamEntity
+            {
+                Name = command.Name,
+                Description = command.Description,
+                CreatedBy = command.AdminUserId,
+                TeamAdminId = command.AdminUserId,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Version = 1
+            };
+
+            _context.Teams.Add(team);
+            await _context.SaveChangesAsync();
+
+            // Add the admin user as a team member with 'admin' role
+            var adminMember = new TeamMemberEntity
+            {
+                TeamId = team.Id,
+                UserId = command.AdminUserId,
+                Role = "admin",
+                Status = "active",
+                JoinedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Version = 1
+            };
+
+            _context.TeamMembers.Add(adminMember);
+            await _context.SaveChangesAsync();
+
+            return team;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task<List<TeamEntity>> GetAvailableTeamsAsync(string? discordId)
     {
         var query = _context.Teams
@@ -22,6 +71,8 @@ public class TeamRepository : ITeamRepository
                 .ThenInclude(tm => tm.User)
             .AsNoTracking();
 
+        // If discordId provided, filter to show only teams where user is NOT already a member
+        // If no discordId, show all teams
         if (!string.IsNullOrWhiteSpace(discordId))
         {
             query = query.Where(t => !t.TeamMembers.Any(tm => tm.User != null && tm.User.DiscordId == discordId));
@@ -29,6 +80,19 @@ public class TeamRepository : ITeamRepository
 
         return await query
             .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<List<TeamEntity>> GetUserTeamsAsync(string discordId)
+    {
+        return await _context.Teams
+            .Include(t => t.TeamTags)
+                .ThenInclude(tt => tt.Tag)
+            .Include(t => t.TeamMembers)
+                .ThenInclude(tm => tm.User)
+            .Where(t => t.TeamMembers.Any(tm => tm.User != null && tm.User.DiscordId == discordId))
+            .OrderByDescending(t => t.CreatedAt)
+            .AsNoTracking()
             .ToListAsync();
     }
 
@@ -130,12 +194,18 @@ public class TeamRepository : ITeamRepository
             .ToListAsync();
     }
 
-    public async Task<bool> ApproveTeamRequestAsync(long requestId)
+    public async Task<bool> ApproveTeamRequestAsync(long teamId, long requestId, long adminUserId)
     {
         try
         {
+            var team = await _context.Teams.FirstOrDefaultAsync(t => t.Id == teamId);
+            if (team == null || team.TeamAdminId != adminUserId)
+            {
+                return false;
+            }
+
             var request = await _context.Invitations.FindAsync(requestId);
-            if (request == null || request.Status != "pending")
+            if (request == null || request.Status != "pending" || request.TeamId != teamId)
             {
                 return false;
             }
@@ -175,12 +245,18 @@ public class TeamRepository : ITeamRepository
         }
     }
 
-    public async Task<bool> DeclineTeamRequestAsync(long requestId)
+    public async Task<bool> DeclineTeamRequestAsync(long teamId, long requestId, long adminUserId)
     {
         try
         {
+            var team = await _context.Teams.FirstOrDefaultAsync(t => t.Id == teamId);
+            if (team == null || team.TeamAdminId != adminUserId)
+            {
+                return false;
+            }
+
             var request = await _context.Invitations.FindAsync(requestId);
-            if (request == null || request.Status != "pending")
+            if (request == null || request.Status != "pending" || request.TeamId != teamId)
             {
                 return false;
             }

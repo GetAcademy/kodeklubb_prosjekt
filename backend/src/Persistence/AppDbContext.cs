@@ -44,6 +44,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.TeamAdminId).HasColumnName("team_admin_id");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.Version).HasColumnName("version").HasDefaultValue(1);

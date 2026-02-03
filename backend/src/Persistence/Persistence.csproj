@@ -23,6 +23,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Migrations\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>
 

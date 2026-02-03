@@ -27,7 +27,7 @@
 
     const authMenu =
     [
-        { type: 'router', path:"/teams", label:"Teams"},
+        { type: 'router', path:"/discover", label:"Discover"},
         { type: 'router', path:"/profile", label:"Min Side"},
         { type: 'button', path:"/logout", label:"Logg deg ut", cls:"logout-btn", action: () => handleLogout() }
     ];

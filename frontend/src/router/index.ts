@@ -5,7 +5,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 const requiredAuthorization: Array<any> =
 [
   { path: "/profile", name : "profile", component: () => import(`../views/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/teams", name : "teams", component: () => import(`../views/Teams.vue`), meta: {requiresAuth: true} },
+  { path: "/discover", name : "teams", component: () => import(`../views/Teams.vue`), meta: {requiresAuth: true} },
+  { path: "/teams/team:teamId", name : "team", component: () => import(`../views/Team.vue`), meta: {requiresAuth: true} },
   { path: "/dashboard", name : "dashboard", component: () => import(`../views/Index.vue`) }//, meta: {requiresAuth: true} }
   
 ]
@@ -13,7 +14,7 @@ const requiredAuthorization: Array<any> =
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: "/", name : "index", component: () => import(`../views/Index.vue`) },
+    { path: "/", name : "index", component: () => import(`../views/Index.vue`), meta: {requiresAuth: true} },
     { path: "/logout", name : "logout", component: () => import(`../views/Index.vue`) },
     ...requiredAuthorization
   ],
@@ -61,9 +62,15 @@ router.beforeEach((to, from, next) => {
     return next({ path: to.path, query: {} });
   }
 
-  
-  if (to.meta.requiresAuth && authStore.isAuthenticated) next() 
-  else next('/');
+  if (to.meta.requiresAuth) {
+    if (authStore.isAuthenticated) {
+      next();
+    } else {
+      next('/');
+    }
+  } else {
+    next();
+  }
 })
 
 export default router

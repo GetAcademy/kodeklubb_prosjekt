@@ -6,6 +6,7 @@ public class TeamEntity
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public long CreatedBy { get; set; }
+    public long TeamAdminId { get; set; } // Non-nullable team admin user ID
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public int Version { get; set; }

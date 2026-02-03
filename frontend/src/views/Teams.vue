@@ -66,7 +66,7 @@
             const discordId = user.value?.id;
             const query = discordId ? `?discordId=${encodeURIComponent(discordId)}` : '';
 
-            const response = await fetch(`${baseApi}/api/teams/available${query}`);
+            const response = await fetch(`${baseApi}/api/discover/available${query}`);
             if (!response.ok) {
                 throw new Error('Kunne ikke hente teams.');
             }
@@ -89,7 +89,7 @@
 
         try {
             const baseApi = import.meta.env.VITE_BASE_API;
-            const response = await fetch(`${baseApi}/api/teams/${teamId}/request`, {
+            const response = await fetch(`${baseApi}/api/discover/${teamId}/request`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
