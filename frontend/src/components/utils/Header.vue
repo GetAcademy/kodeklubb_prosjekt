@@ -30,8 +30,9 @@
             switch (route.path)
             {
                 case '/': return { type: 'router', label: 'Dashboard' };
-                case '/logout': return { type: 'button', label: 'Logg ut', action: () => handleLogout(), icon: 'logout' };
-                default : return { type: 'router', path: route.path, label: route.name || route.path,};
+                case '/logout': return { type: 'router', cls:"logout-btn", label: 'Logg ut', action: async() => {await authStore.logout();await router.replace('/');}, icon: 'logout' };
+
+                default : return { type: 'router', path: route.path, label: route.name || route.path, cls:'router-btn'};
             }
         });
     });
@@ -40,21 +41,14 @@
     {
         return router.getRoutes().filter(route => !route.meta?.requiresAuth).map(route => {
 
-            if (route.path === '/') { return { type: 'button', label:"Discord login", cls:"discord-btn", action: () => loginDiscord()}}
+            if (route.path === '/') { return { type: 'button', label:"Discord login", cls:"discord-btn", action: () => {window.location.href = discordAPI;}}}
             // Standard rute (vanlig lenke)
             return {
                 type: 'router',
                 path: route.path,
                 label: route.name || route.path,
             };
+        });
     });
-    });
-
-    async function  loginDiscord(){window.location.href = discordAPI;}
-    async function  handleLogout ()
-    { 
-        await authStore.logout();
-        await router.replace('/');
-    }
 
 </script>
