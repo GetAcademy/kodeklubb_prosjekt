@@ -3,7 +3,6 @@
     <NavigationMenu v-if="isAuthenticated" :data="authMenu"/>
     <NavigationMenu v-else :data="menu"/>
     <h1> GET - Kode Klubb</h1>
-    {{ menu }}
 
 </template>
 <script setup lang="ts">
@@ -46,7 +45,9 @@
             return {
                 type: 'router',
                 path: route.path,
-                label: route.name || route.path,
+                cls: "router-btn",
+                label: route.name || route.path
+                
             };
         });
     });
