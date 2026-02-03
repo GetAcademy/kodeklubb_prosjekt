@@ -41,13 +41,11 @@
         return router.getRoutes().filter(route => !route.meta?.requiresAuth).map(route => {
 
             if (route.path === '/') { return { type: 'button', label:"Discord login", cls:"discord-btn", action: () => {window.location.href = discordAPI;}}}
-            // Standard rute (vanlig lenke)
             return {
                 type: 'router',
                 path: route.path,
                 cls: "router-btn",
                 label: route.name || route.path
-                
             };
         });
     });
