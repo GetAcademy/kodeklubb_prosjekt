@@ -1,10 +1,9 @@
 export interface ButtonItem
 {
-    type?: string;
+    type?: 'submit' | 'reset';
     label: string;
     action: () => void;
     disabled?: boolean;
-    cls: string[] | string;
 }
 
-export interface ButtonProps { data: ButtonItem }
+export interface ButtonProps { data: ButtonItem, cls?: string[] | string; }

@@ -1,14 +1,11 @@
 <template>
     <h2>Dashboard</h2>
-    <p> 
-        Velkommen til Kodeklubben, <b>{{ data.name }}</b> - <b>{{ data.email }}</b>
-    </p>
     {{ data }}
 
     <ProfileBar :data="data"/>
 
     <section>
-        <h2> Dine Teams </h2>
+        <h2> Mine Teams</h2>
     </section>
 
     <section>
@@ -21,11 +18,8 @@
     // --- Importing Dependencies & Types
     import { computed } from 'vue';
 
+    import type { DashboardProps} from '@/types/props';
     // --- Props Definition Logic
-    interface DashboardProps
-    {
-        data: any;
-    }
     const props = defineProps<DashboardProps>();
     const data = computed(() => props.data);
     console.log(data.value)

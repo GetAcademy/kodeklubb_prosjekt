@@ -11,26 +11,27 @@ export const useAuthStore = defineStore('auth', () => {
     
     // Initialize user from localStorage
     const storedUserData = localStorage.getItem('user_data');
-    const user = ref<User | null>(storedUserData ? JSON.parse(storedUserData) : null);
-    
     const token = ref<string | null>(localStorage.getItem('user_token'));
+    const user = ref<User | null>(storedUserData ? JSON.parse(storedUserData) : null);
 
 
     // --- GETTERS
     const userName = computed(() => user.value?.username || '??');
-    const isAuthenticated = computed(() => !!token.value && user.value !== null);
+    const isAuthenticated = computed(() => !!token.value && !!user.value);
+
 
     // --- ACTIONS
     async function setToken (key: string) {
         token.value = key;
         localStorage.setItem('user_token', key);
     }
+
     async function setUser(data: User) {
         user.value = data;
         localStorage.setItem('user_data', JSON.stringify(data));
     }
 
-    function logout()
+    async function logout()
     {
         user.value = null;
         token.value = null;
