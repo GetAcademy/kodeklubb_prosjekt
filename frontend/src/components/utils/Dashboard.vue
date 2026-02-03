@@ -5,7 +5,7 @@
     <ProfileBar :data="data"/>
 
     <section>
-        <h2> Mitt Team</h2>
+        <h2> Mine Teams</h2>
     </section>
 
     <section>
