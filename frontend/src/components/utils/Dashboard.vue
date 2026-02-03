@@ -8,12 +8,13 @@
     <ProfileBar :data="data"/>
 
     <section>
-        <h2> Dine Teams </h2>
+        <!--TeamsDashboard :data="data"/-->
+    </section>
+    <section>
+        <!--KodeSpråk :data="data"/-->
+
     </section>
 
-    <section>
-        <h2> Discover new Teams</h2>
-    </section>
 </template>
 
 <script lang="ts" setup>
@@ -22,10 +23,7 @@
     import { computed } from 'vue';
 
     // --- Props Definition Logic
-    interface DashboardProps
-    {
-        data: any;
-    }
+    interface DashboardProps {data: any;}
     const props = defineProps<DashboardProps>();
     const data = computed(() => props.data);
     console.log(data.value)
