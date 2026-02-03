@@ -1,6 +1,6 @@
 export interface ButtonItem
 {
-    type?: string;
+    type?: 'button';
     label: string;
     action: () => void;
     disabled?: boolean;
