@@ -18,7 +18,7 @@
     // --- Importing Dependencies & Types
     import { computed } from 'vue';
 
-    import type { DashboardProps} from '~/types/props'
+    import type { DashboardProps} from '@/types/props';
     // --- Props Definition Logic
     const props = defineProps<DashboardProps>();
     const data = computed(() => props.data);
