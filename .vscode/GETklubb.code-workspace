@@ -35,7 +35,11 @@
 			"SASS",
 			"Map",
 			"appsettings.json",
-			"Media"
+			"Media",
+			"Auth",
+        	"Docker",
+        	"DIR",
+        	"Utils"
 		]
 	},
 	"recommendations": [
