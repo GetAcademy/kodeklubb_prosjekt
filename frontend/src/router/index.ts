@@ -8,6 +8,14 @@ const profileRoutes: Array<Record<string, any>> =
   { path: "/profil/edit", name : "editProfile", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true, isHidden: true} },
 ]
 
+const teamRoutes: Array<Record<string, any>> = 
+[
+  { path: "/grupper/medlemmer", name : "medlemmer", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/grupper/aktuelt", name : "aktuelt", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/grupper/øvelser", name : "Praktiske Øvelser", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/grupper/docs", name : "Dokumenter", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+]
+
 const requiredAuthorization: Array<any> =
 [
   ...profileRoutes,
