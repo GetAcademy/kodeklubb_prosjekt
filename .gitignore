@@ -207,3 +207,4 @@ obj
 !?*.[Cc]ache/
 .dtbcache.v2
 .vs/
+*.DotSettings.user
