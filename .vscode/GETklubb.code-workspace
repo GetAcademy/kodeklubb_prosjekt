@@ -37,9 +37,10 @@
 			"appsettings.json",
 			"Media",
 			"Auth",
-        	"Docker",
-        	"DIR",
-        	"Utils"
+			"Docker",
+			"DIR",
+			"Utils",
+			"Typo"
 		]
 	},
 	"recommendations": [
