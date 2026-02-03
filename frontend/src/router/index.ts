@@ -2,12 +2,16 @@ import { useAuthStore } from '../stores/authStore.ts';
 import { createRouter, createWebHistory } from 'vue-router';
 import { sanitizeUrlParams } from '@/utility-tools/routeUtils.ts';
 
+const profileRoutes: Array<Record<string, any>> = 
+[
+  { path: "/profil", name : "min-side", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/profil/edit", name : "editProfile", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true, isHidden: true} },
+]
 
 const requiredAuthorization: Array<any> =
 [
-  { path: "/profile", name : "min-side", component: () => import(`../views/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/discover-teams", name : "utforsk-teams", component: () => import(`../views/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/teams/my-team", name : "teams", component: () => import(`../views/Profile.vue`), meta: {requiresAuth: true} },
+  ...profileRoutes,
+  { path: "/utforsk", name : "utforsk", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
   { path: "/logout", name : "logout", component: () => import(`../views/Index.vue`), meta: {requiresAuth: true} },
 ]
 
