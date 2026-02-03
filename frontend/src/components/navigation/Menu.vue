@@ -2,7 +2,7 @@
     <nav :class="cls[0]">
         <ul :class="cls[1]">
             <li v-for="(item, i) in data" :key="i"
-                :class="[cls[2], item.cls]">
+                :class="[cls[2]]">
 
                    <RouterLink v-if="!!isRouterLink"
                         :to="item.path"
@@ -17,7 +17,7 @@
 
                     <NavigationButton v-if="!!isButton"
                         :data="item.data"
-                        :cls="[cls[3]]"/>
+                        :cls="[item.cls]"/>
             </li>
         </ul>
     </nav>
@@ -43,6 +43,7 @@
     const cls = computed(() => props.cls);
     const data = computed<NavigationProp['data']>(() => props.data);
 
+    //  --  State Logic
     const isButton = computed<boolean>(() => { return !!data.value.some(item => item.type == 'button')});
     const isAnchor = computed<boolean>(() => { return !!data.value.some(item => item.type == 'anchor')});
     const isRouterLink = computed<boolean>(() => { return !!data.value.some(item => item.type == 'router' )});
@@ -50,6 +51,6 @@
 
     //  --- Debug logic
     //console.log('isAnchor:', isAnchor.value);
-    console.error('NavMenu props data:', props.data);
+    //console.error('NavMenu props data:', props.data);
     //console.log('isRouterLink:', isRouterLink.value);
 </script>
