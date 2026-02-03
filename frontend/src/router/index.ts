@@ -12,8 +12,8 @@ const teamRoutes: Array<Record<string, any>> =
 [
   { path: "/grupper/medlemmer", name : "medlemmer", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
   { path: "/grupper/aktuelt", name : "aktuelt", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/grupper/øvelser", name : "Praktiske Øvelser", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/grupper/docs", name : "Dokumenter", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/grupper/øvelser", name : "praktiske-øvelser", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/grupper/docs", name : "dokumenter", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
 ]
 
 const requiredAuthorization: Array<any> =
