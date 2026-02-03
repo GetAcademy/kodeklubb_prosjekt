@@ -24,14 +24,13 @@
 
     const authMenu = computed(() =>
     {
-        return router.getRoutes().filter(route => route.meta?.requiresAuth).map(route =>
+        return router.getRoutes().filter(route =>route.meta?.requiresAuth).map(route =>
         {
             switch (route.path)
             {
-                case '/': return { type: 'router', label: 'Dashboard' };
-                case '/logout': return { type: 'router', cls:"logout-btn", label: 'Logg ut', action: async() => {await authStore.logout();await router.replace('/');}, icon: 'logout' };
-
-                default : return { type: 'router', path: route.path, label: route.name || route.path, cls:'router-btn'};
+                case '/': return { type: 'router', path: route.path, label: toTitleCase('dashboard'), cls:'router-btn'};
+                case '/logout': return { type: 'router', path: route.path, cls:"logout-btn", label: toTitleCase(route.name?.toString()), action: async() => {await authStore.logout();await router.replace('/');}, icon: 'logout' };
+                default : return { type: 'router', path: route.path, label: toTitleCase(route.name.toString()), cls:'router-btn'};
             }
         });
     });
@@ -40,14 +39,22 @@
     {
         return router.getRoutes().filter(route => !route.meta?.requiresAuth).map(route => {
 
-            if (route.path === '/') { return { type: 'button', label:"Discord login", cls:"discord-btn", action: () => {window.location.href = discordAPI;}}}
+            if (route.path === '/') { return { type: 'button', 
+            data :{label:toTitleCase("discord"), action: () => {window.location.href = discordAPI;}}, cls:"discord-btn"}}
             return {
                 type: 'router',
                 path: route.path,
                 cls: "router-btn",
-                label: route.name || route.path
+                label: toTitleCase(route.name.toString())
             };
         });
     });
 
+    function toTitleCase(str: string) {
+        return str.replace(/\w\S*/g,
+            function(txt) {
+                return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+            }
+        );
+        }
 </script>
