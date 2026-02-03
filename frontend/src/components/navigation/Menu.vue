@@ -6,8 +6,9 @@
 
                    <RouterLink v-if="!!isRouterLink"
                         :to="item.path"
+                        v-slot="{ navigate, href, isActive }"
                         :class="[{ 'active': $route.path === item.path}, cls[3]]">
-                        {{ item.label }}
+                        <span @click="!!item.action ? item.action(navigate): null ">{{ item.label }}</span>
                     </RouterLink>
                     
                     <NavigationAnchor v-if="!!isAnchor && !!item.anchor"
@@ -33,8 +34,8 @@
     //  --- Props Definition Logic
     const props = withDefaults(defineProps<NavigationProp>(),
     {
-        cls: () => [['nav-bar', 'flex-wrap-row-justify-space-between'],
-                ['nav-list', 'flex-wrap-row-align-items-center'],
+        cls: () => [['nav-bar'],
+                ['nav-list', 'flex-wrap-row-align-content-start-justify-space-evenly'],
                 ['nav-item'],
                 ['nav-link']]
     });
@@ -49,6 +50,6 @@
 
     //  --- Debug logic
     //console.log('isAnchor:', isAnchor.value);
-    //console.error('NavMenu props data:', props.data);
+    console.error('NavMenu props data:', props.data);
     //console.log('isRouterLink:', isRouterLink.value);
 </script>
