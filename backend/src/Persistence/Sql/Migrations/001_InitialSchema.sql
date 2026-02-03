@@ -83,12 +83,14 @@ CREATE TABLE IF NOT EXISTS teams (
     name VARCHAR(200) NOT NULL,
     description TEXT,
     created_by BIGINT NOT NULL REFERENCES users(id),
+    team_admin_id BIGINT NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     version INT NOT NULL DEFAULT 1
 );
 
 CREATE INDEX IF NOT EXISTS idx_teams_created_by ON teams(created_by);
+CREATE INDEX IF NOT EXISTS idx_teams_team_admin_id ON teams(team_admin_id);
 
 -- Team tags - tags that describe what the team is about
 CREATE TABLE IF NOT EXISTS team_tags (
