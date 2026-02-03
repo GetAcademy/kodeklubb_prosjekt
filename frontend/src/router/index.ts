@@ -4,22 +4,22 @@ import { sanitizeUrlParams } from '@/utility-tools/routeUtils.ts';
 
 const profileRoutes: Array<Record<string, any>> = 
 [
-  { path: "/profil", name : "min-side", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/profil/edit", name : "editProfile", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true, isHidden: true} },
+  { path: "/profile", name : "min-side", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/profile/edit", name : "ModifyProfile", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true, isHidden: true} },
 ]
 
 const teamRoutes: Array<Record<string, any>> = 
 [
-  { path: "/grupper/medlemmer", name : "medlemmer", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/grupper/aktuelt", name : "aktuelt", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/grupper/øvelser", name : "praktiske-øvelser", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/grupper/docs", name : "dokumenter", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/teams/:id/members", name : "medlemmer", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/teams/:id/news", name : "aktuelt", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/teams/:id/practice", name : "praktiske-øvelser", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/teams/:id/docs", name : "dokumenter", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
 ]
 
 const requiredAuthorization: Array<any> =
 [
   ...profileRoutes,
-  { path: "/utforsk", name : "utforsk", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/discover", name : "Utforsk Teams", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
   { path: "/logout", name : "logout", component: () => import(`../views/Index.vue`), meta: {requiresAuth: true} },
 ]
 
