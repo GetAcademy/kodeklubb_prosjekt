@@ -12,11 +12,12 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    NavigationButton: typeof import('./src/components/Navigation/Button.vue')['default']
-    NavigationMenu: typeof import('./src/components/Navigation/Menu.vue')['default']
+    NavigationButton: typeof import('./src/components/navigation/Button.vue')['default']
+    NavigationMenu: typeof import('./src/components/navigation/Menu.vue')['default']
     ProfileBar: typeof import('./src/components/profile/Bar.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    TeamsDashboard: typeof import('./src/components/teams/Dashboard.vue')['default']
     UtilsDashboard: typeof import('./src/components/utils/Dashboard.vue')['default']
     UtilsFooter: typeof import('./src/components/utils/Footer.vue')['default']
     UtilsHeader: typeof import('./src/components/utils/Header.vue')['default']
@@ -25,11 +26,12 @@ declare module 'vue' {
 
 // For TSX support
 declare global {
-  const NavigationButton: typeof import('./src/components/Navigation/Button.vue')['default']
-  const NavigationMenu: typeof import('./src/components/Navigation/Menu.vue')['default']
+  const NavigationButton: typeof import('./src/components/navigation/Button.vue')['default']
+  const NavigationMenu: typeof import('./src/components/navigation/Menu.vue')['default']
   const ProfileBar: typeof import('./src/components/profile/Bar.vue')['default']
   const RouterLink: typeof import('vue-router')['RouterLink']
   const RouterView: typeof import('vue-router')['RouterView']
+  const TeamsDashboard: typeof import('./src/components/teams/Dashboard.vue')['default']
   const UtilsDashboard: typeof import('./src/components/utils/Dashboard.vue')['default']
   const UtilsFooter: typeof import('./src/components/utils/Footer.vue')['default']
   const UtilsHeader: typeof import('./src/components/utils/Header.vue')['default']
