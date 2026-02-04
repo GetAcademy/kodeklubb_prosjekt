@@ -1,20 +1,20 @@
 export interface FormItem
 {
-    
-    rel?:string;
+    rel?: string;
     name: string;
-    title: string;
-    action:string;
-    target?:string;
+    title?: string;
+    action: string;
+    target?: string;
     encrypted?: boolean;
     novalidate?: boolean;
-    autocomplete?: boolean;
     acceptcharset?: string;
     inputControl?: InputItem[];
+    autocomplete?: 'on' | 'off';
     outputs?: Record<string,string>;
     textarea?: Record<string,string>;
     datalist?: Record<string,string>;
     selections?: Record<string,string>;
+    method: 'POST' | 'GET' | 'PUT' | 'DELETE' | 'PATCH';
 };
 
 export interface FormProps { data: FormItem; };

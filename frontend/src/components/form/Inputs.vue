@@ -32,7 +32,7 @@
 
     //  --- Props Definition Logic
     const props = defineProps<InputsProps>();
-    const cls = computed(() => props.cls);
+    const cls = computed(() => props.data.cls);
     const data = computed(() => props.data);
     const emit = defineEmits(['update:modelValue']);
 
