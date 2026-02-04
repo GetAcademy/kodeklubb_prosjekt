@@ -14,6 +14,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     FormForm: typeof import('./src/components/form/Form.vue')['default']
     FormInputs: typeof import('./src/components/form/Inputs.vue')['default']
+    FormSchema: typeof import('./src/components/form/Schema.vue')['default']
     NavigationButton: typeof import('./src/components/navigation/Button.vue')['default']
     NavigationMenu: typeof import('./src/components/navigation/Menu.vue')['default']
     ProfileBar: typeof import('./src/components/profile/Bar.vue')['default']
@@ -32,6 +33,7 @@ declare module 'vue' {
 declare global {
   const FormForm: typeof import('./src/components/form/Form.vue')['default']
   const FormInputs: typeof import('./src/components/form/Inputs.vue')['default']
+  const FormSchema: typeof import('./src/components/form/Schema.vue')['default']
   const NavigationButton: typeof import('./src/components/navigation/Button.vue')['default']
   const NavigationMenu: typeof import('./src/components/navigation/Menu.vue')['default']
   const ProfileBar: typeof import('./src/components/profile/Bar.vue')['default']
