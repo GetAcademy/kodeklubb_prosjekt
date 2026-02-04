@@ -5,7 +5,7 @@ import { sanitizeUrlParams } from '@/utility-tools/routeUtils.ts';
 const profileRoutes: Array<Record<string, any>> = 
 [
   { path: "/profile", name : "min-side", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/profile/edit", name : "ModifyProfile", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true, isHidden: true} },
+  { path: "/profile/edit", name : "ModifyProfile", component: () => import(`../views/profile/EditProfile.vue`), meta: {requiresAuth: true, isHidden: true} },
 ]
 
 const teamRoutes: Array<Record<string, any>> = 
