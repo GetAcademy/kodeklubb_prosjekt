@@ -1,6 +1,7 @@
 <template>
-    <form 
-        method="post"     
+    <form
+        class = "form-container flex-wrap-column"
+        :method="data.method"     
         :name="data.name"
         :action="data.action"
         :rel="data.rel? data.rel : 'noopener'"
@@ -9,12 +10,12 @@
         v-on:encrypted="data.encrypted? data.encrypted : false"
         :autocomplete="data.autocomplete? data.autocomplete : 'off'"
         :acceptcharset="data.acceptcharset? data.acceptcharset : 'UTF-8'">
-        <legend class="section-title">
+        <legend v-if = "data.title" class="form-title">
             <h1>{{ data.title }}</h1>
         </legend>
         <section v-if="isInput" v-for="field in data.inputControl" :key="field.id">
-            <label :for="field.name">{{ field.label }}</label>
-            <FormInputs :data="field" v-model="formData[field.name]" />
+            <label :for="field.name">{{ field.name }} :</label>
+            <FormInputs :data="field" v-model="schemaData[field.name]" />
         </section>
         <section v-if="isSelections" v-for="selection in data.selections" :key="selection.id">
             <label :for="selection.label">{{ selection.label }}</label>
@@ -59,21 +60,46 @@
                 :v-model="formData[data.outputs.name]">
             </output>
         </section>
+        <section  class="flex-wrap-row">
+            <NavigationButton v-for="btn in buttons" :data="btn" />
+        </section>
     </form>
 </template>
 <script lang="ts" setup>
 
+    //  --- Importing Dependencies & Types
     import { computed } from 'vue';
     import type { FormProps } from '@/types/form'
 
+    //  --- Props Definition Logic
     const props = defineProps<FormProps>();
     const data = computed(() => props.data);
-    const data = computed(() => props.data);
 
+    //  --- Flag Logic
     const isOutputs = computed<boolean>(() => !!data.value.outputs);
     const isTextArea = computed<boolean>(() => !!data.value.textarea);
     const isDataList = computed<boolean>(() => !!data.value.datalist);
     const isInput = computed<boolean>(() => !!data.value.inputControl);
     const isSelections = computed<boolean>(() => !!data.value.selections);
+
+    //  Form Logic
+    let schemaData = {}
+    const buttons = [
+        {
+            type : "submit",
+            cls : "submit-btn",
+            label : "submit",
+            action : () => {}
+            
+        },
+        {
+            type : "reset",
+            cls : "reset-btn",
+            label : "Reset",
+            action : () => {}
+        },
+    ]
+    //  Debug Logic
+    console.log("Data passed to Schema :",data.value);
 
 </script>
