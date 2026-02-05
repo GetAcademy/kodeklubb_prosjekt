@@ -13,6 +13,7 @@ public static class TeamEndpoints
         group.MapPost("/", CreateTeam).WithName("CreateTeam").WithOpenApi();
         group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams").WithOpenApi();
         group.MapGet("/available", GetAvailableTeams).WithName("GetAvailableTeams").WithOpenApi();
+        group.MapGet("/{teamId}", GetTeamDetails).WithName("GetTeamDetails").WithOpenApi();
         group.MapPost("/{teamId}/request", RequestToJoinTeam).WithName("RequestToJoinTeam").WithOpenApi();
         group.MapGet("/{teamId}/requests", GetTeamRequests).WithName("GetTeamRequests").WithOpenApi();
         group.MapPatch("/{teamId}/requests/{requestId}/approve", ApproveTeamRequest).WithName("ApproveTeamRequest").WithOpenApi();
@@ -216,6 +217,19 @@ public static class TeamEndpoints
             }
 
             return Results.Ok(new { message = "Request declined" });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> GetTeamDetails(long teamId, ITeamRepository teamRepository)
+    {
+        try
+        {
+            var team = await teamRepository.GetTeamDetailsAsync(teamId);
+            return Results.Ok(team);
         }
         catch (Exception ex)
         {

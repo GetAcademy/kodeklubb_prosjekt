@@ -1,7 +1,10 @@
 <template>
   <section>
-    <h2>Team</h2>
-    <p>Team ID: {{ teamId }}</p>
+    <h2>{{ teamDetails?.name ?? 'Team' }}</h2>
+    <p class="muted">Team ID: {{ teamId }}</p>
+    <p v-if="teamLoading">Laster teamdetaljer…</p>
+    <p v-else-if="teamError">{{ teamError }}</p>
+    <p v-else class="team-description">{{ teamDetails?.description }}</p>
 
     <section class="requests">
       <h3>Forespørsler</h3>
@@ -64,6 +67,9 @@ const requests = ref<TeamRequest[]>([]);
 const requestsLoading = ref(false);
 const requestsError = ref<string | null>(null);
 const actionRequestId = ref<number | null>(null);
+const teamDetails = ref<any | null>(null);
+const teamLoading = ref(false);
+const teamError = ref<string | null>(null);
 
 async function fetchRequests() {
   requestsLoading.value = true;
@@ -148,5 +154,35 @@ async function declineRequest(requestId: number) {
   }
 }
 
-onMounted(fetchRequests);
+async function fetchTeamDetails() {
+  teamLoading.value = true;
+  teamError.value = null;
+  try {
+    const baseApi = import.meta.env.VITE_BASE_API;
+    const discordId = user.value?.id;
+    const url = `${baseApi}/api/discover/${teamId.value}` + (discordId ? `?discordId=${discordId}` : '');
+    console.log(url)
+    const res = await fetch(url);
+    console.log(res)
+    if (!res.ok) {
+      if (res.status === 404) {
+        teamError.value = 'Team ikke funnet.';
+        return;
+      }
+      throw new Error('Kunne ikke hente teamdetaljer.');
+    }
+    const payload = await res.json();
+    // payload may contain { team: {...}, isMember: bool } or just team
+    teamDetails.value = payload.team ?? payload;
+  } catch (err) {
+    teamError.value = err instanceof Error ? err.message : 'Ukjent feil.';
+  } finally {
+    teamLoading.value = false;
+  }
+}
+
+onMounted(async () => {
+  await fetchTeamDetails();
+  await fetchRequests();
+});
 </script>

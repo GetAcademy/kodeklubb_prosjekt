@@ -256,7 +256,7 @@ public class TeamRepository : ITeamRepository
             }
 
             var request = await _context.Invitations.FindAsync(requestId);
-            if (request == null || request.Status != "pending" || request.TeamId != teamId)
+            if (request is not { Status: "pending" } || request.TeamId != teamId)
             {
                 return false;
             }
@@ -274,5 +274,34 @@ public class TeamRepository : ITeamRepository
         {
             return false;
         }
+    }
+
+    public async Task<TeamDetailsDto?> GetTeamDetailsAsync(long teamId)
+    {
+        var team = await _context.Teams
+            .Where(t => t.Id == teamId)
+            .Include(t => t.TeamTags)
+            .ThenInclude(tt => tt.Tag)
+            .Include(t => t.TeamMembers)
+            .ThenInclude(tm => tm.User)
+            .AsNoTracking()
+            .FirstOrDefaultAsync();
+
+        if (team == null) return null;
+
+        var teamDto = new TeamDetailsDto(
+            team.Id,
+            team.Name,
+            team.Description,
+            team.CreatedBy,
+            team.TeamAdminId,
+            team.CreatedAt,
+            team.UpdatedAt,
+            team.Version,
+            team.TeamTags.Select(tt => new TeamTagDto(tt.Id, tt.TeamId, tt.TagId, tt.CreatedAt, tt.Tag?.Name)).ToList(),
+            team.TeamMembers.Select(tm => new TeamMemberDto(tm.Id, tm.TeamId, tm.UserId, tm.Role, tm.Status, tm.User?.Username)).ToList()
+        );
+
+        return teamDto;
     }
 }

@@ -6,7 +6,8 @@ const requiredAuthorization: Array<any> =
 [
   { path: "/profile", name : "profile", component: () => import(`../views/Profile.vue`), meta: {requiresAuth: true} },
   { path: "/discover", name : "teams", component: () => import(`../views/Teams.vue`), meta: {requiresAuth: true} },
-  { path: "/teams/team:teamId", name : "team", component: () => import(`../views/Team.vue`), meta: {requiresAuth: true} },
+  { path: "/teams/:teamId", name : "team", component: () => import(`../views/Team.vue`), meta: {requiresAuth: true} },
+  // { path: "/teams/:teamId/content", name : "team-content", component: () => import(`../views/TeamContent.vue`), meta: {requiresAuth: true} },
   { path: "/dashboard", name : "dashboard", component: () => import(`../views/Index.vue`) }//, meta: {requiresAuth: true} }
   
 ]
