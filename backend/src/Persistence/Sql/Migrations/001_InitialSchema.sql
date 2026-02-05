@@ -1,7 +1,4 @@
--- Migration: 001_InitialSchema
--- Description: Creates initial database schema for kodeklubb MVP
--- Author: Generated from handbook specification
--- Date: 2026-02-02
+
 
 -- Schema version tracking table
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -62,7 +59,7 @@ CREATE INDEX IF NOT EXISTS idx_tags_slug ON tags(slug);
 CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
 
 -- User interests - tags that users are interested in
-CREATE TABLE IF NOT EXISTS user_interests (
+CREATE TABLE IF NOT EXISTS user_tags (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     tag_id BIGINT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
@@ -70,8 +67,8 @@ CREATE TABLE IF NOT EXISTS user_interests (
     UNIQUE(user_id, tag_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_interests_user_id ON user_interests(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_interests_tag_id ON user_interests(tag_id);
+CREATE INDEX IF NOT EXISTS idx_user_tags_user_id ON user_tags(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_tags_tag_id ON user_tags(tag_id);
 
 -- ============================================================================
 -- TEAMS AND MEMBERSHIP
@@ -82,6 +79,8 @@ CREATE TABLE IF NOT EXISTS teams (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
     description TEXT,
+    location VARCHAR(200),
+    discord_link VARCHAR(500),
     created_by BIGINT NOT NULL REFERENCES users(id),
     team_admin_id BIGINT NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -138,6 +137,23 @@ CREATE INDEX IF NOT EXISTS idx_invitations_team_id ON invitations(team_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_invited_user_id ON invitations(invited_user_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_status ON invitations(status);
 CREATE INDEX IF NOT EXISTS idx_invitations_invited_by ON invitations(invited_by);
+
+-- Team events - events organized by teams
+CREATE TABLE IF NOT EXISTS team_events (
+    id BIGSERIAL PRIMARY KEY,
+    team_id BIGINT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    name VARCHAR(300) NOT NULL,
+    description TEXT,
+    event_date TIMESTAMPTZ NOT NULL,
+    is_online BOOLEAN NOT NULL DEFAULT false, -- true = online, false = fysisk
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    version INT NOT NULL DEFAULT 1
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_events_team_id ON team_events(team_id);
+CREATE INDEX IF NOT EXISTS idx_team_events_event_date ON team_events(event_date);
+CREATE INDEX IF NOT EXISTS idx_team_events_is_online ON team_events(is_online);
 
 -- ============================================================================
 -- CONTENT AND PROGRESSION

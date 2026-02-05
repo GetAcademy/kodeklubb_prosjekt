@@ -97,26 +97,6 @@ public static class TeamEndpoints
         return Results.Ok(results);
     }
 
-    private static async Task<IResult> JoinTeam(long teamId, JoinTeamCommand command, ITeamRepository teamRepository)
-    {
-        try
-        {
-            var joinCommand = new JoinTeamCommand(teamId, command.UserId);
-            var result = await teamRepository.JoinTeamAsync(joinCommand);
-
-            if (!result)
-            {
-                return Results.BadRequest(new { message = "Could not join team" });
-            }
-
-            return Results.Ok(new { message = "Successfully joined team" });
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-    }
-
     private static async Task<IResult> RequestToJoinTeam(long teamId, HttpContext context, ITeamRepository teamRepository, IUserRepository userRepository)
     {
         try
