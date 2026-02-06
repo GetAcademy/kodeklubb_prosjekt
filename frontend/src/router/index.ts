@@ -51,6 +51,6 @@ router.afterEach((to) => {
 
   // Save user to database
   next();
+  });
 });
-
-export default router
+export default router;
