@@ -1,3 +1,6 @@
 namespace Core.Commands;
 
-public record JoinTeamCommand();
+public record JoinTeamCommand(
+    long TeamId,
+    long UserId
+    );

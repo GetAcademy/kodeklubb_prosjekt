@@ -284,26 +284,4 @@ public class TeamRepository : ITeamRepository
             .Include(tm => tm.User)
             .AnyAsync(tm => tm.TeamId == teamId && tm.User != null && tm.User.DiscordId == discordId && tm.Status == "active");
     }
-
-    public async Task<List<Persistence.Models.TeamContentItemEntity>> GetTeamContentAsync(long teamId)
-    {
-        // Currently nodes are global. Return all published nodes for team members.
-        var nodes = await _context.Nodes
-            .Where(n => n.IsPublished)
-            .OrderBy(n => n.OrderIndex)
-            .AsNoTracking()
-            .ToListAsync();
-
-        return nodes.Select(n => new Persistence.Models.TeamContentItemEntity
-        {
-            NodeId = n.Id,
-            ParentNodeId = n.ParentId,
-            Title = n.Title,
-            Description = n.Description,
-            ContentType = n.ContentType,
-            ContentUrl = n.ContentUrl,
-            OrderIndex = n.OrderIndex,
-            IsPublished = n.IsPublished
-        }).ToList();
-    }
 }

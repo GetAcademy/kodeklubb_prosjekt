@@ -1,3 +1,6 @@
 namespace Core.Commands;
 
-public record RequestToJoinTeamCommand();
+public record RequestToJoinTeamCommand(
+    long TeamId,
+    long UserId
+    );
