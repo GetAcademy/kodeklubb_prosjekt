@@ -4,10 +4,9 @@
 
 // Views
 //  Utilities and Components
-@forward './misc'
-@forward './footer'
-@forward './flexbox'
-@forward './utils/images'
+@forward './utils/misc'
+@forward './utils/flexbox'
+@forward './media/images'
 @forward './utils/buttons'
 
 @import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css")
@@ -18,3 +17,25 @@
     box-sizing: border-box
     writing-mode: horizontal-tb
 
+body
+
+    h1, h2, h3, h4, h5, h6
+        color: color.$deep-charcoal
+
+    section, article, p
+        b
+            font-weight: bold
+            color: color.$deep-charcoal
+    p
+
+        font-size: 1em
+        color: color.$tech-grey
+
+        
+    
+    a
+        color: color.$electric-blue
+
+    @include mix.text-wrap-safe()
+
+    

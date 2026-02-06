@@ -1,0 +1,32 @@
+//  Flexbox
+@use './mixins' as mix
+
+
+@forward '../flexbox/flexbox-row'
+@forward '../flexbox/flexbox-column'
+@forward '../flexbox/flexbox-wrap-row'
+@forward '../flexbox/flexbox-reversed-row'
+@forward '../flexbox/row-align-justify-mix/wrap-row-justify-align'
+@forward '../flexbox/row-align-justify-mix/wrap-row-justify-items'
+@forward '../flexbox/row-align-justify-mix/wrap-row-justify-content'
+@forward '../flexbox/column-align-justify-mix/nowrap-column-justify-items'
+
+
+.flex-row
+    @include mix.flexbox-generator('flex-row')
+
+
+.flex-wrap-reversed-row
+    @include mix.flexbox-generator('flex-wrap-reversed-row')
+
+// flex-column styles
+.flex-column
+    @include mix.flexbox-generator('flex-column')
+
+
+.flex-wrap-column
+    @include mix.flexbox-generator('flex-wrap-column')
+
+.flex-wrap-reversed-column
+    @include mix.flexbox-generator('flex-wrap-reversed-column')
+
