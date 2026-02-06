@@ -1,5 +1,7 @@
 @use '../colors/alerts.sass' as alert
 
-$warning:( 'font-size' : 1.1em, 'color': alert.$warning)
+$minor:( 'font-size' : 1.1em, 'color': alert.$warning-minor)
+$moderate:( 'font-size' : 1.1em, 'color': alert.$warning-moderate)
+$critical:( 'font-size' : 1.1em, 'color': alert.$warning-critical)
 
-$alerts:('warning': $warning)
+$alerts:('critical': $critical, 'moderate': $moderate, 'minor': $minor)
