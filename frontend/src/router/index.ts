@@ -1,38 +1,53 @@
-import { sanitizeUrlParams } from '@/utility-tools/routeUtils.ts'
-import { useAuthStore } from '../stores/authStore.ts'
-import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '../stores/authStore.ts';
+import { createRouter, createWebHistory } from 'vue-router';
+
+const profileRoutes: Array<Record<string, any>> = 
+[
+  { path: "/profile", name : "min-side", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/profile/edit", name : "ModifyProfile", component: () => import(`../views/profile/EditProfile.vue`), meta: {requiresAuth: true, isHidden: true} },
+];
+
+const teamRoutes: Array<Record<string, any>> = 
+[
+  { path: "/teams/:id/members", name : "medlemmer", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/teams/:id/news", name : "aktuelt", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/teams/:id/description", name : "Om gruppen", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+];
 
 const requiredAuthorization: Array<any> =
 [
-  { path: "/profile", name : "profile", component: () => import(`../views/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/discover", name : "teams", component: () => import(`../views/Teams.vue`), meta: {requiresAuth: true} },
-  { path: "/teams/:teamId", name : "team", component: () => import(`../views/Team.vue`), meta: {requiresAuth: true} },
-  // { path: "/teams/:teamId/content", name : "team-content", component: () => import(`../views/TeamContent.vue`), meta: {requiresAuth: true} },
-  { path: "/dashboard", name : "dashboard", component: () => import(`../views/Index.vue`) }//, meta: {requiresAuth: true} }
-  
-]
+  ...profileRoutes,
+  { path: "/discover", name : "Utforsk grupper", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/logout", name : "logout", component: () => import(`../views/Index.vue`), meta: {requiresAuth: true} },
+];
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: "/", name : "index", component: () => import(`../views/Index.vue`), meta: {requiresAuth: true} },
-    { path: "/logout", name : "logout", component: () => import(`../views/Index.vue`) },
+    { path: "/", name : "index", component: () => import(`../views/Index.vue`) },
     ...requiredAuthorization
-  ],
-})
-router.beforeEach((to, from, next) => {
+  ]});
 
+router.beforeEach((to, from, next) =>
+{
   const authStore = useAuthStore();
   const token: string = (to.query as any).token;
   const userEncoded: string = (to.query as any).user;
 
-  if (token && userEncoded) {
+  if (token && userEncoded)
+  {
     try {
       const user = JSON.parse(decodeURIComponent(userEncoded));
 
       authStore.setUser(user);
       authStore.setToken(token);
 
+    } catch (err) {console.error('Failed to parse user from query', err);}
+  }
+router.afterEach((to) => {
+  if (Object.keys(to.query).length > 0) router.replace({ path: to.path,  query: {}, hash: to.hash});
+});
+  next();
       // Save user to database
       const baseApi = import.meta.env.VITE_BASE_API;
       fetch(`${baseApi}/api/users`, {
@@ -75,4 +90,3 @@ router.beforeEach((to, from, next) => {
 })
 
 export default router
-

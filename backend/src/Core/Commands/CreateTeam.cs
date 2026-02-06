@@ -4,4 +4,4 @@ public record CreateTeamCommand(
     string Name,
     string? Description,
     long AdminUserId
-);
+    );

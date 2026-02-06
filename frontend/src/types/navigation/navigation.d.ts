@@ -1,10 +1,31 @@
-import type { Anchor, RouteItem } from "./anchor";
+import type { FigureItem } from "../media";
 import type { ButtonItem } from "./buttons";
 
 export interface NavigationProp
 {
-    totalPage?: number;
-    activePage?: number;
-    data: RouteItem | Anchor[] | ButtonItem[];
+    type: 'router' | 'anchor' | 'button';
+    data: RouteItem[] | AnchorItem[] | ButtonItem[];
     cls?: Array<string | string[] | Array<string | string[]>>;
+}
+
+export interface AnchorItem
+{
+    href: string;
+    label?: string;
+    type: string[];
+    img?: FigureItem;
+}
+
+export interface AnchorProps
+{
+    data: AnchorItem;
+    cls?: string[];
+}
+
+export interface RouterItem
+{
+    type: 'router';
+    path: string;
+    label: string;
+    action?: () => void;
 }

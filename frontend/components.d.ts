@@ -12,11 +12,17 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    NavigationButton: typeof import('./src/components/Navigation/Button.vue')['default']
-    NavigationMenu: typeof import('./src/components/Navigation/Menu.vue')['default']
+    FormForm: typeof import('./src/components/form/Form.vue')['default']
+    FormInputs: typeof import('./src/components/form/Inputs.vue')['default']
+    FormSchema: typeof import('./src/components/form/Schema.vue')['default']
+    NavigationButton: typeof import('./src/components/navigation/Button.vue')['default']
+    NavigationMenu: typeof import('./src/components/navigation/Menu.vue')['default']
     ProfileBar: typeof import('./src/components/profile/Bar.vue')['default']
+    ProfileEditProfile: typeof import('./src/components/profile/editProfile.vue')['default']
+    ProfileModify: typeof import('./src/components/profile/Modify.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    TeamsDashboard: typeof import('./src/components/teams/Dashboard.vue')['default']
     UtilsDashboard: typeof import('./src/components/utils/Dashboard.vue')['default']
     UtilsFooter: typeof import('./src/components/utils/Footer.vue')['default']
     UtilsHeader: typeof import('./src/components/utils/Header.vue')['default']
@@ -25,11 +31,17 @@ declare module 'vue' {
 
 // For TSX support
 declare global {
-  const NavigationButton: typeof import('./src/components/Navigation/Button.vue')['default']
-  const NavigationMenu: typeof import('./src/components/Navigation/Menu.vue')['default']
+  const FormForm: typeof import('./src/components/form/Form.vue')['default']
+  const FormInputs: typeof import('./src/components/form/Inputs.vue')['default']
+  const FormSchema: typeof import('./src/components/form/Schema.vue')['default']
+  const NavigationButton: typeof import('./src/components/navigation/Button.vue')['default']
+  const NavigationMenu: typeof import('./src/components/navigation/Menu.vue')['default']
   const ProfileBar: typeof import('./src/components/profile/Bar.vue')['default']
+  const ProfileEditProfile: typeof import('./src/components/profile/editProfile.vue')['default']
+  const ProfileModify: typeof import('./src/components/profile/Modify.vue')['default']
   const RouterLink: typeof import('vue-router')['RouterLink']
   const RouterView: typeof import('vue-router')['RouterView']
+  const TeamsDashboard: typeof import('./src/components/teams/Dashboard.vue')['default']
   const UtilsDashboard: typeof import('./src/components/utils/Dashboard.vue')['default']
   const UtilsFooter: typeof import('./src/components/utils/Footer.vue')['default']
   const UtilsHeader: typeof import('./src/components/utils/Header.vue')['default']

@@ -96,6 +96,51 @@ public class TeamRepository : ITeamRepository
             .ToListAsync();
     }
 
+    public async Task<bool> JoinTeamAsync(JoinTeamCommand command)
+    {
+        try
+        {
+            var teamExists = await _context.Teams.AnyAsync(t => t.Id == command.TeamId);
+            if (!teamExists)
+            {
+                return false;
+            }
+
+            var userExists = await _context.Users.AnyAsync(u => u.Id == command.UserId);
+            if (!userExists)
+            {
+                return false;
+            }
+
+            var alreadyMember = await _context.TeamMembers
+                .AnyAsync(tm => tm.TeamId == command.TeamId && tm.UserId == command.UserId);
+            if (alreadyMember)
+            {
+                return false;
+            }
+
+            var teamMember = new TeamMemberEntity
+            {
+                TeamId = command.TeamId,
+                UserId = command.UserId,
+                Role = "member",
+                Status = "active",
+                JoinedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Version = 1
+            };
+
+            _context.TeamMembers.Add(teamMember);
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public async Task<InvitationEntity?> RequestToJoinTeamAsync(RequestToJoinTeamCommand command)
     {
         try

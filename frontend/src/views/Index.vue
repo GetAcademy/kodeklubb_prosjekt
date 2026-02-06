@@ -2,51 +2,22 @@
 
 <template>
     <section v-if="!!isAuthenticated && user">
-        <h2>Dashboard</h2>
-        <p> 
-            Velkommen til Kodeklubben, <b>{{ userName }}</b> - <b>{{ user.email }}</b>
-        </p>
-            {{ user }}
-
-        <ProfileBar :data="user"/>
-
-        <section>
-            <h2>Dine Teams</h2>
-            <div v-if="userTeamsLoading" class="loading">Laster inn...</div>
-            <div v-else-if="userTeamsError" class="error">{{ userTeamsError }}</div>
-            <div v-else-if="userTeams.length === 0" class="empty">Du er ikke medlem av noen team ennå</div>
-            <div v-else class="teams-grid">
-                <div v-for="team in userTeams" :key="team.id" class="team-card">
-                    <RouterLink :to="`/teams/team${team.id}`">
-                        <h3>{{ team.name }}</h3>
-                        <p>{{ team.description }}</p>
-                        <div class="tags">
-                            <span v-for="tag in team.tags" :key="tag" class="tag">{{ tag }}</span>
-                        </div>
-                    </RouterLink>
-                </div>
-            </div>
-        </section>
-
-        <section>
-            <h2>Discover new Teams</h2>
-            <RouterLink to="/discover">Finn team å bli med i</RouterLink>
-        </section>
+        <UtilsDashboard :data="user" />
     </section>
     <section v-else>
         {{ isAuthenticated }}
     </section>
 </template>
 
-
 <script lang="ts" setup>
-    import { ref, onMounted } from 'vue';
+
+    // --- Importing Dependencies & Types
     import { storeToRefs } from 'pinia';
     import { useAuthStore } from '@/stores/authStore';
     import { RouterLink } from 'vue-router';
 
     const authStore = useAuthStore();
-    const { user, isAuthenticated, userName } = storeToRefs(authStore);
+    const { user, isAuthenticated } = storeToRefs(authStore);
 
     const userTeams = ref<any[]>([]);
     const userTeamsLoading = ref(false);

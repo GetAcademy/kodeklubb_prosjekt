@@ -2,21 +2,22 @@
     <nav :class="cls[0]">
         <ul :class="cls[1]">
             <li v-for="(item, i) in data" :key="i"
-                :class="cls[2]">
+                :class="[cls[2]]">
 
                    <RouterLink v-if="!!isRouterLink"
                         :to="item.path"
-                        :class="[{ 'active': $route.path === item.path}, cls[3]]">
-                        {{ item.label }}
+                        v-slot="{ navigate }"
+                        :class="[{ 'active': $route.path === item.path}]">
+                        <span @click="!!item.action ? item.action(navigate): null ">{{ item.label }}</span>
                     </RouterLink>
-                    
+
                     <NavigationAnchor v-if="!!isAnchor && !!item.anchor"
                         :data="item.anchor"
                         :cls="[cls[3]]"/>
 
-                    <NavigationButton v-if="!!isButton && !!item.action"
-                        :data="item"
-                        :class="item.cls" />
+                    <NavigationButton v-if="!!isButton"
+                        :data="item.data"
+                        :cls="[item.cls]"/>
             </li>
         </ul>
     </nav>
@@ -33,18 +34,19 @@
     //  --- Props Definition Logic
     const props = withDefaults(defineProps<NavigationProp>(),
     {
-        cls: () => [['nav-bar', 'flex-wrap-row-justify-space-between'],
-                ['nav-list', 'flex-wrap-row-align-items-center'],
+        cls: () => [['nav-bar'],
+                ['nav-list', 'flex-wrap-row-align-content-start-justify-space-evenly'],
                 ['nav-item'],
                 ['nav-link']]
     });
 
     const cls = computed(() => props.cls);
-    const data = computed(() => props.data);
+    const data = computed<NavigationProp['data']>(() => props.data);
 
-    const isButton = computed(() => { return !!props.data.find(item => item.type == 'button')});
-    const isAnchor = computed(() => { return !!props.data.find(item => item.type == 'anchor')});
-    const isRouterLink = computed(() => { return !!props.data.find(item => item.type == 'router' )});
+    //  --  State Logic
+    const isButton = computed<boolean>(() => { return !!data.value.some(item => item.type == 'button')});
+    const isAnchor = computed<boolean>(() => { return !!data.value.some(item => item.type == 'anchor')});
+    const isRouterLink = computed<boolean>(() => { return !!data.value.some(item => item.type == 'router' )});
     
 
     //  --- Debug logic

@@ -1,9 +1,14 @@
+
+```mermaid
+
 ---
 title: Persistence
 ---
+
 classDiagram
     IRepository --> TeamRepository
     IRepository --> UserRepository
+    
     class IRepository {
         Task<T?> GetByIdAsync(int id)
         Task<IEnumerable<T>> GetAllAsync()
@@ -13,6 +18,7 @@ classDiagram
         Task DeleteAsync(T entity)
         Task SaveChangesAsync()
     }
+    
     class TeamRepository {
         - readonly AppDbContext _context
         + Sjef()
@@ -26,6 +32,8 @@ classDiagram
         + Task ApproveTeamRequestAsync(long teamId, long requestId, long adminUserId)
         + Task DeclineTeamRequestAsync(long teamId, long requestId, long adminUserId)
     }
+    
     class UserRepository {
-        
+
     }
+```
