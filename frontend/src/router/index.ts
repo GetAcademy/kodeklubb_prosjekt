@@ -18,7 +18,7 @@ const teamRoutes: Array<Record<string, any>> =
 const requiredAuthorization: Array<any> =
 [
   ...profileRoutes,
-  { path: "/discover", name : "Utforsk Teams", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/discover", name : "Utforsk grupper", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
   { path: "/logout", name : "logout", component: () => import(`../views/Index.vue`), meta: {requiresAuth: true} },
 ]
 
