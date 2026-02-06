@@ -48,6 +48,45 @@ router.afterEach((to) => {
   if (Object.keys(to.query).length > 0) router.replace({ path: to.path,  query: {}, hash: to.hash});
 });
   next();
+      // Save user to database
+      const baseApi = import.meta.env.VITE_BASE_API;
+      fetch(`${baseApi}/api/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          discordId: user.id,
+          username: user.username,
+          email: user.email,
+          avatarUrl: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null
+        })
+      }).catch(err => {
+        console.error('Failed to save user to database', err);
+      });
+
+    } catch (err) {
+      
+      // if parsing fails, continue to route and log
+      // eslint-disable-next-line no-console
+      console.error('Failed to parse user from query', err);
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = [urlParams.get('code')];
+    if (code && code.length > 0) sanitizeUrlParams(code);
+    // navigate to same path without query params
+    return next({ path: to.path, query: {} });
+  }
+
+  if (to.meta.requiresAuth) {
+    if (authStore.isAuthenticated) {
+      next();
+    } else {
+      next('/');
+    }
+  } else {
+    next();
+  }
 })
 
 export default router
