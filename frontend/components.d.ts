@@ -12,9 +12,14 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    FormForm: typeof import('./src/components/form/Form.vue')['default']
+    FormInputs: typeof import('./src/components/form/Inputs.vue')['default']
+    FormSchema: typeof import('./src/components/form/Schema.vue')['default']
     NavigationButton: typeof import('./src/components/navigation/Button.vue')['default']
     NavigationMenu: typeof import('./src/components/navigation/Menu.vue')['default']
     ProfileBar: typeof import('./src/components/profile/Bar.vue')['default']
+    ProfileEditProfile: typeof import('./src/components/profile/editProfile.vue')['default']
+    ProfileModify: typeof import('./src/components/profile/Modify.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     TeamsDashboard: typeof import('./src/components/teams/Dashboard.vue')['default']
@@ -26,9 +31,14 @@ declare module 'vue' {
 
 // For TSX support
 declare global {
+  const FormForm: typeof import('./src/components/form/Form.vue')['default']
+  const FormInputs: typeof import('./src/components/form/Inputs.vue')['default']
+  const FormSchema: typeof import('./src/components/form/Schema.vue')['default']
   const NavigationButton: typeof import('./src/components/navigation/Button.vue')['default']
   const NavigationMenu: typeof import('./src/components/navigation/Menu.vue')['default']
   const ProfileBar: typeof import('./src/components/profile/Bar.vue')['default']
+  const ProfileEditProfile: typeof import('./src/components/profile/editProfile.vue')['default']
+  const ProfileModify: typeof import('./src/components/profile/Modify.vue')['default']
   const RouterLink: typeof import('vue-router')['RouterLink']
   const RouterView: typeof import('vue-router')['RouterView']
   const TeamsDashboard: typeof import('./src/components/teams/Dashboard.vue')['default']
