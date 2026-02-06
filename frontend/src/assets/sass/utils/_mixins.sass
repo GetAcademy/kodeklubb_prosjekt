@@ -103,22 +103,6 @@
     font-family: $font-family
     line-height: $line-height
 
-@mixin transitions($property: null, $duration: null, $timing-function: null)
-
-    @if $property == null
-        $property: all
-    
-    @if $timing-function == null
-        $timing-function: ease-in-out
-
-    @if $duration == null
-        $duration: 0.3s
-
-    transition: $property $duration $timing-function
-    -o-transition: $property $duration $timing-function
-    -moz-transition: $property $duration $timing-function
-    -webkit-transition: $property $duration $timing-function
-
 @mixin flexbox-generator($flexbox-type)
     
     $props: map.get(flexbox-mapping.$flexbox, $flexbox-type)
@@ -156,7 +140,10 @@
                             padding: 0.5em
                         
                         content: map.get($prop, icon)
-                        color : map.get($prop, icon-color)
+                        @if map.get($prop, icon-color) != null
+                            color : map.get($prop, icon-color)
+                        @else 
+                            color : color.$tech-grey
 
                     display: inline-block
 

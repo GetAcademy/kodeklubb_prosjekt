@@ -9,6 +9,7 @@ const profileRoutes: Array<Record<string, any>> =
 
 const teamRoutes: Array<Record<string, any>> = 
 [
+  { path: "/teams/:id", name : "medlemmer", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
   { path: "/teams/:id/members", name : "medlemmer", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
   { path: "/teams/:id/news", name : "aktuelt", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
   { path: "/teams/:id/description", name : "Om gruppen", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
@@ -16,6 +17,7 @@ const teamRoutes: Array<Record<string, any>> =
 
 const requiredAuthorization: Array<any> =
 [
+  ...teamRoutes,
   ...profileRoutes,
   { path: "/discover", name : "Utforsk grupper", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
   { path: "/logout", name : "logout", component: () => import(`../views/Index.vue`), meta: {requiresAuth: true} },
@@ -46,47 +48,9 @@ router.beforeEach((to, from, next) =>
   }
 router.afterEach((to) => {
   if (Object.keys(to.query).length > 0) router.replace({ path: to.path,  query: {}, hash: to.hash});
-});
+
+  // Save user to database
   next();
-      // Save user to database
-      const baseApi = import.meta.env.VITE_BASE_API;
-      fetch(`${baseApi}/api/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          discordId: user.id,
-          username: user.username,
-          email: user.email,
-          avatarUrl: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null
-        })
-      }).catch(err => {
-        console.error('Failed to save user to database', err);
-      });
-
-    } catch (err) {
-      
-      // if parsing fails, continue to route and log
-      // eslint-disable-next-line no-console
-      console.error('Failed to parse user from query', err);
-    }
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = [urlParams.get('code')];
-    if (code && code.length > 0) sanitizeUrlParams(code);
-    // navigate to same path without query params
-    return next({ path: to.path, query: {} });
-  }
-
-  if (to.meta.requiresAuth) {
-    if (authStore.isAuthenticated) {
-      next();
-    } else {
-      next('/');
-    }
-  } else {
-    next();
-  }
-})
-
-export default router
+  });
+});
+export default router;
