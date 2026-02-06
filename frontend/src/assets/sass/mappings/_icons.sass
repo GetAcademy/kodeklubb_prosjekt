@@ -2,10 +2,11 @@
 @use '../colors/colors' as color
 @forward './inputs'
 $misc: (
-    "user": ( icon: "\F0AC", icon-color: color.$icon-white ),
-    "email": ( icon: "\F84B", icon-color: color.$icon-white ),
-    "default": ( icon: "\F82E", icon-color: color.$icon-white ),
-    "telephone": ( icon: "\F5C1", icon-color: color.$icon-white),
+    "edit": ( icon: "\F0AC"),
+    "user": ( icon: "\F0AC"),
+    "email": ( icon: "\F84B"),
+    "default": ( icon: "\F82E"),
+    "telephone": ( icon: "\F5C1"),
 )
 
 $inputControls:(
@@ -27,6 +28,7 @@ $utility-inputs: ( 'range': (icon: '\F0E7'), 'color': (icon: '\F4B0'), 'hidden':
 
 $icons: (
     'misc': $misc, 'buttons': $buttons, 'utility-inputs': $utility-inputs,
-    'inputControls': $inputControls, 'booleanControls': $booleanControls, 'datetimePickers': $datetimePickers
+    'inputControls': $inputControls, 'booleanControls': $booleanControls,
+    'datetimePickers': $datetimePickers
     )
 
