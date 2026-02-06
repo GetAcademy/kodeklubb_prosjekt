@@ -17,7 +17,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="DbModels\" />
     <Folder Include="Queries\Models\" />
   </ItemGroup>
 
