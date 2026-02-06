@@ -58,7 +58,7 @@ public class OutboxWorker : BackgroundService
 
     private Task SendInvite(UserInvitedToTeam evt)
     {
-        Console.WriteLine($"Sending invite to {evt.UserId} for team {evt.TeamId}");
+        Console.WriteLine($"Sending invite to {evt.UserId}.");
         return Task.CompletedTask;
     }
 }

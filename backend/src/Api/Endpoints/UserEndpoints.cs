@@ -1,4 +1,4 @@
-using Core.Models;
+using Persistence.DbModels;
 using Persistence.Repositories;
 
 namespace Api.Endpoints;
@@ -14,13 +14,13 @@ public static class UserEndpoints
         group.MapPost("/", CreateUser).WithName("CreateUser").WithOpenApi();
     }
 
-    private static async Task<IResult> GetAllUsers(IRepository<User> userRepository)
+    private static async Task<IResult> GetAllUsers(IUserRepository userRepository)
     {
         var users = await userRepository.GetAllAsync();
         return Results.Ok(users);
     }
 
-    private static async Task<IResult> GetUserById(int id, IRepository<User> userRepository)
+    private static async Task<IResult> GetUserById(long id, IUserRepository userRepository)
     {
         var user = await userRepository.GetByIdAsync(id);
         if (user is null)
@@ -29,13 +29,13 @@ public static class UserEndpoints
         return Results.Ok(user);
     }
 
-    private static async Task<IResult> CreateUser(CreateUserRequest request, IRepository<User> userRepository)
+    private static async Task<IResult> CreateUser(CreateUserRequest request, IUserRepository userRepository)
     {
-        var user = new User
+        var user = new UserEntity
         {
-            DiscordId = request.DiscordId,
+            DiscordId = request.DiscordId ?? string.Empty,
             Email = request.Email,
-            Username = request.Username,
+            Username = request.Username ?? string.Empty,
             AvatarUrl = request.AvatarUrl,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
