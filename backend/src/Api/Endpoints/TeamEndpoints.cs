@@ -14,10 +14,24 @@ public static class TeamEndpoints
         group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams").WithOpenApi();
         group.MapGet("/available", GetAvailableTeams).WithName("GetAvailableTeams").WithOpenApi();
         group.MapGet("/{teamId}", GetTeamDetails).WithName("GetTeamDetails").WithOpenApi();
+        group.MapGet("/{teamId}/content", GetTeamContent).WithName("GetTeamContent").WithOpenApi();
         group.MapPost("/{teamId}/request", RequestToJoinTeam).WithName("RequestToJoinTeam").WithOpenApi();
         group.MapGet("/{teamId}/requests", GetTeamRequests).WithName("GetTeamRequests").WithOpenApi();
         group.MapPatch("/{teamId}/requests/{requestId}/approve", ApproveTeamRequest).WithName("ApproveTeamRequest").WithOpenApi();
         group.MapPatch("/{teamId}/requests/{requestId}/decline", DeclineTeamRequest).WithName("DeclineTeamRequest").WithOpenApi();
+    }
+
+    private static async Task<IResult> GetTeamContent(long teamId, ITeamRepository teamRepository)
+    {
+        try
+        {
+            var content = await teamRepository.GetTeamContentAsync(teamId);
+            return Results.Ok(content);
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
     private static async Task<IResult> CreateTeam(HttpContext context, ITeamRepository teamRepository)

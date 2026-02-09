@@ -13,4 +13,5 @@ public interface ITeamRepository
     Task<bool> ApproveTeamRequestAsync(long teamId, long requestId, long adminUserId);
     Task<bool> DeclineTeamRequestAsync(long teamId, long requestId, long adminUserId);
     Task<TeamDetailsDto?> GetTeamDetailsAsync(long teamId);
+    Task<List<ContentEntity>> GetTeamContentAsync(long teamId);
 }

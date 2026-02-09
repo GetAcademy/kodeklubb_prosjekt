@@ -2,15 +2,15 @@ namespace Persistence.DbModels;
 
 public class TeamMemberEntity
 {
-    public long Id { get; set; }
-    public long TeamId { get; set; }
-    public long UserId { get; set; }
-    public string Role { get; set; } = "member";
-    public string Status { get; set; } = "active";
-    public DateTime JoinedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
-    public int Version { get; set; }
+    public long Id { get; init; }
+    public long TeamId { get; init; }
+    public long UserId { get; init; }
+    public string Role { get; init; } = "member";
+    public string Status { get; init; } = "active";
+    public DateTime JoinedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
+    public int Version { get; init; }
 
-    public TeamEntity? Team { get; set; }
-    public UserEntity? User { get; set; }
+    public TeamEntity? Team { get; init; }
+    public UserEntity? User { get; init; }
 }

@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<TeamTagEntity> TeamTags { get; set; }
     public DbSet<TeamMemberEntity> TeamMembers { get; set; }
     public DbSet<InvitationEntity> Invitations { get; set; }
+    public DbSet<ContentEntity> Nodes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -136,6 +137,24 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.InvitedByUser)
                 .WithMany()
                 .HasForeignKey(e => e.InvitedBy);
+        });
+
+        // Nodes (content)
+        modelBuilder.Entity<ContentEntity>(entity =>
+        {
+            entity.ToTable("nodes");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.TeamId).HasColumnName("team_id");
+            entity.Property(e => e.Title).HasColumnName("title");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.ContentType).HasColumnName("content_type");
+            entity.Property(e => e.ContentUrl).HasColumnName("content_url");
+            entity.Property(e => e.OrderIndex).HasColumnName("order_index");
+            entity.Property(e => e.IsPublished).HasColumnName("is_published");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(e => e.Version).HasColumnName("version");
         });
     }
 }

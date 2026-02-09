@@ -2,11 +2,11 @@ namespace Persistence.DbModels;
 
 public class TeamTagEntity
 {
-    public long Id { get; set; }
-    public long TeamId { get; set; }
-    public long TagId { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public long Id { get; init; }
+    public long TeamId { get; init; }
+    public long TagId { get; init; }
+    public DateTime CreatedAt { get; init; }
 
-    public TeamEntity? Team { get; set; }
-    public TagEntity? Tag { get; set; }
+    public TeamEntity? Team { get; init; }
+    public TagEntity? Tag { get; init; }
 }

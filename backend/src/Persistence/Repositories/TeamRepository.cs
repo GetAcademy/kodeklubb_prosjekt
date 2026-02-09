@@ -304,4 +304,19 @@ public class TeamRepository : ITeamRepository
 
         return teamDto;
     }
+
+    public async Task<List<ContentEntity>> GetTeamContentAsync(long teamId)
+    {
+        // Ensure team exists
+        var teamExists = await _context.Teams.AnyAsync(t => t.Id == teamId);
+        if (!teamExists) return new List<ContentEntity>();
+
+        var nodes = await _context.Nodes
+            .Where(n => n.TeamId == teamId && n.IsPublished)
+            .OrderBy(n => n.OrderIndex)
+            .AsNoTracking()
+            .ToListAsync();
+
+        return nodes;
+    }
 }
