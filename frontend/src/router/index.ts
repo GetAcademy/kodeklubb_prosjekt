@@ -21,7 +21,7 @@ const requiredAuthorization: Array<any> =
 [
   ...teamRoutes,
   ...profileRoutes,
-  { path: "/discover", name : "Utforsk grupper", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/discover", name : "Utforsk grupper", component: () => import(`../views/Discover.vue`), meta: {requiresAuth: true} },
   { path: "/logout", name : "logout", component: () => import(`../views/Index.vue`), meta: {requiresAuth: true} },
 ];
 
@@ -62,7 +62,7 @@ axios.post(`${baseApi}/api/users`, {
       //email: user.email,
       //discordId: user.id,
       //username: user.username,
-      //avatarUrl: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null})
+      //avatarUrl: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null
       })//.catch(err => { console.error('Failed to save user to database', err);});
     });
 export default router;
