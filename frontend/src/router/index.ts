@@ -9,10 +9,10 @@ const profileRoutes: Array<Record<string, any>> =
 
 const teamRoutes: Array<Record<string, any>> = 
 [
-  { path: "/teams/:id", name : "medlemmer", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/teams/:id/members", name : "medlemmer", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/teams/:id/news", name : "aktuelt", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/teams/:id/description", name : "Om gruppen", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/teams/:id", name : "medlemmer", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true, isTeam: true} },
+  { path: "/teams/:id/members", name : "medlemmer", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true, isTeam: true} },
+  { path: "/teams/:id/news", name : "aktuelt", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true, isTeam: true} },
+  { path: "/teams/:id/description", name : "Om gruppen", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true, isTeam: true} },
 ];
 
 const requiredAuthorization: Array<any> =
@@ -46,11 +46,7 @@ router.beforeEach((to, from, next) =>
 
     } catch (err) {console.error('Failed to parse user from query', err);}
   }
-router.afterEach((to) => {
-  if (Object.keys(to.query).length > 0) router.replace({ path: to.path,  query: {}, hash: to.hash});
-
-  // Save user to database
+router.afterEach((to) => { if (Object.keys(to.query).length > 0) router.replace({ path: to.path,  query: {}, hash: to.hash }); });
   next();
   });
-});
 export default router;
