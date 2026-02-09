@@ -1,5 +1,7 @@
+import axios from 'axios';
 import { useAuthStore } from '../stores/authStore.ts';
 import { createRouter, createWebHistory } from 'vue-router';
+
 
 const profileRoutes: Array<Record<string, any>> = 
 [
@@ -46,7 +48,21 @@ router.beforeEach((to, from, next) =>
 
     } catch (err) {console.error('Failed to parse user from query', err);}
   }
-router.afterEach((to) => { if (Object.keys(to.query).length > 0) router.replace({ path: to.path,  query: {}, hash: to.hash }); });
   next();
-  });
+});
+
+router.afterEach((to) => { if (Object.keys(to.query).length > 0) router.replace({ path: to.path,  query: {}, hash: to.hash }); });
+    // Save user to database
+const baseApi = import.meta.env.VITE_BASE_API;
+
+axios.post(`${baseApi}/api/users`, {
+    headers: {'Content-Type': 'application/json',},
+    body: JSON.stringify(
+    {
+      //email: user.email,
+      //discordId: user.id,
+      //username: user.username,
+      //avatarUrl: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null})
+      })//.catch(err => { console.error('Failed to save user to database', err);});
+    });
 export default router;
