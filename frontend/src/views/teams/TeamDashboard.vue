@@ -43,12 +43,13 @@
 
     // --- Importing Dependencies & Types
     import { storeToRefs } from 'pinia';
-    import { useRoute } from 'vue-router';
+    import { useRoute, useRouter } from 'vue-router';
     import { computed, onMounted, ref } from 'vue';
     import { useAuthStore } from '@/stores/authStore';
 
     // --- Router Logic
     const router = useRouter()
+    const route = useRoute()
 
     const menu = computed(() =>
     {
@@ -73,10 +74,11 @@
         discordId?: string | null;
     } | null;
     };
-
+  
+    console.log(route.value)
     const authStore = useAuthStore();
     const { user } = storeToRefs(authStore);
-    const teamId = computed(() => router.params.teamId as string);
+    const teamId = computed(() => route.params.teamId as string);
 
     const requests = ref<TeamRequest[]>([]);
     const requestsLoading = ref(false);
