@@ -40,8 +40,9 @@
 			"Docker",
 			"DIR",
 			"Utils",
-      "Typo",
-			"Mermaid-Diagram"
+			"Typo",
+			"Mermaid-Diagram",
+			"ENV"
 		]
 	},
 	"recommendations": [

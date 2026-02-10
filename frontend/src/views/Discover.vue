@@ -44,7 +44,7 @@
     import { storeToRefs } from 'pinia';
     import { useAuthStore } from '@/stores/authStore';
 
-    type TeamListItem = {
+    interface TeamListItem {
         id: number;
         name: string;
         description?: string | null;
@@ -72,6 +72,7 @@
             const query = discordId ? `?discordId=${encodeURIComponent(discordId)}` : '';
 
             const response = await fetch(`${baseApi}/api/discover/available${query}`);
+            console.log(response)
             if (!response.ok) {
                 throw new Error('Kunne ikke hente teams.');
             }
