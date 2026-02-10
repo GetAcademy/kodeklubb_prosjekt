@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using Dapper;
 using System.Text.Json;
+using Core.State;
+using Persistence.DbModels;
 
 namespace Api.Endpoints;
 
@@ -31,7 +33,7 @@ public static class TeamEndpoints
     private static Task<IResult> GetTeamContent(Guid teamId)
     {
         // TODO: Refactor to use Dapper + Core pattern
-        return Task.FromResult(Results.StatusCode(501));
+        return Task.FromResult(Results.StatusCode(501)); // return new Result
     }
 
     private static async Task<IResult> CreateTeam(HttpContext context)
@@ -206,10 +208,70 @@ public static class TeamEndpoints
         return Results.Ok(results);
     }
 
-    private static Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context)
+    private static async Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context)
     {
         // TODO: Refactor to use Dapper + Core pattern
-        return Task.FromResult(Results.StatusCode(501));
+        /*
+         * var result = TeamResult.Handle()
+         * if (result.Outcome == OutcomeStatus.Accepted) {
+         *      _db.ExecuteAsync();
+         * }
+         */
+        // var body = await context.Request.ReadFromJsonAsync<JoinRequestDto>();
+        // if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
+        // {
+        //     return Results.BadRequest(new { message = "discord id is required" });
+        // }
+        await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
+        await connection.OpenAsync();
+        
+        // 1) Load team row
+        var teamSql = SqlLoader.Load("Queries/Team_GetById.sql");
+        var teamRow = await connection.QuerySingleOrDefaultAsync<TeamEntity>(teamSql, new { Id = teamId });
+        if (teamRow == null)
+        {
+            return Results.NotFound(new { message = "Team not found" });
+        }
+        // 2) Load members, requests, etc.
+        var membersSql = SqlLoader.Load("Queries/TeamMembers_GetByTeamId.sql");
+        var members = (await connection.QueryAsync<Guid>(membersSql, new { TeamId = teamId })).ToList();
+        var requestsSql = SqlLoader.Load("Queries/Team_GetInvitations.sql");
+        var requests = (await connection.QueryAsync<TeamRequestEntity>(requestsSql, new { TeamId = teamId })).ToList();
+        var reqInvitations = new List<Guid>();
+        foreach (var request in requests)
+        {
+            reqInvitations.Add(request.userId);
+        }
+        
+        // 3) Map to Core.State.TeamState
+        // var teamState = new TeamState
+        // {
+        //     TeamId = teamRow.Id,
+        //     Members = members,
+        //     PendingInvitations = reqInvitations
+        // };
+        // 4) Call core
+        // var cmd = new RequestToJoinTeamCommand(body.DiscordId);
+        var now = DateTime.Now;
+        // var result = TeamService.HandleRequestToJoinTeam(teamState, cmd, now);
+        //
+        // if (result.Outcome.Status == OutcomeStatus.Rejected)
+        // {
+        //     return Results.BadRequest(result.Outcome.Message);
+        // }
+        
+        
+        // 5) Persist changes in a transaction (write request row + outbox + bump version)
+        await using var tx = await connection.BeginTransactionAsync();
+
+        // Results.Ok(new { message = result.Outcome.Message, status = result.Outcome.Status });
+
+        // var sql = SqlLoader.Load("/Queries/Teams_GetAvailable.sql");
+        // var teams = await connection.QueryAsync<Persistence.DbModels.TeamEntity>(sql);
+        // var selectedTeam = teams.Where(team => team.Id == teamId);
+        //
+        // var status = TeamService.HandleRequestToJoinTeam(new TeamState());
+        return Results.Ok();
     }
 
     private static Task<IResult> GetTeamRequests(Guid teamId)

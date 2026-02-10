@@ -30,7 +30,7 @@ public class Tests
             var teamState = new TeamState(_teamId, new List<Guid> { _invitedByUserId }, new List<Guid> { });
             var command = new InviteUserToTeamCommand(teamState.TeamId, _invitedUserId, _invitedByUserId);
 
-            var result = TeamService.Handle(teamState, command, _now);
+            var result = TeamService.HandleInviteToTeam(teamState, command, _now);
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(result.NewState.PendingInvitations, Contains.Item(_invitedUserId));
