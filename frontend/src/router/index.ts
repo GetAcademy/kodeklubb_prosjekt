@@ -48,11 +48,7 @@ router.beforeEach((to, from, next) =>
 
     } catch (err) {console.error('Failed to parse user from query', err);}
   }
-router.afterEach((to) => {
-  if (Object.keys(to.query).length > 0) router.replace({ path: to.path,  query: {}, hash: to.hash});
-
-  // Save user to database
   next();
-  });
 });
+router.afterEach((to) => { if (Object.keys(to.query).length > 0) router.replace({ path: to.path,  query: {}, hash: to.hash});});
 export default router;
