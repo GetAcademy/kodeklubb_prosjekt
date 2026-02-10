@@ -9,6 +9,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/src/Persistence/Sql/Migrations/001_InitialSchema.sql:/docker-entrypoint-initdb.d/__init__.sql:ro
       - ./backend/src/Persistence/Sql/Commands/create_team_transaction_v2.sql:/docker-entrypoint-initdb.d/dummyData.sql:ro
+      - ./backend/logs/db/postgress:/app/logs
     env_file:
       - .env
 
@@ -20,6 +21,7 @@ services:
       - "8080:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+      - ./backend/logs/db:/app/logs
 
     env_file:
       - .env
@@ -41,6 +43,7 @@ services:
 
     volumes:
       - ./backend/src:/src
+      - ./backend/logs/api:/app/logs
 
 volumes:
   postgres_data:
