@@ -57,10 +57,7 @@
         {return { type: 'router', path: route.path, label: toTitleCase(route.name.toString()), cls:'router-btn'};});
     });
 
-    function toTitleCase(str: string)
-    {
-        return str.replace(/\w\S*/g, function(txt) { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
-    }
+    function toTitleCase(str: string) { return str.replace(/\w\S*/g, (txt) => { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(); } );}
 
     type TeamRequest = {
     id: string;
