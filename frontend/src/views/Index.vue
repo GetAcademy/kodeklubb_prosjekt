@@ -3,6 +3,30 @@
 <template>
     <section v-if="!!isAuthenticated && user">
         <UtilsDashboard :data="user" />
+        
+        <section v-if="userTeamsLoading" class="loading">
+            <p>Laster teams...</p>
+        </section>
+        
+        <section v-else-if="userTeamsError" class="error">
+            <p>{{ userTeamsError }}</p>
+        </section>
+        
+        <section v-else-if="userTeams.length === 0" class="empty">
+            <p>Du er ikke medlem av noen teams enda.</p>
+        </section>
+        
+        <div v-else class="teams-grid">
+            <div v-for="team in userTeams" :key="team.id" class="team-card">
+                <RouterLink :to="`/teams/${team.id}`">
+                    <h3>{{ team.name }}</h3>
+                    <p v-if="team.description">{{ team.description }}</p>
+                </RouterLink>
+                <div v-if="team.tags && team.tags.length" class="tags">
+                    <span v-for="tag in team.tags" :key="tag" class="tag">{{ tag }}</span>
+                </div>
+            </div>
+        </div>
     </section>
     <section v-else>
         {{ isAuthenticated }}
@@ -12,6 +36,7 @@
 <script lang="ts" setup>
 
     // --- Importing Dependencies & Types
+    import { ref, onMounted } from 'vue';
     import { storeToRefs } from 'pinia';
     import { useAuthStore } from '@/stores/authStore';
     import { RouterLink } from 'vue-router';
@@ -33,7 +58,8 @@
         userTeamsLoading.value = true;
         userTeamsError.value = '';
         try {
-            const response = await fetch(`/api/discover/my-teams?discordId=${user.value?.id}`);
+            const baseApi = import.meta.env.VITE_BASE_API || '';
+            const response = await fetch(`${baseApi}/api/discover/my-teams?discordId=${user.value?.id}`);
             if (!response.ok) {
                 throw new Error('Failed to fetch user teams');
             }

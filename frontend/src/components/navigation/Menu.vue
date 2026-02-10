@@ -8,7 +8,7 @@
                         :to="item.path"
                         v-slot="{ navigate }"
                         :class="[{ 'active': $route.path === item.path}]">
-                        <span @click="!!item.action ? item.action(navigate): null ">{{ item.label }}</span>
+                        <span @click="item.action ? item.action(navigate) : navigate()">{{ item.label }}</span>
                     </RouterLink>
 
                     <NavigationAnchor v-if="!!isAnchor && !!item.anchor"

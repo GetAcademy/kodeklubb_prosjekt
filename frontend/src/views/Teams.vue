@@ -27,9 +27,13 @@
                 <ul v-if="team.tags.length" class="team-tags">
                     <li v-for="tag in team.tags" :key="tag">{{ tag }}</li>
                 </ul>
-                <button @click="joinTeam(team.id)" :disabled="joiningTeamId === team.id">
+                <button 
+                    v-if="team.isOpenToJoinRequests"
+                    @click="joinTeam(team.id)" 
+                    :disabled="joiningTeamId === team.id">
                     {{ joiningTeamId === team.id ? 'Blir med...' : 'Bli med' }}
                 </button>
+                <p v-else class="closed-team">Dette teamet er stengt for nye medlemmer</p>
             </li>
         </ul>
     </section>
@@ -44,6 +48,7 @@
         id: number;
         name: string;
         description?: string | null;
+        isOpenToJoinRequests: boolean;
         createdBy: number;
         createdAt: string;
         tags: string[];

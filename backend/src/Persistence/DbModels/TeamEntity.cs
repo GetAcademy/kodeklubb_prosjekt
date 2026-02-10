@@ -2,15 +2,16 @@ namespace Persistence.DbModels;
 
 public class TeamEntity
 {
-    public long Id { get; init; }
+    public Guid Id { get; init; }
     public string Name { get; init; } = string.Empty;
     public string? Description { get; init; }
-    public long CreatedBy { get; init; }
-    public long TeamAdminId { get; init; } // Non-nullable team admin user ID
+    public string? Location { get; init; }
+    public string? DiscordLink { get; init; }
+    public string? MeetingSchedule { get; init; }
+    public bool IsOpenToJoinRequests { get; init; } = true;
+    public Guid CreatedBy { get; init; }
+    public Guid TeamAdminId { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public int Version { get; init; }
-
-    public ICollection<TeamTagEntity> TeamTags { get; init; } = new List<TeamTagEntity>();
-    public ICollection<TeamMemberEntity> TeamMembers { get; init; } = new List<TeamMemberEntity>();
 }

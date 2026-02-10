@@ -5,8 +5,32 @@ using Core.State;
 
 namespace Core.Logic;
 
-public record TeamService()
+public static class TeamService
 {
+    public static (Outcome outcome, List<IDomainEvent> events) Handle(
+        CreateTeamCommand command,
+        DateTime now
+    )
+    {
+        // Validate team name
+        if (string.IsNullOrWhiteSpace(command.Name))
+            return (Outcome.Rejected("Team name is required"), new List<IDomainEvent>());
+
+        if (command.Name.Length > 100)
+            return (Outcome.Rejected("Team name must be 100 characters or less"), new List<IDomainEvent>());
+
+        // Create the event
+        var teamCreated = new TeamCreated(
+            command.TeamId,
+            command.Name,
+            command.Description,
+            command.AdminUserId,
+            now
+        );
+
+        return (Outcome.Accepted(), new List<IDomainEvent> { teamCreated });
+    }
+
     public static TeamResult Handle(
         TeamState state,
         InviteUserToTeamCommand command,

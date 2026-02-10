@@ -35,7 +35,7 @@
             switch (route.path)
             {
                 case '/': return { type: 'router', path: route.path, label: toTitleCase('dashboard'), cls:'router-btn'};
-                case '/logout': return { type: 'router', path: route.path, cls:"logout-btn", label: toTitleCase(route.name?.toString()), action: async() => {await authStore.logout();await router.replace('/');}, icon: 'logout' };
+                case '/logout': return { type: 'router', path: route.path, cls:"logout-btn", label: toTitleCase(route.name?.toString()), action: async(navigate) => {await authStore.logout(); navigate();}, icon: 'logout' };
                 default : return { type: 'router', path: route.path, label: toTitleCase(route.name.toString()), cls:'router-btn'};
             }
         });

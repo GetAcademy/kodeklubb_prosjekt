@@ -1,6 +1,13 @@
-using Persistence.Repositories;
+using Api;
+using Persistence;
 using Core.Commands;
+using Core.Logic;
+using Core.Outcomes;
+using Core.DomainEvents;
 using Microsoft.AspNetCore.Mvc;
+using Npgsql;
+using Dapper;
+using System.Text.Json;
 
 namespace Api.Endpoints;
 
@@ -8,57 +15,139 @@ public static class TeamEndpoints
 {
     public static void MapTeamEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/discover").WithName("Teams").WithOpenApi();
+        var group = app.MapGroup("/api/discover").WithName("Teams");
 
-        group.MapPost("/", CreateTeam).WithName("CreateTeam").WithOpenApi();
-        group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams").WithOpenApi();
-        group.MapGet("/available", GetAvailableTeams).WithName("GetAvailableTeams").WithOpenApi();
-        group.MapGet("/{teamId}", GetTeamDetails).WithName("GetTeamDetails").WithOpenApi();
-        group.MapGet("/{teamId}/content", GetTeamContent).WithName("GetTeamContent").WithOpenApi();
-        group.MapPost("/{teamId}/request", RequestToJoinTeam).WithName("RequestToJoinTeam").WithOpenApi();
-        group.MapGet("/{teamId}/requests", GetTeamRequests).WithName("GetTeamRequests").WithOpenApi();
-        group.MapPatch("/{teamId}/requests/{requestId}/approve", ApproveTeamRequest).WithName("ApproveTeamRequest").WithOpenApi();
-        group.MapPatch("/{teamId}/requests/{requestId}/decline", DeclineTeamRequest).WithName("DeclineTeamRequest").WithOpenApi();
+        group.MapPost("/", CreateTeam).WithName("CreateTeam");
+        group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams");
+        group.MapGet("/available", GetAvailableTeams).WithName("GetAvailableTeams");
+        group.MapGet("/{teamId}", GetTeamDetails).WithName("GetTeamDetails");
+        group.MapGet("/{teamId}/content", GetTeamContent).WithName("GetTeamContent");
+        group.MapPost("/{teamId}/request", RequestToJoinTeam).WithName("RequestToJoinTeam");
+        group.MapGet("/{teamId}/requests", GetTeamRequests).WithName("GetTeamRequests");
+        group.MapPatch("/{teamId}/requests/{requestId}/approve", ApproveTeamRequest).WithName("ApproveTeamRequest");
+        group.MapPatch("/{teamId}/requests/{requestId}/decline", DeclineTeamRequest).WithName("DeclineTeamRequest");
     }
 
-    private static async Task<IResult> GetTeamContent(long teamId, ITeamRepository teamRepository)
+    private static Task<IResult> GetTeamContent(Guid teamId)
     {
-        try
-        {
-            var content = await teamRepository.GetTeamContentAsync(teamId);
-            return Results.Ok(content);
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
+        // TODO: Refactor to use Dapper + Core pattern
+        return Task.FromResult(Results.StatusCode(501));
     }
 
-    private static async Task<IResult> CreateTeam(HttpContext context, ITeamRepository teamRepository)
+    private static async Task<IResult> CreateTeam(HttpContext context)
     {
         try
         {
             var body = await context.Request.ReadFromJsonAsync<CreateTeamRequest>();
             
-            if (body == null || string.IsNullOrWhiteSpace(body.Name) || body.AdminUserId <= 0)
+            if (body == null || string.IsNullOrWhiteSpace(body.Name) || body.AdminUserId == Guid.Empty)
             {
                 return Results.BadRequest(new { message = "Team name and admin user ID are required" });
             }
 
-            var command = new CreateTeamCommand(body.Name, body.Description, body.AdminUserId);
-            var team = await teamRepository.CreateTeamAsync(command);
-            
-            if (team == null)
-            {
-                return Results.BadRequest(new { message = "Could not create team. Admin user may not exist." });
-            }
+            // 1. Start connection and transaction
+            await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
+            await connection.OpenAsync();
+            await using var transaction = await connection.BeginTransactionAsync();
 
-            return Results.Created($"/api/discover/{team.Id}", new { 
-                teamId = team.Id, 
-                name = team.Name, 
-                adminUserId = team.TeamAdminId,
-                message = "Team created successfully" 
-            });
+            try
+            {
+                // 2. Read state - check if admin user exists
+                var userExistsSql = SqlLoader.Load("Queries/Users_CheckExists.sql");
+                var userExists = await connection.QuerySingleAsync<bool>(
+                    userExistsSql,
+                    new { Id = body.AdminUserId },
+                    transaction);
+
+                if (!userExists)
+                {
+                    await transaction.RollbackAsync();
+                    return Results.BadRequest(new { message = "Admin user not found" });
+                }
+
+                // 3. Call Core with Command
+                var teamId = Guid.NewGuid();
+                var command = new CreateTeamCommand(teamId, body.Name, body.Description, body.AdminUserId);
+                var (outcome, events) = TeamService.Handle(command, DateTime.UtcNow);
+
+                // 4. Check outcome
+                if (outcome.Status == OutcomeStatus.Rejected)
+                {
+                    await transaction.RollbackAsync();
+                    return Results.BadRequest(new { message = outcome.Message });
+                }
+
+                // 5. Persist state based on domain events
+                foreach (var evt in events)
+                {
+                    if (evt is TeamCreated tc)
+                    {
+                        // Insert team
+                        var createTeamSql = SqlLoader.Load("Commands/Teams_Create.sql");
+                        await connection.ExecuteAsync(
+                            createTeamSql,
+                            new
+                            {
+                                Id = tc.TeamId,
+                                Name = tc.Name,
+                                Description = tc.Description,
+                                AdminUserId = tc.AdminUserId
+                            },
+                            transaction);
+
+                        // Insert team member (admin)
+                        var insertMemberSql = SqlLoader.Load("Commands/TeamMembers_Insert.sql");
+                        await connection.ExecuteAsync(
+                            insertMemberSql,
+                            new
+                            {
+                                TeamId = tc.TeamId,
+                                UserId = tc.AdminUserId,
+                                Role = "admin"
+                            },
+                            transaction);
+
+                        // 6. Write to EventLog
+                        var eventLogSql = SqlLoader.Load("Outbox/EventLog_Insert.sql");
+                        await connection.ExecuteAsync(
+                            eventLogSql,
+                            new
+                            {
+                                EventType = nameof(TeamCreated),
+                                Payload = JsonSerializer.Serialize(tc),
+                                OccurredAt = tc.OccurredAt
+                            },
+                            transaction);
+
+                        // 7. Write to Outbox
+                        var outboxSql = SqlLoader.Load("Outbox/Outbox_Insert.sql");
+                        await connection.ExecuteAsync(
+                            outboxSql,
+                            new
+                            {
+                                EventType = nameof(TeamCreated),
+                                Payload = JsonSerializer.Serialize(tc)
+                            },
+                            transaction);
+                    }
+                }
+
+                // 8. Commit transaction
+                await transaction.CommitAsync();
+
+                return Results.Created($"/api/discover/{teamId}", new
+                {
+                    teamId,
+                    name = body.Name,
+                    adminUserId = body.AdminUserId,
+                    message = "Team created successfully"
+                });
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
         catch (Exception ex)
         {
@@ -66,177 +155,94 @@ public static class TeamEndpoints
         }
     }
 
-    private static async Task<IResult> GetAvailableTeams(string? discordId, ITeamRepository teamRepository)
+    private static async Task<IResult> GetAvailableTeams(string? discordId)
     {
-        var teams = await teamRepository.GetAvailableTeamsAsync(discordId);
+        await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
+        await connection.OpenAsync();
+        
+        var sql = SqlLoader.Load("Queries/Teams_GetAvailable.sql");
+        var teams = await connection.QueryAsync<Persistence.DbModels.TeamEntity>(
+            sql, 
+            new { DiscordId = discordId });
 
         var results = teams.Select(team => new TeamListItem(
             team.Id,
             team.Name,
             team.Description,
+            team.IsOpenToJoinRequests,
             team.CreatedBy,
             team.CreatedAt,
-            team.TeamTags
-                .Where(tag => tag.Tag != null)
-                .Select(tag => tag.Tag!.Name)
-                .Distinct()
-                .ToArray()
+            new string[0]
         ));
 
         return Results.Ok(results);
     }
 
-    private static async Task<IResult> GetUserTeams(string? discordId, ITeamRepository teamRepository)
+    private static async Task<IResult> GetUserTeams(string? discordId)
     {
         if (string.IsNullOrWhiteSpace(discordId))
         {
             return Results.BadRequest(new { message = "Discord ID is required" });
         }
 
-        var teams = await teamRepository.GetUserTeamsAsync(discordId);
+        await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
+        await connection.OpenAsync();
+        
+        var sql = SqlLoader.Load("Queries/Teams_GetUserTeams.sql");
+        var teams = await connection.QueryAsync<Persistence.DbModels.TeamEntity>(
+            sql,
+            new { DiscordId = discordId });
 
         var results = teams.Select(team => new TeamListItem(
             team.Id,
             team.Name,
             team.Description,
+            team.IsOpenToJoinRequests,
             team.CreatedBy,
             team.CreatedAt,
-            team.TeamTags
-                .Where(tag => tag.Tag != null)
-                .Select(tag => tag.Tag!.Name)
-                .Distinct()
-                .ToArray()
+            new string[0]
         ));
 
         return Results.Ok(results);
     }
 
-    private static async Task<IResult> RequestToJoinTeam(long teamId, HttpContext context, ITeamRepository teamRepository, IUserRepository userRepository)
+    private static Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context)
     {
-        try
-        {
-            var body = await context.Request.ReadFromJsonAsync<TeamJoinRequest>();
-            
-            if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
-            {
-                return Results.BadRequest(new { message = "Discord ID is required" });
-            }
-
-            // Find user by Discord ID
-            var user = await userRepository.GetByDiscordIdAsync(body.DiscordId);
-            if (user == null)
-            {
-                return Results.BadRequest(new { message = "User not found" });
-            }
-
-            var joinRequest = await teamRepository.RequestToJoinTeamAsync(new RequestToJoinTeamCommand(teamId, user.Id));
-            if (joinRequest == null)
-            {
-                return Results.BadRequest(new { message = "Could not create request" });
-            }
-
-            return Results.Ok(new { message = "Request sent successfully", requestId = joinRequest.Id });
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
+        // TODO: Refactor to use Dapper + Core pattern
+        return Task.FromResult(Results.StatusCode(501));
     }
 
-    private static async Task<IResult> GetTeamRequests(long teamId, ITeamRepository teamRepository)
+    private static Task<IResult> GetTeamRequests(Guid teamId)
     {
-        try
-        {
-            var requests = await teamRepository.GetTeamRequestsAsync(teamId);
-            return Results.Ok(requests);
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
+        // TODO: Refactor to use Dapper + Core pattern
+        return Task.FromResult(Results.StatusCode(501));
     }
 
-    private static async Task<IResult> ApproveTeamRequest(long teamId, long requestId, HttpContext context, ITeamRepository teamRepository, IUserRepository userRepository)
+    private static Task<IResult> ApproveTeamRequest(Guid teamId, Guid requestId, HttpContext context)
     {
-        try
-        {
-            var body = await context.Request.ReadFromJsonAsync<AdminActionRequest>();
-
-            if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
-            {
-                return Results.BadRequest(new { message = "Discord ID is required" });
-            }
-
-            var adminUser = await userRepository.GetByDiscordIdAsync(body.DiscordId);
-            if (adminUser == null)
-            {
-                return Results.BadRequest(new { message = "Admin user not found" });
-            }
-
-            var result = await teamRepository.ApproveTeamRequestAsync(teamId, requestId, adminUser.Id);
-            if (!result)
-            {
-                return Results.Forbid();
-            }
-
-            return Results.Ok(new { message = "Request approved" });
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
+        // TODO: Refactor to use Dapper + Core pattern
+        return Task.FromResult(Results.StatusCode(501));
     }
 
-    private static async Task<IResult> DeclineTeamRequest(long teamId, long requestId, HttpContext context, ITeamRepository teamRepository, IUserRepository userRepository)
+    private static Task<IResult> DeclineTeamRequest(Guid teamId, Guid requestId, HttpContext context)
     {
-        try
-        {
-            var body = await context.Request.ReadFromJsonAsync<AdminActionRequest>();
-
-            if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
-            {
-                return Results.BadRequest(new { message = "Discord ID is required" });
-            }
-
-            var adminUser = await userRepository.GetByDiscordIdAsync(body.DiscordId);
-            if (adminUser == null)
-            {
-                return Results.BadRequest(new { message = "Admin user not found" });
-            }
-
-            var result = await teamRepository.DeclineTeamRequestAsync(teamId, requestId, adminUser.Id);
-            if (!result)
-            {
-                return Results.Forbid();
-            }
-
-            return Results.Ok(new { message = "Request declined" });
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
+        // TODO: Refactor to use Dapper + Core pattern
+        return Task.FromResult(Results.StatusCode(501));
     }
 
-    private static async Task<IResult> GetTeamDetails(long teamId, ITeamRepository teamRepository)
+    private static Task<IResult> GetTeamDetails(Guid teamId)
     {
-        try
-        {
-            var team = await teamRepository.GetTeamDetailsAsync(teamId);
-            return Results.Ok(team);
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
+        // TODO: Refactor to use Dapper + Core pattern
+        return Task.FromResult(Results.StatusCode(501));
     }
 }
 
 public record TeamListItem(
-    long Id,
+    Guid Id,
     string Name,
     string? Description,
-    long CreatedBy,
+    bool IsOpenToJoinRequests,
+    Guid CreatedBy,
     DateTime CreatedAt,
     string[] Tags
 );
@@ -244,7 +250,7 @@ public record TeamListItem(
 public record CreateTeamRequest(
     string Name,
     string? Description,
-    long AdminUserId
+    Guid AdminUserId
 );
 
 public record AdminActionRequest(

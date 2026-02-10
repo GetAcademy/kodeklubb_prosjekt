@@ -17,7 +17,7 @@
         <li v-for="request in requests" :key="request.id" class="request-item">
           <div class="request-info">
             <strong>{{ request.invitedUser?.username ?? 'Ukjent bruker' }}</strong>
-            <span class="request-meta">ID: {{ request.invitedUserId }}</span>
+            <span class="request-meta">Discord: {{ request.invitedUser?.discordId }}</span>
           </div>
           <div class="request-actions">
             <button
@@ -46,13 +46,13 @@ import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/stores/authStore';
 
 type TeamRequest = {
-  id: number;
-  teamId: number;
-  invitedUserId: number;
+  id: string;
+  teamId: string;
+  invitedUserId: string;
   status: string;
   invitedAt: string;
   invitedUser?: {
-    id: number;
+    id: string;
     username?: string | null;
     discordId?: string | null;
   } | null;
@@ -61,12 +61,12 @@ type TeamRequest = {
 const route = useRoute();
 const authStore = useAuthStore();
 const { user } = storeToRefs(authStore);
-const teamId = computed(() => Number(route.params.teamId));
+const teamId = computed(() => route.params.teamId as string);
 
 const requests = ref<TeamRequest[]>([]);
 const requestsLoading = ref(false);
 const requestsError = ref<string | null>(null);
-const actionRequestId = ref<number | null>(null);
+const actionRequestId = ref<string | null>(null);
 const teamDetails = ref<any | null>(null);
 const teamLoading = ref(false);
 const teamError = ref<string | null>(null);
@@ -76,7 +76,7 @@ async function fetchRequests() {
   requestsError.value = null;
 
   try {
-    const baseApi = import.meta.env.VITE_BASE_API;
+    const baseApi = import.meta.env.VITE_BASE_API || '';
     const response = await fetch(`${baseApi}/api/discover/${teamId.value}/requests`);
     if (!response.ok) {
       throw new Error('Kunne ikke hente forespørsler.');
@@ -90,7 +90,7 @@ async function fetchRequests() {
   }
 }
 
-async function approveRequest(requestId: number) {
+async function approveRequest(requestId: string) {
   if (!user.value?.id) {
     requestsError.value = 'Du må være logget inn som admin.';
     return;
@@ -98,7 +98,7 @@ async function approveRequest(requestId: number) {
 
   actionRequestId.value = requestId;
   try {
-    const baseApi = import.meta.env.VITE_BASE_API;
+    const baseApi = import.meta.env.VITE_BASE_API || '';
     const response = await fetch(
       `${baseApi}/api/discover/${teamId.value}/requests/${requestId}/approve`,
       {
@@ -122,7 +122,7 @@ async function approveRequest(requestId: number) {
   }
 }
 
-async function declineRequest(requestId: number) {
+async function declineRequest(requestId: string) {
   if (!user.value?.id) {
     requestsError.value = 'Du må være logget inn som admin.';
     return;
@@ -130,7 +130,7 @@ async function declineRequest(requestId: number) {
 
   actionRequestId.value = requestId;
   try {
-    const baseApi = import.meta.env.VITE_BASE_API;
+    const baseApi = import.meta.env.VITE_BASE_API || '';
     const response = await fetch(
       `${baseApi}/api/discover/${teamId.value}/requests/${requestId}/decline`,
       {
@@ -158,7 +158,7 @@ async function fetchTeamDetails() {
   teamLoading.value = true;
   teamError.value = null;
   try {
-    const baseApi = import.meta.env.VITE_BASE_API;
+    const baseApi = import.meta.env.VITE_BASE_API || '';
     const discordId = user.value?.id;
     const url = `${baseApi}/api/discover/${teamId.value}` + (discordId ? `?discordId=${discordId}` : '');
     console.log(url)
