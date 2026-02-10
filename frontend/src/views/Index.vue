@@ -2,44 +2,17 @@
 
 <template>
     <section v-if="!!isAuthenticated && user">
-        <UtilsDashboard :data="user" />
-        
-        <section v-if="userTeamsLoading" class="loading">
-            <p>Laster teams...</p>
-        </section>
-        
-        <section v-else-if="userTeamsError" class="error">
-            <p>{{ userTeamsError }}</p>
-        </section>
-        
-        <section v-else-if="userTeams.length === 0" class="empty">
-            <p>Du er ikke medlem av noen teams enda.</p>
-        </section>
-        
-        <div v-else class="teams-grid">
-            <div v-for="team in userTeams" :key="team.id" class="team-card">
-                <RouterLink :to="`/teams/${team.id}`">
-                    <h3>{{ team.name }}</h3>
-                    <p v-if="team.description">{{ team.description }}</p>
-                </RouterLink>
-                <div v-if="team.tags && team.tags.length" class="tags">
-                    <span v-for="tag in team.tags" :key="tag" class="tag">{{ tag }}</span>
-                </div>
-            </div>
-        </div>
+        <UtilsDashboard :data="user" :teams="userTeams" />
     </section>
-    <section v-else>
-        {{ isAuthenticated }}
-    </section>
+
 </template>
 
 <script lang="ts" setup>
 
     // --- Importing Dependencies & Types
-    import { ref, onMounted } from 'vue';
     import { storeToRefs } from 'pinia';
+    import { onMounted, ref } from 'vue';
     import { useAuthStore } from '@/stores/authStore';
-    import { RouterLink } from 'vue-router';
 
     const authStore = useAuthStore();
     const { user, isAuthenticated } = storeToRefs(authStore);
