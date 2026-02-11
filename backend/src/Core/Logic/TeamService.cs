@@ -45,6 +45,14 @@ public static class TeamService
                 new List<IDomainEvent>()
             );
         }
+        if (state.PendingInvitations.Contains(command.UserId))
+        {
+            return new TeamResult(
+                new Outcome(OutcomeStatus.Rejected, "UserAlreadySentARequest"),
+                state,
+                new List<IDomainEvent>()
+                );
+        }
 
         var newMembers = state.Members
             .Append(command.UserId)
@@ -58,7 +66,7 @@ public static class TeamService
             newState,
             new List<IDomainEvent>
             {
-                new UserInvitedToTeam(state.TeamId, command.UserId, now)
+                new UserRequestedToJoinTeam(state.TeamId, command.UserId, now)
             });
     }
     
