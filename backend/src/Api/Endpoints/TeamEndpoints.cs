@@ -208,7 +208,6 @@ public static class TeamEndpoints
     }
 
     private static async Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context)
-    private static async Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context)
     {
         try
         {
