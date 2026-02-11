@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using Dapper;
 using System.Text.Json;
+using Core.State;
+using Persistence.DbModels;
 
 namespace Api.Endpoints;
 
@@ -31,7 +33,7 @@ public static class TeamEndpoints
     private static Task<IResult> GetTeamContent(Guid teamId)
     {
         // TODO: Refactor to use Dapper + Core pattern
-        return Task.FromResult(Results.StatusCode(501));
+        return Task.FromResult(Results.StatusCode(501)); // return new Result
     }
 
     private static async Task<IResult> CreateTeam(HttpContext context)
@@ -205,6 +207,7 @@ public static class TeamEndpoints
         return Results.Ok(results);
     }
 
+    private static async Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context)
     private static async Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context)
     {
         try

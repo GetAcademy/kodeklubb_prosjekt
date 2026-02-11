@@ -31,7 +31,38 @@ public static class TeamService
         return (Outcome.Accepted(), new List<IDomainEvent> { teamCreated });
     }
 
-    public static TeamResult Handle(
+    public static TeamResult HandleRequestToJoinTeam(
+        TeamState state,
+        RequestToJoinTeamCommand command,
+        DateTime now
+        )
+    {
+        if (state.Members.Contains(command.UserId))
+        {
+            return new TeamResult(
+                new Outcome(OutcomeStatus.Rejected, "UserAlreadyInTeam"),
+                state,
+                new List<IDomainEvent>()
+            );
+        }
+
+        var newMembers = state.Members
+            .Append(command.UserId)
+            .ToList();
+        var newState = state with
+        {
+            Members = newMembers
+        };
+        return new TeamResult(
+            Outcome.Accepted(),
+            newState,
+            new List<IDomainEvent>
+            {
+                new UserInvitedToTeam(state.TeamId, command.UserId, now)
+            });
+    }
+    
+    public static TeamResult HandleInviteToTeam(
         TeamState state,
         InviteUserToTeamCommand command,
         DateTime now
