@@ -1,4 +1,5 @@
 using Api;
+using DotNetEnv;
 using Persistence;
 using Api.Endpoints;
 using Api.Contracts;
@@ -6,7 +7,14 @@ using Persistence.DbModels;
 using Npgsql;
 using Dapper;
 
+DotNetEnv.Env.Load();
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional:false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional:true)
+    .AddEnvironmentVariables();
 
 // Store configuration for static access
 AppConfig.Initialize(builder.Configuration);
