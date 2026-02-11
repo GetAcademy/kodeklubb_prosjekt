@@ -36,11 +36,12 @@
             return !isTeam && isPrivate && !isHidden || isIndex;
         }).map(route =>
         {
+            const routeName = route.name?.toString() || 'Unknown';
             switch (route.path)
             {
                 case '/': return { type: 'router', path: route.path, label: toTitleCase('dashboard'), cls:'router-btn'};
-                case '/logout': return { type: 'router', path: route.path, cls:"logout-btn", label: toTitleCase(route.name?.toString()), action: async(navigate) => {await authStore.logout(); navigate();}, icon: 'logout' };
-                default : return { type: 'router', path: route.path, label: toTitleCase(route.name.toString()), cls:'router-btn'};
+                case '/logout': return { type: 'router', path: route.path, cls:"logout-btn", label: toTitleCase(routeName), action: async(navigate) => {await authStore.logout(); navigate();}, icon: 'logout' };
+                default : return { type: 'router', path: route.path, label: toTitleCase(routeName), cls:'router-btn'};
             }
         });
     });
@@ -48,9 +49,10 @@
     const menu = computed(() =>
     {
         return router.getRoutes().filter(route => !route.meta?.requiresAuth).map(route => {
+            const routeName = route.name?.toString() || 'Unknown';
             if (route.path === '/') { return { type: 'button', 
             data :{label:toTitleCase("discord"), action: () => {window.location.href = discordAPI;}}, cls:"discord-btn"}}
-            return { type: 'router', path: route.path, cls: "router-btn", label: toTitleCase(route.name.toString())};
+            return { type: 'router', path: route.path, cls: "router-btn", label: toTitleCase(routeName)};
         });
     });
 

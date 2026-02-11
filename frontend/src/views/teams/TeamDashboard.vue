@@ -10,8 +10,9 @@
     <section class="requests">
       <h3>Forespørsler</h3>
 
-      <p v-if="requestsLoading">Laster forespørsler…</p>
-      <p v-else-if="requestsError">{{ requestsError }}</p>
+    <p v-if="requestsLoading">Laster forespørsler…</p>
+    <p v-else-if="requestsError" class="error">{{ requestsError }}</p>
+    <p v-else-if="requestsSuccess" class="success">{{ requestsSuccess }}</p>
       <p v-else-if="requests.length === 0">Ingen forespørsler.</p>
 
       <ul v-else class="requests-list">
@@ -54,7 +55,10 @@
     const menu = computed(() =>
     {
         return router.getRoutes().filter(route => route.meta?.isTeam).map(route =>
-        {return { type: 'router', path: route.path, label: toTitleCase(route.name.toString()), cls:'router-btn'};});
+        {
+            const routeName = route.name?.toString() || 'Unknown';
+            return { type: 'router', path: route.path, label: toTitleCase(routeName), cls:'router-btn'};
+        });
     });
 
     function toTitleCase(str: string) { return str.replace(/\w\S*/g, (txt) => { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(); } );}
@@ -72,7 +76,7 @@
     } | null;
     };
   
-    console.log(route.value)
+    // console.log(route)
     const authStore = useAuthStore();
     const { user } = storeToRefs(authStore);
     const teamId = computed(() => route.params.teamId as string);
@@ -81,6 +85,7 @@
     const requestsLoading = ref(false);
     const requestsError = ref<string | null>(null);
     const actionRequestId = ref<string | null>(null);
+    const requestsSuccess = ref<string | null>(null);
     const teamDetails = ref<any | null>(null);
     const teamLoading = ref(false);
     const teamError = ref<string | null>(null);
@@ -88,6 +93,7 @@
     async function fetchRequests() {
     requestsLoading.value = true;
     requestsError.value = null;
+    requestsSuccess.value = null;
 
     try {
         const baseApi = import.meta.env.VITE_BASE_API || '';
@@ -96,7 +102,20 @@
         throw new Error('Kunne ikke hente forespørsler.');
         }
 
-        requests.value = await response.json();
+        const payload = await response.json();
+        const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
+        requests.value = rows.map((row: any) => ({
+            id: row.id,
+            teamId: row.team_id ?? row.teamId,
+            invitedUserId: row.invited_user_id ?? row.invitedUserId,
+            status: row.status,
+            invitedAt: row.invited_at ?? row.invitedAt,
+            invitedUser: {
+                id: row.invited_user_id ?? row.invitedUserId,
+                username: row.username ?? row.invitedUser?.username ?? null,
+                discordId: row.discord_id ?? row.invitedUser?.discordId ?? null
+            }
+        }));
     } catch (err) {
         requestsError.value = err instanceof Error ? err.message : 'Ukjent feil.';
     } finally {
@@ -111,6 +130,8 @@
     }
 
     actionRequestId.value = requestId;
+    requestsError.value = null;
+    requestsSuccess.value = null;
     try {
         const baseApi = import.meta.env.VITE_BASE_API || '';
         const response = await fetch(
@@ -129,6 +150,7 @@
         }
 
         await fetchRequests();
+        requestsSuccess.value = 'Foresporsel godkjent.';
     } catch (err) {
         requestsError.value = err instanceof Error ? err.message : 'Ukjent feil.';
     } finally {
@@ -143,6 +165,8 @@
     }
 
     actionRequestId.value = requestId;
+    requestsError.value = null;
+    requestsSuccess.value = null;
     try {
         const baseApi = import.meta.env.VITE_BASE_API || '';
         const response = await fetch(
@@ -161,6 +185,7 @@
         }
 
         await fetchRequests();
+        requestsSuccess.value = 'Foresporsel avslatt.';
     } catch (err) {
         requestsError.value = err instanceof Error ? err.message : 'Ukjent feil.';
     } finally {

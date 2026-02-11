@@ -1,1 +1,4 @@
-export interface DashboardProps { data: any; }
+export interface DashboardProps {
+	data: any;
+	teams?: any[];
+}

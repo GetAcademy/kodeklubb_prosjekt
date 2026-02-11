@@ -126,4 +126,40 @@ public static class TeamService
 
         return (Outcome.Accepted(), new List<IDomainEvent> { requestEvent });
     }
+
+    public static (Outcome outcome, List<IDomainEvent> events) Handle(
+        ApproveJoinRequestCommand command,
+        Guid userId,
+        DateTime now
+    )
+    {
+        // Create the domain event for approving the join request
+        var approvedEvent = new JoinRequestApproved(
+            command.TeamId,
+            command.RequestId,
+            userId,
+            command.ApprovedByUserId,
+            now
+        );
+
+        return (Outcome.Accepted(), new List<IDomainEvent> { approvedEvent });
+    }
+
+    public static (Outcome outcome, List<IDomainEvent> events) Handle(
+        DeclineJoinRequestCommand command,
+        Guid userId,
+        DateTime now
+    )
+    {
+        // Create the domain event for declining the join request
+        var declinedEvent = new JoinRequestDeclined(
+            command.TeamId,
+            command.RequestId,
+            userId,
+            command.DeclinedByUserId,
+            now
+        );
+
+        return (Outcome.Accepted(), new List<IDomainEvent> { declinedEvent });
+    }
 }

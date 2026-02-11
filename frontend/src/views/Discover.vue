@@ -119,3 +119,79 @@
 
     onMounted(fetchTeams);
 </script>
+
+<style scoped>
+    .teams-container {
+        padding: 1rem 0;
+    }
+
+    .teams-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+        list-style: none;
+        padding: 0;
+    }
+
+    .team-card {
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 1rem;
+        background: #fff;
+        transition: box-shadow 0.2s ease;
+    }
+
+    .team-card:hover {
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .team-card h3 {
+        margin: 0 0 0.5rem 0;
+    }
+
+    .team-card p {
+        margin: 0 0 0.5rem 0;
+        font-size: 0.95rem;
+        color: #666;
+    }
+
+    .team-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0;
+        list-style: none;
+        margin: 0 0 0.75rem 0;
+    }
+
+    .team-tags li {
+        background-color: #f0f0f0;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+
+    .team-card button {
+        padding: 0.4rem 0.75rem;
+        border-radius: 6px;
+        border: 1px solid #0f5ed8;
+        background: #0f5ed8;
+        color: #fff;
+    }
+
+    .team-card button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .closed-team {
+        color: #999;
+        font-size: 0.9rem;
+    }
+
+    .teams-placeholder {
+        padding: 1rem 0;
+        color: #666;
+    }
+</style>

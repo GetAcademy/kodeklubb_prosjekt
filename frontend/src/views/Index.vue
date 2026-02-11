@@ -2,7 +2,9 @@
 
 <template>
     <section v-if="!!isAuthenticated && user">
-        <UtilsDashboard :data="user" :teams="userTeams" />
+        <p v-if="userTeamsLoading" class="loading">Laster teams...</p>
+        <p v-else-if="userTeamsError" class="error">{{ userTeamsError }}</p>
+        <UtilsDashboard v-else :data="user" :teams="userTeams" />
     </section>
 
 </template>
@@ -11,7 +13,7 @@
 
     // --- Importing Dependencies & Types
     import { storeToRefs } from 'pinia';
-    import { onMounted, ref } from 'vue';
+    import { onMounted, ref, watch } from 'vue';
     import { useAuthStore } from '@/stores/authStore';
 
     const authStore = useAuthStore();
@@ -20,12 +22,7 @@
     const userTeams = ref<any[]>([]);
     const userTeamsLoading = ref(false);
     const userTeamsError = ref('');
-
-    onMounted(async () => {
-        if (isAuthenticated.value && user.value?.id) {
-            await fetchUserTeams();
-        }
-    });
+    const lastFetchedDiscordId = ref<string | null>(null);
 
     const fetchUserTeams = async () => {
         userTeamsLoading.value = true;
@@ -36,13 +33,29 @@
             if (!response.ok) {
                 throw new Error('Failed to fetch user teams');
             }
-            userTeams.value = await response.json();
+            const payload = await response.json();
+            userTeams.value = Array.isArray(payload) ? payload : (payload?.value ?? []);
         } catch (error) {
             userTeamsError.value = error instanceof Error ? error.message : 'An error occurred';
         } finally {
             userTeamsLoading.value = false;
         }
     };
+
+    onMounted(async () => {
+        if (isAuthenticated.value && user.value?.id) {
+            await fetchUserTeams();
+        }
+    });
+
+    watch([isAuthenticated, user], async () => {
+        const discordId = user.value?.id || null;
+        if (!isAuthenticated.value || !discordId) return;
+        if (lastFetchedDiscordId.value === discordId) return;
+
+        lastFetchedDiscordId.value = discordId;
+        await fetchUserTeams();
+    }, { immediate: true });
 </script>
 
 <style scoped>

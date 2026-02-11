@@ -208,7 +208,6 @@ public static class TeamEndpoints
     }
 
     private static async Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context)
-    private static async Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context)
     {
         try
         {
@@ -372,22 +371,296 @@ public static class TeamEndpoints
         return Results.Ok(requests);
     }
 
-    private static Task<IResult> ApproveTeamRequest(Guid teamId, Guid requestId, HttpContext context)
+    private static async Task<IResult> ApproveTeamRequest(Guid teamId, Guid requestId, HttpContext context)
     {
-        // TODO: Refactor to use Dapper + Core pattern
-        return Task.FromResult(Results.StatusCode(501));
+        try
+        {
+            var body = await context.Request.ReadFromJsonAsync<AdminActionRequest>();
+            
+            if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
+            {
+                return Results.BadRequest(new { message = "Discord ID is required" });
+            }
+
+            await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
+            await connection.OpenAsync();
+            await using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                // 1. Get admin user
+                var getUserSql = SqlLoader.Load("Queries/Users_GetByDiscordId.sql");
+                var adminUser = await connection.QuerySingleOrDefaultAsync<Persistence.DbModels.UserEntity>(
+                    getUserSql,
+                    new { DiscordId = body.DiscordId },
+                    transaction);
+
+                if (adminUser == null)
+                {
+                    await transaction.RollbackAsync();
+                    return Results.BadRequest(new { message = "User not found" });
+                }
+
+                // 2. Verify admin is member of the team
+                var isMemberSql = "SELECT EXISTS(SELECT 1 FROM team_members WHERE team_id = @TeamId AND user_id = @UserId)";
+                var isAdmin = await connection.QuerySingleAsync<bool>(
+                    isMemberSql,
+                    new { TeamId = teamId, UserId = adminUser.Id },
+                    transaction);
+
+                if (!isAdmin)
+                {
+                    await transaction.RollbackAsync();
+                    return Results.Unauthorized();
+                }
+
+                // 3. Get the invitation/request details
+                var getRequestSql = SqlLoader.Load("Queries/Invitations_GetById.sql");
+                var request = await connection.QuerySingleOrDefaultAsync<InvitationRequest>(
+                    getRequestSql,
+                    new { RequestId = requestId, TeamId = teamId },
+                    transaction);
+
+                if (request == null)
+                {
+                    await transaction.RollbackAsync();
+                    return Results.NotFound(new { message = "Request not found" });
+                }
+
+                if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
+                {
+                    await transaction.RollbackAsync();
+                    return Results.BadRequest(new { message = "Request has already been processed" });
+                }
+
+                var requestingUserId = request.UserId;
+
+                // 4. Call Core with Command
+                var command = new ApproveJoinRequestCommand(teamId, requestId, adminUser.Id);
+                var (outcome, events) = TeamService.Handle(command, requestingUserId, DateTime.UtcNow);
+
+                if (outcome.Status == OutcomeStatus.Rejected)
+                {
+                    await transaction.RollbackAsync();
+                    return Results.BadRequest(new { message = outcome.Message });
+                }
+
+                // 5. Persist state based on domain events
+                foreach (var evt in events)
+                {
+                    if (evt is JoinRequestApproved jra)
+                    {
+                        // Update invitation status
+                        var approveSql = SqlLoader.Load("Commands/Invitations_Approve.sql");
+                        await connection.ExecuteAsync(
+                            approveSql,
+                            new { RequestId = requestId, TeamId = teamId, RespondedAt = jra.OccurredAt },
+                            transaction);
+
+                        // Add user to team
+                        var addMemberSql = SqlLoader.Load("Commands/TeamMembers_Insert.sql");
+                        await connection.ExecuteAsync(
+                            addMemberSql,
+                            new
+                            {
+                                TeamId = teamId,
+                                UserId = jra.UserId,
+                                Role = "member"
+                            },
+                            transaction);
+
+                        // Write to EventLog
+                        var eventLogSql = SqlLoader.Load("Outbox/EventLog_Insert.sql");
+                        await connection.ExecuteAsync(
+                            eventLogSql,
+                            new
+                            {
+                                EventType = nameof(JoinRequestApproved),
+                                OccurredAt = jra.OccurredAt
+                            },
+                            transaction);
+
+                        // Write to Outbox
+                        var outboxSql = SqlLoader.Load("Outbox/Outbox_Insert.sql");
+                        await connection.ExecuteAsync(
+                            outboxSql,
+                            new { EventType = nameof(JoinRequestApproved) },
+                            transaction);
+                    }
+                }
+
+                await transaction.CommitAsync();
+
+                return Results.Ok(new { message = "Request approved successfully" });
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
-    private static Task<IResult> DeclineTeamRequest(Guid teamId, Guid requestId, HttpContext context)
+    private static async Task<IResult> DeclineTeamRequest(Guid teamId, Guid requestId, HttpContext context)
     {
-        // TODO: Refactor to use Dapper + Core pattern
-        return Task.FromResult(Results.StatusCode(501));
+        try
+        {
+            var body = await context.Request.ReadFromJsonAsync<AdminActionRequest>();
+            
+            if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
+            {
+                return Results.BadRequest(new { message = "Discord ID is required" });
+            }
+
+            await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
+            await connection.OpenAsync();
+            await using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                // 1. Get admin user
+                var getUserSql = SqlLoader.Load("Queries/Users_GetByDiscordId.sql");
+                var adminUser = await connection.QuerySingleOrDefaultAsync<Persistence.DbModels.UserEntity>(
+                    getUserSql,
+                    new { DiscordId = body.DiscordId },
+                    transaction);
+
+                if (adminUser == null)
+                {
+                    await transaction.RollbackAsync();
+                    return Results.BadRequest(new { message = "User not found" });
+                }
+
+                // 2. Verify admin is member of the team
+                var isMemberSql = "SELECT EXISTS(SELECT 1 FROM team_members WHERE team_id = @TeamId AND user_id = @UserId)";
+                var isAdmin = await connection.QuerySingleAsync<bool>(
+                    isMemberSql,
+                    new { TeamId = teamId, UserId = adminUser.Id },
+                    transaction);
+
+                if (!isAdmin)
+                {
+                    await transaction.RollbackAsync();
+                    return Results.Unauthorized();
+                }
+
+                // 3. Get the invitation/request details
+                var getRequestSql = SqlLoader.Load("Queries/Invitations_GetById.sql");
+                var request = await connection.QuerySingleOrDefaultAsync<InvitationRequest>(
+                    getRequestSql,
+                    new { RequestId = requestId, TeamId = teamId },
+                    transaction);
+
+                if (request == null)
+                {
+                    await transaction.RollbackAsync();
+                    return Results.NotFound(new { message = "Request not found" });
+                }
+
+                if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
+                {
+                    await transaction.RollbackAsync();
+                    return Results.BadRequest(new { message = "Request has already been processed" });
+                }
+
+                var requestingUserId = request.UserId;
+
+                // 4. Call Core with Command
+                var command = new DeclineJoinRequestCommand(teamId, requestId, adminUser.Id);
+                var (outcome, events) = TeamService.Handle(command, requestingUserId, DateTime.UtcNow);
+
+                if (outcome.Status == OutcomeStatus.Rejected)
+                {
+                    await transaction.RollbackAsync();
+                    return Results.BadRequest(new { message = outcome.Message });
+                }
+
+                // 5. Persist state based on domain events
+                foreach (var evt in events)
+                {
+                    if (evt is JoinRequestDeclined jrd)
+                    {
+                        // Update invitation status
+                        var declineSql = SqlLoader.Load("Commands/Invitations_Decline.sql");
+                        await connection.ExecuteAsync(
+                            declineSql,
+                            new { RequestId = requestId, TeamId = teamId, RespondedAt = jrd.OccurredAt },
+                            transaction);
+
+                        // Write to EventLog
+                        var eventLogSql = SqlLoader.Load("Outbox/EventLog_Insert.sql");
+                        await connection.ExecuteAsync(
+                            eventLogSql,
+                            new
+                            {
+                                EventType = nameof(JoinRequestDeclined),
+                                OccurredAt = jrd.OccurredAt
+                            },
+                            transaction);
+
+                        // Write to Outbox
+                        var outboxSql = SqlLoader.Load("Outbox/Outbox_Insert.sql");
+                        await connection.ExecuteAsync(
+                            outboxSql,
+                            new { EventType = nameof(JoinRequestDeclined) },
+                            transaction);
+                    }
+                }
+
+                await transaction.CommitAsync();
+
+                return Results.Ok(new { message = "Request declined successfully" });
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
-    private static Task<IResult> GetTeamDetails(Guid teamId)
+    private static async Task<IResult> GetTeamDetails(Guid teamId, string? discordId)
     {
-        // TODO: Refactor to use Dapper + Core pattern
-        return Task.FromResult(Results.StatusCode(501));
+        await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
+        await connection.OpenAsync();
+
+        var getTeamSql = SqlLoader.Load("Queries/Teams_GetById.sql");
+        var team = await connection.QuerySingleOrDefaultAsync<Persistence.DbModels.TeamEntity>(
+            getTeamSql,
+            new { Id = teamId });
+
+        if (team == null)
+        {
+            return Results.NotFound(new { message = "Team not found" });
+        }
+
+        if (string.IsNullOrWhiteSpace(discordId))
+        {
+            return Results.Ok(team);
+        }
+
+        var isMemberSql = @"
+            SELECT EXISTS(
+                SELECT 1
+                FROM team_members tm
+                INNER JOIN users u ON u.id = tm.user_id
+                WHERE tm.team_id = @TeamId
+                  AND u.discord_id = @DiscordId
+            );";
+
+        var isMember = await connection.QuerySingleAsync<bool>(
+            isMemberSql,
+            new { TeamId = teamId, DiscordId = discordId });
+
+        return Results.Ok(new { team, isMember });
     }
 }
 
@@ -409,5 +682,10 @@ public record CreateTeamRequest(
 
 public record AdminActionRequest(
     string DiscordId
+);
+
+public record InvitationRequest(
+    Guid UserId,
+    string Status
 );
 
