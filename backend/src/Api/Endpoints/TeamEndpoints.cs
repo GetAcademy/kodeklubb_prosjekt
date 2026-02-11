@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using Dapper;
 using System.Text.Json;
+using Core.Models;
 using Core.State;
 using Persistence.DbModels;
 
@@ -227,71 +228,56 @@ public static class TeamEndpoints
             {
                 // 2. Read state - get user by discord ID
                 var getUserSql = SqlLoader.Load("Queries/Users_GetByDiscordId.sql");
-                var user = await connection.QuerySingleOrDefaultAsync<Persistence.DbModels.UserEntity>(
+                var user = await connection.QuerySingleOrDefaultAsync<UserEntity>(
                     getUserSql,
-                    new { DiscordId = body.DiscordId },
+                    new { body.DiscordId },
                     transaction);
-
+                
                 if (user == null)
                 {
                     await transaction.RollbackAsync();
                     return Results.BadRequest(new { message = "User not found" });
                 }
 
-                // Check if team exists
-                var teamExistsSql = "SELECT EXISTS(SELECT 1 FROM teams WHERE id = @TeamId)";
-                var teamExists = await connection.QuerySingleAsync<bool>(
+                // Retrieve team
+                var teamExistsSql = "SELECT * FROM teams WHERE id = @TeamId";
+                var team = await connection.QuerySingleOrDefaultAsync<TeamEntity>(
                     teamExistsSql,
-                    new { TeamId = teamId },
                     transaction);
 
-                if (!teamExists)
+                if (team == null)
                 {
                     await transaction.RollbackAsync();
                     return Results.NotFound(new { message = "Team not found" });
                 }
 
-                // Check if user is already a member
-                var memberExistsSql = "SELECT EXISTS(SELECT 1 FROM team_members WHERE team_id = @TeamId AND user_id = @UserId)";
-                var isAlreadyMember = await connection.QuerySingleAsync<bool>(
-                    memberExistsSql,
-                    new { TeamId = teamId, UserId = user.Id },
-                    transaction);
+                // Retrieve team members
+                var allTeamMembersSql = "SELECT user_id FROM team_members WHERE team_id = @TeamId";
+                var userIds = (await connection.QueryAsync<Guid>(
+                    allTeamMembersSql,
+                    transaction)).ToList();
+                
+                // Retrieve team invitations
+                var allTeamInvitesSql = "SELECT invited_user_id FROM invitations WHERE team_id = @TeamId";
+                var teamInvitations = (await connection.QueryAsync<Guid>(
+                    allTeamInvitesSql,
+                    transaction)).ToList();
 
-                if (isAlreadyMember)
-                {
-                    await transaction.RollbackAsync();
-                    return Results.BadRequest(new { message = "User is already a member of this team" });
-                }
-
-                // Check if there's already a pending request
-                var checkExistingSql = SqlLoader.Load("Queries/Invitations_CheckExisting.sql");
-                var hasExistingRequest = await connection.QuerySingleAsync<bool>(
-                    checkExistingSql,
-                    new { TeamId = teamId, UserId = user.Id },
-                    transaction);
-
-                if (hasExistingRequest)
-                {
-                    await transaction.RollbackAsync();
-                    return Results.BadRequest(new { message = "A pending request already exists" });
-                }
-
-                // 3. Call Core with Command
-                var command = new RequestToJoinTeamCommand(teamId, user.Id);
-                var (outcome, events) = TeamService.Handle(command, DateTime.UtcNow);
+                var teamState = new TeamState(teamId, userIds, teamInvitations);
+                var cmd = new RequestToJoinTeamCommand(teamId, user.Id);
+                var result = TeamService.HandleRequestToJoinTeam(teamState, cmd, DateTime.UtcNow);
 
                 // 4. Check outcome
-                if (outcome.Status == OutcomeStatus.Rejected)
+                if (result.Outcome.Status == OutcomeStatus.Rejected)
                 {
                     await transaction.RollbackAsync();
-                    return Results.BadRequest(new { message = outcome.Message });
+                    return Results.BadRequest(new { message = result.Outcome.Message });
                 }
 
                 // 5. Persist state based on domain events
-                foreach (var evt in events)
+                foreach (var evt in result.Events)
                 {
-                    if (evt is UserRequestedToJoinTeam urjtj)
+                    if (evt is UserRequestedToJoinTeam userRequest)
                     {
                         var invitationId = Guid.NewGuid();
                         
@@ -302,11 +288,11 @@ public static class TeamEndpoints
                             new
                             {
                                 Id = invitationId,
-                                TeamId = urjtj.TeamId,
-                                InvitedUserId = urjtj.UserId,
-                                InvitedBy = urjtj.UserId,  // Self-requested
+                                TeamId = userRequest.TeamId,
+                                InvitedUserId = userRequest.UserId,
+                                InvitedBy = userRequest.UserId,  // Self-requested
                                 Status = "pending",
-                                InvitedAt = urjtj.OccurredAt
+                                InvitedAt = userRequest.OccurredAt
                             },
                             transaction);
 
@@ -318,7 +304,7 @@ public static class TeamEndpoints
                             {
                                 EventType = nameof(UserRequestedToJoinTeam),
                                
-                                OccurredAt = urjtj.OccurredAt
+                                OccurredAt = userRequest.OccurredAt
                             },
                             transaction);
 
