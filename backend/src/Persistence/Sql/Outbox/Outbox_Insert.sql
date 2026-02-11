@@ -1,12 +1,12 @@
 INSERT INTO outbox (
     event_type, 
-    payload, 
+    event_data, 
     status, 
     created_at
 )
 VALUES (
     @EventType, 
-    @Payload::jsonb, 
+    '{}'::jsonb, 
     'Pending', 
     NOW()
 );

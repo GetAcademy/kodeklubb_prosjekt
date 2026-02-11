@@ -1,10 +1,14 @@
 INSERT INTO event_log (
     event_type, 
-    payload, 
+    event_data, 
+    aggregate_id,
+    aggregate_type,
     occurred_at
 )
 VALUES (
     @EventType, 
-    @Payload::jsonb, 
+    '{}'::jsonb, 
+    '',
+    '',
     @OccurredAt
 );

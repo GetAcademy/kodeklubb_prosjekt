@@ -80,4 +80,19 @@ public static class TeamService
             }
         );
     }
+
+    public static (Outcome outcome, List<IDomainEvent> events) Handle(
+        RequestToJoinTeamCommand command,
+        DateTime now
+    )
+    {
+        // Create the domain event for the join request
+        var requestEvent = new UserRequestedToJoinTeam(
+            command.TeamId,
+            command.UserId,
+            now
+        );
+
+        return (Outcome.Accepted(), new List<IDomainEvent> { requestEvent });
+    }
 }
