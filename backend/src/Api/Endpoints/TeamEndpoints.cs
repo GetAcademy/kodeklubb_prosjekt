@@ -240,9 +240,10 @@ public static class TeamEndpoints
                 }
 
                 // Retrieve team
-                var teamExistsSql = "SELECT * FROM teams WHERE id = @TeamId";
+                var teamExistsSql = SqlLoader.Load("Queries/Teams_GetById.sql");
                 var team = await connection.QuerySingleOrDefaultAsync<TeamEntity>(
                     teamExistsSql,
+                    new { Id = teamId },
                     transaction);
 
                 if (team == null)
@@ -252,15 +253,17 @@ public static class TeamEndpoints
                 }
 
                 // Retrieve team members
-                var allTeamMembersSql = "SELECT user_id FROM team_members WHERE team_id = @TeamId";
+                var allTeamMembersSql = SqlLoader.Load("Queries/TeamMembers_GetByTeamId.sql");
                 var userIds = (await connection.QueryAsync<Guid>(
                     allTeamMembersSql,
+                    new { Id = teamId },
                     transaction)).ToList();
                 
                 // Retrieve team invitations
-                var allTeamInvitesSql = "SELECT invited_user_id FROM invitations WHERE team_id = @TeamId";
+                var allTeamInvitesSql = SqlLoader.Load("Queries/Invitations_GetIdsByTeamId.sql");
                 var teamInvitations = (await connection.QueryAsync<Guid>(
                     allTeamInvitesSql,
+                    new { TeamId = teamId },
                     transaction)).ToList();
 
                 var teamState = new TeamState(teamId, userIds, teamInvitations);
@@ -375,8 +378,8 @@ public static class TeamEndpoints
             try
             {
                 // 1. Get admin user
-                var getUserSql = SqlLoader.Load("Queries/Users_GetByDiscordId.sql");
-                var adminUser = await connection.QuerySingleOrDefaultAsync<Persistence.DbModels.UserEntity>(
+                var getUserSql = "SELECT * FROM team_members WHERE team_id = @TeamId AND role = 'admin'";
+                var adminUser = await connection.QuerySingleOrDefaultAsync<UserEntity>(
                     getUserSql,
                     new { DiscordId = body.DiscordId },
                     transaction);
@@ -388,21 +391,34 @@ public static class TeamEndpoints
                 }
 
                 // 2. Verify admin is member of the team
-                var isMemberSql = "SELECT EXISTS(SELECT 1 FROM team_members WHERE team_id = @TeamId AND user_id = @UserId)";
-                var isAdmin = await connection.QuerySingleAsync<bool>(
-                    isMemberSql,
-                    new { TeamId = teamId, UserId = adminUser.Id },
-                    transaction);
-
-                if (!isAdmin)
-                {
-                    await transaction.RollbackAsync();
-                    return Results.Unauthorized();
-                }
+                // var isMemberSql = "SELECT EXISTS(SELECT 1 FROM team_members WHERE team_id = @TeamId AND user_id = @UserId)";
+                // var isAdmin = await connection.QuerySingleAsync<bool>(
+                //     isMemberSql,
+                //     new { TeamId = teamId, UserId = adminUser.Id },
+                //     transaction);
+                //
+                // if (!isAdmin)
+                // {
+                //     await transaction.RollbackAsync();
+                //     return Results.Unauthorized();
+                // }
+                
+                // Retrieve team members
+                var allTeamMembersSql = "SELECT user_id FROM team_members WHERE team_id = @TeamId";
+                var userIds = (await connection.QueryAsync<Guid>(
+                    allTeamMembersSql,
+                    transaction)).ToList();
+                
+                // Retrieve team invitations
+                var allTeamInvitesSql = "SELECT invited_user_id FROM invitations WHERE team_id = @TeamId";
+                var teamInvitations = (await connection.QueryAsync<Guid>(
+                    allTeamInvitesSql,
+                    transaction)).ToList();
+                
 
                 // 3. Get the invitation/request details
                 var getRequestSql = SqlLoader.Load("Queries/Invitations_GetById.sql");
-                var request = await connection.QuerySingleOrDefaultAsync<InvitationRequest>(
+                var request = await connection.QuerySingleOrDefaultAsync<InvitationEntity>(
                     getRequestSql,
                     new { RequestId = requestId, TeamId = teamId },
                     transaction);
@@ -412,27 +428,27 @@ public static class TeamEndpoints
                     await transaction.RollbackAsync();
                     return Results.NotFound(new { message = "Request not found" });
                 }
-
+                
+                //Burde denna flyttes til Core? Er den riktig i det hele tatt?
                 if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
                 {
                     await transaction.RollbackAsync();
                     return Results.BadRequest(new { message = "Request has already been processed" });
                 }
 
-                var requestingUserId = request.UserId;
-
                 // 4. Call Core with Command
-                var command = new ApproveJoinRequestCommand(teamId, requestId, adminUser.Id);
-                var (outcome, events) = TeamService.Handle(command, requestingUserId, DateTime.UtcNow);
+                var teamState = new TeamState(teamId, userIds, teamInvitations);
+                var command = new ApproveJoinRequestCommand(teamId, request.InvitedUserId, request.Id);
+                var result = TeamService.HandleApproveRequest(teamState, command, DateTime.UtcNow, adminUser.Id);
 
-                if (outcome.Status == OutcomeStatus.Rejected)
+                if (result.Outcome.Status == OutcomeStatus.Rejected)
                 {
                     await transaction.RollbackAsync();
-                    return Results.BadRequest(new { message = outcome.Message });
+                    return Results.BadRequest(new { message = result.Outcome.Message });
                 }
 
                 // 5. Persist state based on domain events
-                foreach (var evt in events)
+                foreach (var evt in result.Events)
                 {
                     if (evt is JoinRequestApproved jra)
                     {
@@ -674,4 +690,3 @@ public record InvitationRequest(
     Guid UserId,
     string Status
 );
-
