@@ -1,10 +1,7 @@
 {
-	"folders": [
-		{
-			"path": ".."
-		}
-	],
+	"folders": [ { "path": ".." }],
 	"settings": {
+		"recommendations": [ "Vue.volar", "ms-playwright.playwright" ],
 		"files.exclude": {
             "**/.git": true,
             "**frontend/node_modules": true,
@@ -54,10 +51,6 @@
 			"Mermaid-Diagram",
 			"TeamEndpoints",
         	"Env"
-		]
-	},
-	"recommendations": [
-    "Vue.volar",
-    "ms-playwright.playwright"
-  ]
+		],
+	}
 }
