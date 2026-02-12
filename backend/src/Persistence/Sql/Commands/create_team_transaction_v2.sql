@@ -2,21 +2,15 @@
 -- This script creates test team data using an existing user from the database
 -- Note: Replace the user_id below with an actual UUID from your users table
 -- To find user IDs: SELECT id, username, discord_id FROM users;
+-- To see available tags: SELECT id, name, slug, category FROM predefined_tags;
 
--- Step 1: Create tags (skip if they exist)
-INSERT INTO tags (name, slug, description, created_at)
-VALUES 
-    ('Mobile', 'mobile', 'Mobile app development', NOW()),
-    ('Cloud', 'cloud', 'Cloud infrastructure', NOW()),
-    ('AI/ML', 'ai-ml', 'Artificial intelligence & machine learning', NOW())
-ON CONFLICT (slug) DO NOTHING;
-
--- Step 2: Create team with a specific user as admin
+-- Create team with a specific user as admin and associate predefined tags
 DO $$
 DECLARE
     admin_user_id uuid := 'REPLACE-WITH-ACTUAL-USER-ID'::uuid; -- CHANGE THIS UUID
     new_team_id uuid;
     user_exists boolean;
+    tag_count int;
 BEGIN
     -- Verify the user exists
     SELECT EXISTS(SELECT 1 FROM users WHERE id = admin_user_id) INTO user_exists;
@@ -44,14 +38,22 @@ BEGIN
     )
     RETURNING id INTO new_team_id;
 
-    -- Associate tags with the team
-    INSERT INTO team_tags (team_id, tag_id, created_at)
+    RAISE NOTICE 'Team created with ID: %', new_team_id;
+
+    -- Associate predefined tags with the team
+    -- Modify the WHERE clause to select different tags
+    INSERT INTO team_tags (team_id, predefined_tag_id, created_at)
     SELECT 
         new_team_id,
-        t.id,
+        pt.id,
         NOW()
-    FROM tags t
-    WHERE t.slug IN ('mobile', 'cloud');
+    FROM predefined_tags pt
+    WHERE pt.slug IN ('mobile-development', 'cloud')
+    ON CONFLICT (team_id, predefined_tag_id) DO NOTHING;
+
+    -- Count and report how many tags were added
+    SELECT COUNT(*) INTO tag_count FROM team_tags WHERE team_id = new_team_id;
+    RAISE NOTICE 'Associated % tags with team', tag_count;
 
     -- Add the admin user as team member
     INSERT INTO team_members (team_id, user_id, role, status, joined_at, updated_at, version)
@@ -65,5 +67,5 @@ BEGIN
         1
     );
 
-    RAISE NOTICE 'Team created successfully with ID: %', new_team_id;
+    RAISE NOTICE 'Team successfully created with ID: % (Admin added as member)', new_team_id;
 END $$;

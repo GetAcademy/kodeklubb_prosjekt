@@ -31,31 +31,30 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 -- TAGS AND INTERESTS
 -- ============================================================================
 
--- Tags - reusable tags for categorization with tree structure support
-CREATE TABLE IF NOT EXISTS tags (
+-- Predefined tags - system-managed list of available tags for users and teams
+CREATE TABLE IF NOT EXISTS predefined_tags (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    parent_id UUID REFERENCES tags(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL UNIQUE,
     slug VARCHAR(100) NOT NULL UNIQUE,
     description TEXT,
+    category VARCHAR(50),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_tags_slug ON tags(slug);
-CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
-CREATE INDEX IF NOT EXISTS idx_tags_parent_id ON tags(parent_id);
+CREATE INDEX IF NOT EXISTS idx_predefined_tags_slug ON predefined_tags(slug);
+CREATE INDEX IF NOT EXISTS idx_predefined_tags_category ON predefined_tags(category);
 
 -- User interests - tags that users are interested in
 CREATE TABLE IF NOT EXISTS user_tags (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    tag_id UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    predefined_tag_id UUID NOT NULL REFERENCES predefined_tags(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(user_id, tag_id)
+    UNIQUE(user_id, predefined_tag_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_tags_user_id ON user_tags(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_tags_tag_id ON user_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_user_tags_predefined_tag_id ON user_tags(predefined_tag_id);
 
 -- ============================================================================
 -- TEAMS AND MEMBERSHIP
@@ -80,17 +79,17 @@ CREATE TABLE IF NOT EXISTS teams (
 CREATE INDEX IF NOT EXISTS idx_teams_created_by ON teams(created_by);
 CREATE INDEX IF NOT EXISTS idx_teams_team_admin_id ON teams(team_admin_id);
 
--- Team tags - tags that describe what the team is about
+-- Team tags - tags that describe what the team is about (references predefined tags)
 CREATE TABLE IF NOT EXISTS team_tags (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    tag_id UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    predefined_tag_id UUID NOT NULL REFERENCES predefined_tags(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(team_id, tag_id)
+    UNIQUE(team_id, predefined_tag_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_team_tags_team_id ON team_tags(team_id);
-CREATE INDEX IF NOT EXISTS idx_team_tags_tag_id ON team_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_team_tags_predefined_tag_id ON team_tags(predefined_tag_id);
 
 -- Team members - user ↔ team connection, roles, status
 CREATE TABLE IF NOT EXISTS team_members (
