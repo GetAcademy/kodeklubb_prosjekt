@@ -1,0 +1,1 @@
+SELECT invited_user_id FROM invitations WHERE team_id = @TeamId
