@@ -1,6 +1,6 @@
 namespace Persistence.DbModels;
 
-public class InvitationEntity
+public record InvitationEntity
 {
     public Guid Id { get; init; }
     public Guid TeamId { get; init; }

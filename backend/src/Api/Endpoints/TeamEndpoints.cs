@@ -378,41 +378,31 @@ public static class TeamEndpoints
             try
             {
                 // 1. Get admin user
-                var getUserSql = "SELECT * FROM team_members WHERE team_id = @TeamId AND role = 'admin'";
-                var adminUser = await connection.QuerySingleOrDefaultAsync<UserEntity>(
-                    getUserSql,
-                    new { DiscordId = body.DiscordId },
+                var getAdminSql = SqlLoader.Load("Queries/Teams_GetAdminUserByTeamId.sql");
+                var adminUser = await connection.QuerySingleOrDefaultAsync<TeamMemberEntity>(
+                    getAdminSql,
+                    new { TeamId = teamId },
                     transaction);
+                Console.WriteLine(adminUser);
 
                 if (adminUser == null)
                 {
                     await transaction.RollbackAsync();
                     return Results.BadRequest(new { message = "User not found" });
                 }
-
-                // 2. Verify admin is member of the team
-                // var isMemberSql = "SELECT EXISTS(SELECT 1 FROM team_members WHERE team_id = @TeamId AND user_id = @UserId)";
-                // var isAdmin = await connection.QuerySingleAsync<bool>(
-                //     isMemberSql,
-                //     new { TeamId = teamId, UserId = adminUser.Id },
-                //     transaction);
-                //
-                // if (!isAdmin)
-                // {
-                //     await transaction.RollbackAsync();
-                //     return Results.Unauthorized();
-                // }
                 
                 // Retrieve team members
-                var allTeamMembersSql = "SELECT user_id FROM team_members WHERE team_id = @TeamId";
+                var allTeamMembersSql = SqlLoader.Load("Queries/TeamMembers_GetByTeamId.sql");
                 var userIds = (await connection.QueryAsync<Guid>(
                     allTeamMembersSql,
-                    transaction)).ToList();
+                    new { Id = teamId },
+                    transaction)).ToList();;
                 
                 // Retrieve team invitations
-                var allTeamInvitesSql = "SELECT invited_user_id FROM invitations WHERE team_id = @TeamId";
+                var allTeamInvitesSql = SqlLoader.Load("Queries/Invitations_GetIdsByTeamId.sql");
                 var teamInvitations = (await connection.QueryAsync<Guid>(
                     allTeamInvitesSql,
+                    new { TeamId = teamId },
                     transaction)).ToList();
                 
 
