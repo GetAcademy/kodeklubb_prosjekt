@@ -1,0 +1,1 @@
+SELECT * FROM team_members WHERE team_id = @TeamId AND role = "admin"
