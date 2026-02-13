@@ -7,10 +7,51 @@ namespace Core.Logic;
 
 public static class TeamService
 {
-    public static (Outcome outcome, List<IDomainEvent> events) Handle(
+    // public static (Outcome outcome, List<IDomainEvent> events) Handle(
+    //     CreateTeamCommand command,
+    //     DateTime now
+    //     )
+    // {
+    //     if (string.IsNullOrWhiteSpace(command.Name))
+    //     {
+    //         return new TeamResult(
+    //             new Outcome(OutcomeStatus.Rejected, "TeamNameNotSpecified"),
+    //             state,
+    //             new List<IDomainEvent>()
+    //             );
+    //     }
+    //
+    //     if (command.Name.Length > 100)
+    //     {
+    //         return new TeamResult(
+    //             new Outcome(OutcomeStatus.Rejected, "TeamNameExceedsMaxCharacters"),
+    //             state,
+    //             new List<IDomainEvent>()
+    //             );
+    //     }
+    //
+    //     var newState = new TeamState(TeamId: command.TeamId, PendingInvitations: new List<Guid>(), Members: new List<Guid>());
+    //
+    //     return new TeamResult(
+    //         Outcome.Accepted(),
+    //         newState,
+    //         new List<IDomainEvent>
+    //             { 
+    //                 new TeamCreated(
+    //                 command.TeamId,
+    //                 command.Name, 
+    //                 command.Description,
+    //                 command.AdminUserId, 
+    //                 now) 
+    //             }
+    //         );
+    // }
+    
+    public static TeamResult HandleCreateTeam(
+        TeamState state,
         CreateTeamCommand command,
         DateTime now
-        )
+    )
     {
         if (string.IsNullOrWhiteSpace(command.Name))
         {
@@ -18,7 +59,7 @@ public static class TeamService
                 new Outcome(OutcomeStatus.Rejected, "TeamNameNotSpecified"),
                 state,
                 new List<IDomainEvent>()
-                );
+            );
         }
 
         if (command.Name.Length > 100)
@@ -27,7 +68,7 @@ public static class TeamService
                 new Outcome(OutcomeStatus.Rejected, "TeamNameExceedsMaxCharacters"),
                 state,
                 new List<IDomainEvent>()
-                );
+            );
         }
 
         var newState = new TeamState(TeamId: command.TeamId, PendingInvitations: new List<Guid>(), Members: new List<Guid>());
@@ -36,15 +77,15 @@ public static class TeamService
             Outcome.Accepted(),
             newState,
             new List<IDomainEvent>
-                { 
-                    new TeamCreated(
+            { 
+                new TeamCreated(
                     command.TeamId,
                     command.Name, 
                     command.Description,
                     command.AdminUserId, 
                     now) 
-                }
-            );
+            }
+        );
     }
 
     public static TeamResult HandleJoinRequestTransition(
@@ -59,10 +100,18 @@ public static class TeamService
                 var requestingUserId = command.ActorUserId;
 
                 if (state.Members.Contains(requestingUserId))
-                    return Rejected(state, "UserAlreadyInTeam");
+                    return new TeamResult(
+                        new Outcome(OutcomeStatus.Rejected, "UserAlreadyInTeam"),
+                        state, 
+                        new List<IDomainEvent>()
+                        );
 
                 if (state.PendingInvitations.Contains(requestingUserId))
-                    return Rejected(state, "UserAlreadySentARequest");
+                    return new TeamResult(
+                        new Outcome(OutcomeStatus.Rejected, "UserAlreadySentARequest"),
+                        state, 
+                        new List<IDomainEvent>()
+                    );
 
                 var newState = state with
                 {
@@ -83,20 +132,36 @@ public static class TeamService
             case JoinRequestAction.Approve:
             {
                 if (command.TargetUserId is null || command.RequestId is null)
-                    return Rejected(state, "InvalidJoinRequestTransition");
+                    return new TeamResult(
+                    new Outcome(OutcomeStatus.Rejected, "InvalidJoinRequestTransistion"),
+                    state, 
+                    new List<IDomainEvent>()
+                );
 
                 var approvingUserId = command.ActorUserId;
                 var targetUserId = command.TargetUserId.Value;
                 var requestId = command.RequestId.Value;
 
                 if (!state.Members.Contains(approvingUserId))
-                    return Rejected(state, "InviterIsNotAMember");
+                    return new TeamResult(
+                        new Outcome(OutcomeStatus.Rejected, "InviterIsNotAMember"),
+                        state, 
+                        new List<IDomainEvent>()
+                    );
 
                 if (!state.PendingInvitations.Contains(targetUserId))
-                    return Rejected(state, "UserHasNotSentRequest");
+                    return new TeamResult(
+                        new Outcome(OutcomeStatus.Rejected, "UserHasNotSentARequest"),
+                        state, 
+                        new List<IDomainEvent>()
+                    );
 
                 if (state.Members.Contains(targetUserId))
-                    return Rejected(state, "UserAlreadyInTeam");
+                    return new TeamResult(
+                        new Outcome(OutcomeStatus.Rejected, "UserAlreadyInTeam"),
+                        state, 
+                        new List<IDomainEvent>()
+                    );
 
                 var newMembers = state.Members.Append(targetUserId).ToList();
                 var newPending = state.PendingInvitations.Where(id => id != targetUserId).ToList();
@@ -119,17 +184,29 @@ public static class TeamService
             case JoinRequestAction.Decline:
             {
                 if (command.TargetUserId is null || command.RequestId is null)
-                    return Rejected(state, "InvalidJoinRequestTransition");
+                    return new TeamResult(
+                        new Outcome(OutcomeStatus.Rejected, "InvalidJoinRequestTransition"),
+                        state, 
+                        new List<IDomainEvent>()
+                    );
 
                 var decliningUserId = command.ActorUserId;
                 var targetUserId = command.TargetUserId.Value;
                 var requestId = command.RequestId.Value;
 
                 if (!state.Members.Contains(decliningUserId))
-                    return Rejected(state, "InviterIsNotAMember");
+                    return new TeamResult(
+                        new Outcome(OutcomeStatus.Rejected, "InviterIsNotAMember"),
+                        state, 
+                        new List<IDomainEvent>()
+                    );
 
                 if (!state.PendingInvitations.Contains(targetUserId))
-                    return Rejected(state, "UserHasNotSentRequest");
+                    return new TeamResult(
+                        new Outcome(OutcomeStatus.Rejected, "UserHasNotSentARequest"),
+                        state, 
+                        new List<IDomainEvent>()
+                    );
 
                 var newPending = state.PendingInvitations.Where(id => id != targetUserId).ToList();
                 var newState = state with
@@ -148,7 +225,11 @@ public static class TeamService
             }
 
             default:
-                return Rejected(state, "InvalidJoinRequestTransition");
+                return new TeamResult(
+                    new Outcome(OutcomeStatus.Rejected, "InvalidJoinRequestTransition"),
+                    state, 
+                    new List<IDomainEvent>()
+                );
         }
     }
     
