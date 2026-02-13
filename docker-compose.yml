@@ -1,14 +1,34 @@
 services:
-  postgres:
+  db:
+    container_name: postgres
     image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: kodeklubb
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    restart: always
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+    env_file:
+      - .env
+
+  pgadmin:
+    container_name: pgadmin_container
+    image: dpage/pgadmin4
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./backend/logs/db:/app/logs
+
+    env_file:
+      - .env
 
   api:
     build:
@@ -16,9 +36,14 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
+  
     image: kodeklubb_api
     depends_on:
-      - postgres
+      db:
+        condition: service_healthy
+
+    restart: always
+
     ports:
       - "5154:8080"
     environment:
@@ -26,6 +51,8 @@ services:
 
     volumes:
       - ./backend/src:/src
+      - ./backend/logs/api:/app/logs
 
 volumes:
   postgres_data:
+  pgadmin_data:

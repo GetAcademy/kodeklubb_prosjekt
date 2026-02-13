@@ -1,10 +1,17 @@
 {
-	"folders": [
-		{
-			"path": ".."
-		}
-	],
+	"folders": [ { "path": ".." }],
 	"settings": {
+		"recommendations": [ "Vue.volar", "ms-playwright.playwright" ],
+		"files.exclude": {
+            "**/.git": true,
+            "**frontend/node_modules": true,
+			"**backend/tests/bin": true, "**backend/tests/obj": true,
+			"**backend/src/Core/bin": true, "**backend/src/Core/obj": true,
+			"**backend/src/Worker/bin": true, "**backend/src/Worker/obj": true,
+			"**backend/src/Persistence/bin": true, "**backend/src/Persistence/obj": true,
+			"**backend/src/Infrastructure/bin": true, "**backend/src/Infrastructure/obj": true,
+			"**backend/src/Api/bin": true, "**backend/src/Api/obj": true, "**backend/src/Api/Properties": true,
+	 },
 		"explorer.fileNesting.enabled": true,
   		"explorer.fileNesting.patterns": 
 		{
@@ -40,12 +47,10 @@
 			"Docker",
 			"DIR",
 			"Utils",
-      "Typo",
-			"Mermaid-Diagram"
-		]
-	},
-	"recommendations": [
-    "Vue.volar",
-    "ms-playwright.playwright"
-  ]
+			"Typo",
+			"Mermaid-Diagram",
+			"TeamEndpoints",
+        	"Env"
+		],
+	}
 }

@@ -2,12 +2,12 @@ namespace Persistence.DbModels;
 
 public class ContentEntity
 {
-    public long Id { get; init; }
-    public long TeamId { get; init; }
-    public string Title { get; init; }
-    public string Description { get; init; }
-    public string ContentType { get; init; }
-    public string ContentUrl { get; init; }
+    public Guid Id { get; init; }
+    public Guid? ParentId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string? Description { get; init; }
+    public string ContentType { get; init; } = string.Empty;
+    public string? ContentUrl { get; init; }
     public int OrderIndex { get; init; }
     public bool IsPublished { get; init; }
     public DateTime CreatedAt { get; init; }

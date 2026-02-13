@@ -2,19 +2,19 @@
 
 <template>
     <section v-if="!!isAuthenticated && user">
-        <UtilsDashboard :data="user" />
+        <p v-if="userTeamsLoading" class="loading">Laster teams...</p>
+        <p v-else-if="userTeamsError" class="error">{{ userTeamsError }}</p>
+        <UtilsDashboard v-else :data="user" :teams="userTeams" />
     </section>
-    <section v-else>
-        {{ isAuthenticated }}
-    </section>
+
 </template>
 
 <script lang="ts" setup>
 
     // --- Importing Dependencies & Types
     import { storeToRefs } from 'pinia';
+    import { onMounted, ref, watch } from 'vue';
     import { useAuthStore } from '@/stores/authStore';
-    import { RouterLink } from 'vue-router';
 
     const authStore = useAuthStore();
     const { user, isAuthenticated } = storeToRefs(authStore);
@@ -22,6 +22,25 @@
     const userTeams = ref<any[]>([]);
     const userTeamsLoading = ref(false);
     const userTeamsError = ref('');
+    const lastFetchedDiscordId = ref<string | null>(null);
+
+    const fetchUserTeams = async () => {
+        userTeamsLoading.value = true;
+        userTeamsError.value = '';
+        try {
+            const baseApi = import.meta.env.VITE_BASE_API || '';
+            const response = await fetch(`${baseApi}/api/discover/my-teams?discordId=${user.value?.id}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch user teams');
+            }
+            const payload = await response.json();
+            userTeams.value = Array.isArray(payload) ? payload : (payload?.value ?? []);
+        } catch (error) {
+            userTeamsError.value = error instanceof Error ? error.message : 'An error occurred';
+        } finally {
+            userTeamsLoading.value = false;
+        }
+    };
 
     onMounted(async () => {
         if (isAuthenticated.value && user.value?.id) {
@@ -29,21 +48,14 @@
         }
     });
 
-    const fetchUserTeams = async () => {
-        userTeamsLoading.value = true;
-        userTeamsError.value = '';
-        try {
-            const response = await fetch(`/api/discover/my-teams?discordId=${user.value?.id}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch user teams');
-            }
-            userTeams.value = await response.json();
-        } catch (error) {
-            userTeamsError.value = error instanceof Error ? error.message : 'An error occurred';
-        } finally {
-            userTeamsLoading.value = false;
-        }
-    };
+    watch([isAuthenticated, user], async () => {
+        const discordId = user.value?.id || null;
+        if (!isAuthenticated.value || !discordId) return;
+        if (lastFetchedDiscordId.value === discordId) return;
+
+        lastFetchedDiscordId.value = discordId;
+        await fetchUserTeams();
+    }, { immediate: true });
 </script>
 
 <style scoped>

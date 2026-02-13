@@ -1,5 +1,7 @@
+import axios from 'axios';
 import { useAuthStore } from '../stores/authStore.ts';
 import { createRouter, createWebHistory } from 'vue-router';
+
 
 const profileRoutes: Array<Record<string, any>> = 
 [
@@ -9,17 +11,16 @@ const profileRoutes: Array<Record<string, any>> =
 
 const teamRoutes: Array<Record<string, any>> = 
 [
-  { path: "/teams/:id", name : "medlemmer", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/teams/:id/members", name : "medlemmer", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/teams/:id/news", name : "aktuelt", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
-  { path: "/teams/:id/description", name : "Om gruppen", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/teams/:teamId", name : "Team Portal", component: () => import(`../views/teams/TeamDashboard.vue`), meta: {requiresAuth: true, isTeam: true} },
+  { path: "/teams/:id/members", name : "Medlemmer", component: () => import(`../views/teams/Members.vue`), meta: {requiresAuth: true, isTeam: true} },
+  { path: "/teams/:id/news", name : "Aktuelt", component: () => import(`../views/teams/News.vue`), meta: {requiresAuth: true, isTeam: true} },
 ];
 
 const requiredAuthorization: Array<any> =
 [
   ...teamRoutes,
   ...profileRoutes,
-  { path: "/discover", name : "Utforsk grupper", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
+  { path: "/discover", name : "Utforsk grupper", component: () => import(`../views/Discover.vue`), meta: {requiresAuth: true} },
   { path: "/logout", name : "logout", component: () => import(`../views/Index.vue`), meta: {requiresAuth: true} },
 ];
 
@@ -46,11 +47,12 @@ router.beforeEach((to, from, next) =>
 
     } catch (err) {console.error('Failed to parse user from query', err);}
   }
+  next();
+});
+
 router.afterEach((to) => {
   if (Object.keys(to.query).length > 0) router.replace({ path: to.path,  query: {}, hash: to.hash});
-
   // Save user to database
-  next();
-  });
 });
+router.afterEach((to) => { if (Object.keys(to.query).length > 0) router.replace({ path: to.path,  query: {}, hash: to.hash});});
 export default router;

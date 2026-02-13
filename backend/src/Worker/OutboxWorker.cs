@@ -1,29 +1,29 @@
 using System.Data;
 using System.Text.Json;
 using Core.DomainEvents;
-using Microsoft.Extensions.DependencyInjection;
 using Dapper;
 using Microsoft.Extensions.Hosting;
 using Persistence.Outbox;
+using Npgsql;
 
 namespace Worker;
 
 
 public class OutboxWorker : BackgroundService
 {
-    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly string _connectionString;
 
-    public OutboxWorker(IServiceScopeFactory scopeFactory)
+    public OutboxWorker(string connectionString)
     {
-        _scopeFactory = scopeFactory;
+        _connectionString = connectionString;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            using var scope = _scopeFactory.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
+            await using var db = new NpgsqlConnection(_connectionString);
+            await db.OpenAsync(stoppingToken);
 
             var messages = await db.QueryAsync<OutboxMessage>(
                 @"SELECT * FROM outbox

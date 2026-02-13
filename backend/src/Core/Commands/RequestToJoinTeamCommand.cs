@@ -1,6 +1,6 @@
 namespace Core.Commands;
 
 public record RequestToJoinTeamCommand(
-    long TeamId,
-    long UserId
+    Guid TeamId,
+    Guid UserId
     );

@@ -1,5 +1,5 @@
 <template>
-    <nav :class="cls[0]">
+    <nav v-if="data && data.length > 0" :class="cls[0]">
         <ul :class="cls[1]">
             <li v-for="(item, i) in data" :key="i"
                 :class="[cls[2]]">
@@ -8,7 +8,7 @@
                         :to="item.path"
                         v-slot="{ navigate }"
                         :class="[{ 'active': $route.path === item.path}]">
-                        <span @click="!!item.action ? item.action(navigate): null ">{{ item.label }}</span>
+                        <span @click="item.action ? item.action(navigate) : navigate()">{{ item.label }}</span>
                     </RouterLink>
 
                     <NavigationAnchor v-if="!!isAnchor && !!item.anchor"
@@ -41,12 +41,12 @@
     });
 
     const cls = computed(() => props.cls);
-    const data = computed<NavigationProp['data']>(() => props.data);
+    const data = computed<NavigationProp['data']>(() => props.data || []);
 
     //  --  State Logic
-    const isButton = computed<boolean>(() => { return !!data.value.some(item => item.type == 'button')});
-    const isAnchor = computed<boolean>(() => { return !!data.value.some(item => item.type == 'anchor')});
-    const isRouterLink = computed<boolean>(() => { return !!data.value.some(item => item.type == 'router' )});
+    const isButton = computed<boolean>(() => { return !!(data.value && data.value.some(item => item.type == 'button'))});
+    const isAnchor = computed<boolean>(() => { return !!(data.value && data.value.some(item => item.type == 'anchor'))});
+    const isRouterLink = computed<boolean>(() => { return !!(data.value && data.value.some(item => item.type == 'router' ))});
     
 
     //  --- Debug logic
