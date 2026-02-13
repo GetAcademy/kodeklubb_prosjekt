@@ -5,4 +5,4 @@ public record CreateTeamCommand(
     string Name,
     string? Description,
     Guid AdminUserId
-    );
+);
