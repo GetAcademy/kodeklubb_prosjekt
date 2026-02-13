@@ -1,3 +1,4 @@
+using Dapper;
 using Npgsql;
 using System.Reflection;
 
@@ -44,8 +45,7 @@ public class DatabaseMigrator
             using var reader = new StreamReader(stream);
             var sql = await reader.ReadToEndAsync();
 
-            await using var command = new NpgsqlCommand(sql, connection);
-            await command.ExecuteNonQueryAsync();
+            await connection.ExecuteAsync(sql);
             
             Console.WriteLine($"✓ Migration completed: {resourceName}");
         }

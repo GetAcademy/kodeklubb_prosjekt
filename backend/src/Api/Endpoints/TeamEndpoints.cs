@@ -442,11 +442,11 @@ public static class TeamEndpoints
                 {
                     if (evt is JoinRequestApproved jra)
                     {
-                        // Update invitation status
-                        var approveSql = SqlLoader.Load("Commands/Invitations_Approve.sql");
+                        // Remove pending invitation after approval
+                        var approveSql = SqlLoader.Load("Commands/Invitations_DeletePending.sql");
                         await connection.ExecuteAsync(
                             approveSql,
-                            new { RequestId = requestId, TeamId = teamId, RespondedAt = jra.OccurredAt },
+                            new { RequestId = requestId, TeamId = teamId },
                             transaction);
 
                         // Add user to team
