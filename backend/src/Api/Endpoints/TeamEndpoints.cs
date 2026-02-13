@@ -69,19 +69,23 @@ public static class TeamEndpoints
                 }
 
                 // 3. Call Core with Command
-                var teamId = Guid.NewGuid();
-                var command = new CreateTeamCommand(teamId, body.Name, body.Description, body.AdminUserId);
-                var (outcome, events) = TeamService.Handle(command, DateTime.UtcNow);
+                var teamState = new TeamState(
+                    Guid.NewGuid(),
+                    new List<Guid>(),
+                    new List<Guid>()
+                    );
+                var command = new CreateTeamCommand(teamState.TeamId, body.Name, body.Description, body.AdminUserId);
+                var result = TeamService.HandleCreateTeam(teamState, command, DateTime.UtcNow);
 
                 // 4. Check outcome
-                if (outcome.Status == OutcomeStatus.Rejected)
+                if (result.Outcome.Status == OutcomeStatus.Rejected)
                 {
                     await transaction.RollbackAsync();
-                    return Results.BadRequest(new { message = outcome.Message });
+                    return Results.BadRequest(new { message = result.Outcome.Message });
                 }
 
                 // 5. Persist state based on domain events
-                foreach (var evt in events)
+                foreach (var evt in result.Events)
                 {
                     if (evt is TeamCreated tc)
                     {
@@ -137,9 +141,9 @@ public static class TeamEndpoints
                 // 8. Commit transaction
                 await transaction.CommitAsync();
 
-                return Results.Created($"/api/discover/{teamId}", new
+                return Results.Created($"/api/discover/{teamState.TeamId}", new
                 {
-                    teamId,
+                    teamState.TeamId,
                     name = body.Name,
                     adminUserId = body.AdminUserId,
                     message = "Team created successfully"

@@ -7,28 +7,69 @@ namespace Core.Logic;
 
 public static class TeamService
 {
-    public static (Outcome outcome, List<IDomainEvent> events) Handle(
+    // public static (Outcome outcome, List<IDomainEvent> events) Handle(
+    //     CreateTeamCommand command,
+    //     DateTime now
+    // )
+    // {
+    //     // Validate team name
+    //     if (string.IsNullOrWhiteSpace(command.Name))
+    //         return (Outcome.Rejected("Team name is required"), new List<IDomainEvent>());
+    //
+    //     if (command.Name.Length > 100)
+    //         return (Outcome.Rejected("Team name must be 100 characters or less"), new List<IDomainEvent>());
+    //
+    //     // Create the event
+    //     var teamCreated = new TeamCreated(
+    //         command.TeamId,
+    //         command.Name,
+    //         command.Description,
+    //         command.AdminUserId,
+    //         now
+    //     );
+    //
+    //     return (Outcome.Accepted(), new List<IDomainEvent> { teamCreated });
+    // }
+
+    public static TeamResult HandleCreateTeam(
+        TeamState state,
         CreateTeamCommand command,
         DateTime now
-    )
+        )
     {
-        // Validate team name
         if (string.IsNullOrWhiteSpace(command.Name))
-            return (Outcome.Rejected("Team name is required"), new List<IDomainEvent>());
+        {
+            return new TeamResult(
+                new Outcome(OutcomeStatus.Rejected, "TeamNameNotSpecified"),
+                state,
+                new List<IDomainEvent>()
+                );
+        }
 
         if (command.Name.Length > 100)
-            return (Outcome.Rejected("Team name must be 100 characters or less"), new List<IDomainEvent>());
+        {
+            return new TeamResult(
+                new Outcome(OutcomeStatus.Rejected, "TeamNameExceedsMaxCharacters"),
+                state,
+                new List<IDomainEvent>()
+                );
+        }
 
-        // Create the event
-        var teamCreated = new TeamCreated(
-            command.TeamId,
-            command.Name,
-            command.Description,
-            command.AdminUserId,
-            now
-        );
+        var newState = new TeamState(TeamId: command.TeamId, PendingInvitations: new List<Guid>(), Members: new List<Guid>());
 
-        return (Outcome.Accepted(), new List<IDomainEvent> { teamCreated });
+        return new TeamResult(
+            Outcome.Accepted(),
+            newState,
+            new List<IDomainEvent>
+                { 
+                    new TeamCreated(
+                    command.TeamId,
+                    command.Name, 
+                    command.Description,
+                    command.AdminUserId, 
+                    now) 
+                }
+            );
     }
 
     public static TeamResult HandleRequestToJoinTeam(
@@ -213,7 +254,7 @@ public static class TeamService
         var newPendingInvitations = state.PendingInvitations
             .Append(command.InvitedUserId)
             .ToList();
-        TeamState newState = state with
+        var newState = state with
         {
             PendingInvitations = newPendingInvitations
         };
@@ -226,55 +267,4 @@ public static class TeamService
             }
         );
     }
-
-    // public static (Outcome outcome, List<IDomainEvent> events) Handle(
-    //     RequestToJoinTeamCommand command,
-    //     DateTime now
-    // )
-    // {
-    //     // Create the domain event for the join request
-    //     var requestEvent = new UserRequestedToJoinTeam(
-    //         command.TeamId,
-    //         command.UserId,
-    //         now
-    //     );
-    //
-    //     return (Outcome.Accepted(), new List<IDomainEvent> { requestEvent });
-    // }
-
-    // public static (Outcome outcome, List<IDomainEvent> events) Handle(
-    //     ApproveJoinRequestCommand command,
-    //     Guid userId,
-    //     DateTime now
-    // )
-    // {
-    //     // Create the domain event for approving the join request
-    //     var approvedEvent = new JoinRequestApproved(
-    //         command.TeamId,
-    //         command.RequestId,
-    //         userId,
-    //         command.ApprovedByUserId,
-    //         now
-    //     );
-    //
-    //     return (Outcome.Accepted(), new List<IDomainEvent> { approvedEvent });
-    // }
-
-    // public static (Outcome outcome, List<IDomainEvent> events) Handle(
-    //     DeclineJoinRequestCommand command,
-    //     Guid userId,
-    //     DateTime now
-    // )
-    // {
-    //     // Create the domain event for declining the join request
-    //     var declinedEvent = new JoinRequestDeclined(
-    //         command.TeamId,
-    //         command.RequestId,
-    //         userId,
-    //         command.DeclinedByUserId,
-    //         now
-    //     );
-    //
-    //     return (Outcome.Accepted(), new List<IDomainEvent> { declinedEvent });
-    // }
 }
