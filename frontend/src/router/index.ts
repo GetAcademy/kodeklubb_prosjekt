@@ -12,8 +12,8 @@ const profileRoutes: Array<Record<string, any>> =
 const teamRoutes: Array<Record<string, any>> = 
 [
   { path: "/teams/:teamId", name : "Team Portal", component: () => import(`../views/teams/TeamDashboard.vue`), meta: {requiresAuth: true, isTeam: true} },
-  { path: "/teams/:id/members", name : "Medlemmer", component: () => import(`../views/teams/Members.vue`), meta: {requiresAuth: true, isTeam: true} },
-  { path: "/teams/:id/news", name : "Aktuelt", component: () => import(`../views/teams/News.vue`), meta: {requiresAuth: true, isTeam: true} },
+  { path: "/teams/:teamId/members", name : "Medlemmer", component: () => import(`../views/teams/Members.vue`), meta: {requiresAuth: true, isTeam: true} },
+  { path: "/teams/:teamId/news", name : "Aktuelt", component: () => import(`../views/teams/News.vue`), meta: {requiresAuth: true, isTeam: true} },
 ];
 
 const requiredAuthorization: Array<any> =

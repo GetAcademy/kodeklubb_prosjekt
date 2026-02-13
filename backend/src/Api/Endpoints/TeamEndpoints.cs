@@ -24,6 +24,7 @@ public static class TeamEndpoints
         group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams");
         group.MapGet("/available", GetAvailableTeams).WithName("GetAvailableTeams");
         group.MapGet("/{teamId}", GetTeamDetails).WithName("GetTeamDetails");
+        group.MapGet("/{teamId}/members", GetTeamMembers).WithName("GetTeamMembers");
         group.MapGet("/{teamId}/content", GetTeamContent).WithName("GetTeamContent");
         group.MapPost("/{teamId}/request", RequestToJoinTeam).WithName("RequestToJoinTeam");
         group.MapGet("/{teamId}/requests", GetTeamRequests).WithName("GetTeamRequests");
@@ -254,10 +255,11 @@ public static class TeamEndpoints
 
                 // Retrieve team members
                 var allTeamMembersSql = SqlLoader.Load("Queries/TeamMembers_GetByTeamId.sql");
-                var userIds = (await connection.QueryAsync<Guid>(
+                var teamMembers = (await connection.QueryAsync<TeamMemberEntity>(
                     allTeamMembersSql,
                     new { Id = teamId },
                     transaction)).ToList();
+                var userIds = teamMembers.Select(member => member.UserId).ToList();
                 
                 // Retrieve team invitations
                 var allTeamInvitesSql = SqlLoader.Load("Queries/Invitations_GetIdsByTeamId.sql");
@@ -267,8 +269,11 @@ public static class TeamEndpoints
                     transaction)).ToList();
 
                 var teamState = new TeamState(teamId, userIds, teamInvitations);
-                var cmd = new RequestToJoinTeamCommand(teamId, user.Id);
-                var result = TeamService.HandleRequestToJoinTeam(teamState, cmd, DateTime.UtcNow);
+                var transition = new JoinRequestTransitionCommand(
+                    teamId,
+                    JoinRequestAction.Request,
+                    user.Id);
+                var result = TeamService.HandleJoinRequestTransition(teamState, transition, DateTime.UtcNow);
 
                 // 4. Check outcome
                 if (result.Outcome.Status == OutcomeStatus.Rejected)
@@ -377,13 +382,12 @@ public static class TeamEndpoints
 
             try
             {
-                // 1. Get user that is admin
-                var getAdminSql = SqlLoader.Load("Queries/Teams_GetAdminUserByTeamId.sql");
-                var adminUser = await connection.QuerySingleOrDefaultAsync<TeamMemberEntity>(
-                    getAdminSql,
-                    new { TeamId = teamId },
+                // 1. Get acting user
+                var getUserSql = SqlLoader.Load("Queries/Users_GetByDiscordId.sql");
+                var adminUser = await connection.QuerySingleOrDefaultAsync<UserEntity>(
+                    getUserSql,
+                    new { DiscordId = body.DiscordId },
                     transaction);
-                Console.WriteLine(adminUser);
 
                 if (adminUser == null)
                 {
@@ -393,10 +397,11 @@ public static class TeamEndpoints
                 
                 // Retrieve team members
                 var allTeamMembersSql = SqlLoader.Load("Queries/TeamMembers_GetByTeamId.sql");
-                var userIds = (await connection.QueryAsync<Guid>(
+                var teamMembers = (await connection.QueryAsync<TeamMemberEntity>(
                     allTeamMembersSql,
                     new { Id = teamId },
-                    transaction)).ToList();;
+                    transaction)).ToList();
+                var userIds = teamMembers.Select(member => member.UserId).ToList();
                 
                 // Retrieve team invitations
                 var allTeamInvitesSql = SqlLoader.Load("Queries/Invitations_GetIdsByTeamId.sql");
@@ -419,17 +424,15 @@ public static class TeamEndpoints
                     return Results.NotFound(new { message = "Request not found" });
                 }
                 
-                //Burde denna flyttes til Core? Er den riktig i det hele tatt?
-                if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
-                {
-                    await transaction.RollbackAsync();
-                    return Results.BadRequest(new { message = "Request has already been processed" });
-                }
-
-                // 4. Call Core with Command
+                // 4. Call Core with transition
                 var teamState = new TeamState(teamId, userIds, teamInvitations);
-                var command = new ApproveJoinRequestCommand(teamId, request.InvitedUserId, request.Id);
-                var result = TeamService.HandleApproveRequest(teamState, command, DateTime.UtcNow, adminUser.Id);
+                var transition = new JoinRequestTransitionCommand(
+                    teamId,
+                    JoinRequestAction.Approve,
+                    adminUser.Id,
+                    request.InvitedUserId,
+                    request.Id);
+                var result = TeamService.HandleJoinRequestTransition(teamState, transition, DateTime.UtcNow);
 
                 if (result.Outcome.Status == OutcomeStatus.Rejected)
                 {
@@ -514,13 +517,12 @@ public static class TeamEndpoints
 
             try
             {
-                // 1. Get admin user
-                var getAdminSql = SqlLoader.Load("Queries/Teams_GetAdminUserByTeamId.sql");
-                var adminUser = await connection.QuerySingleOrDefaultAsync<TeamMemberEntity>(
-                    getAdminSql,
-                    new { TeamId = teamId },
+                // 1. Get acting user
+                var getUserSql = SqlLoader.Load("Queries/Users_GetByDiscordId.sql");
+                var adminUser = await connection.QuerySingleOrDefaultAsync<UserEntity>(
+                    getUserSql,
+                    new { DiscordId = body.DiscordId },
                     transaction);
-                Console.WriteLine(adminUser);
 
                 if (adminUser == null)
                 {
@@ -528,26 +530,20 @@ public static class TeamEndpoints
                     return Results.BadRequest(new { message = "User not found" });
                 }
 
-                // if (adminUser.DiscordId != body.DiscordId)
-                // {
-                //     await transaction.RollbackAsync();
-                //     return Results.BadRequest(new { message = "User is not an admin" });
-                // }
-                
-                // Retrieve team members
+                // 2. Get current team state
                 var allTeamMembersSql = SqlLoader.Load("Queries/TeamMembers_GetByTeamId.sql");
-                var userIds = (await connection.QueryAsync<Guid>(
+                var teamMembers = (await connection.QueryAsync<TeamMemberEntity>(
                     allTeamMembersSql,
                     new { Id = teamId },
                     transaction)).ToList();
-                
-                // Retrieve team invitations
+                var userIds = teamMembers.Select(member => member.UserId).ToList();
+
                 var allTeamInvitesSql = SqlLoader.Load("Queries/Invitations_GetIdsByTeamId.sql");
                 var teamInvitations = (await connection.QueryAsync<Guid>(
                     allTeamInvitesSql,
                     new { TeamId = teamId },
                     transaction)).ToList();
-                
+
                 // 3. Get the invitation/request details
                 var getRequestSql = SqlLoader.Load("Queries/Invitations_GetById.sql");
                 var request = await connection.QuerySingleOrDefaultAsync<InvitationEntity>(
@@ -560,18 +556,16 @@ public static class TeamEndpoints
                     await transaction.RollbackAsync();
                     return Results.NotFound(new { message = "Request not found" });
                 }
-                
-                //Burde denna flyttes til Core? Er den riktig i det hele tatt?
-                if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
-                {
-                    await transaction.RollbackAsync();
-                    return Results.BadRequest(new { message = "Request has already been processed" });
-                }
 
-                // 4. Call Core with Command
+                // 4. Call Core with transition
                 var teamState = new TeamState(teamId, userIds, teamInvitations);
-                var command = new DeclineJoinRequestCommand(teamId, request.InvitedUserId, request.Id, adminUser.UserId);
-                var result = TeamService.HandleDeclineRequest(teamState, command, DateTime.UtcNow, adminUser.Id);
+                var transition = new JoinRequestTransitionCommand(
+                    teamId,
+                    JoinRequestAction.Decline,
+                    adminUser.Id,
+                    request.InvitedUserId,
+                    request.Id);
+                var result = TeamService.HandleJoinRequestTransition(teamState, transition, DateTime.UtcNow);
 
                 if (result.Outcome.Status == OutcomeStatus.Rejected)
                 {
@@ -662,6 +656,19 @@ public static class TeamEndpoints
 
         return Results.Ok(new { team, isMember });
     }
+
+    private static async Task<IResult> GetTeamMembers(Guid teamId)
+    {
+        await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
+        await connection.OpenAsync();
+
+        var sql = SqlLoader.Load("Queries/TeamMembers_GetListByTeamId.sql");
+        var members = await connection.QueryAsync<TeamMemberListItem>(
+            sql,
+            new { TeamId = teamId });
+
+        return Results.Ok(members);
+    }
 }
 
 public record TeamListItem(
@@ -684,7 +691,14 @@ public record AdminActionRequest(
     string DiscordId
 );
 
-public record InvitationRequest(
+public record TeamMemberListItem(
+    Guid Id,
+    Guid TeamId,
     Guid UserId,
-    string Status
+    string Role,
+    string Status,
+    DateTime JoinedAt,
+    string Username,
+    string DiscordId,
+    string? AvatarUrl
 );

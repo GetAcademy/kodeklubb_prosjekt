@@ -57,7 +57,10 @@
         return router.getRoutes().filter(route => route.meta?.isTeam).map(route =>
         {
             const routeName = route.name?.toString() || 'Unknown';
-            return { type: 'router', path: route.path, label: toTitleCase(routeName), cls:'router-btn'};
+            const resolvedPath = route.path
+                .replace(':teamId', teamId.value)
+                .replace(':id', teamId.value);
+            return { type: 'router', path: resolvedPath, label: toTitleCase(routeName), cls:'router-btn'};
         });
     });
 
