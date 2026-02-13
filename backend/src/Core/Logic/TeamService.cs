@@ -80,7 +80,7 @@ public static class TeamService
         if (!state.Members.Contains(adminId))
         {
             return new TeamResult(
-                new Outcome(OutcomeStatus.Rejected, "InviterIsNotAMember"),
+                new Outcome(OutcomeStatus.Rejected, "HandlerIsNotAMember"),
                 state,
                 new List<IDomainEvent>()
                 );
@@ -90,6 +90,15 @@ public static class TeamService
         {
             return new TeamResult(
                 new Outcome(OutcomeStatus.Rejected, "UserHasNotSentRequest"),
+                state,
+                new List<IDomainEvent>()
+                );
+        }
+
+        if (state.Members.Contains(command.UserId))
+        {
+            return new TeamResult(
+                new Outcome(OutcomeStatus.Rejected, "UserIsAlreadyAMember"),
                 state,
                 new List<IDomainEvent>()
                 );
@@ -110,6 +119,62 @@ public static class TeamService
                 new JoinRequestApproved(state.TeamId, command.RequestId, command.UserId, adminId, now)
             }
         );
+    }
+
+    public static TeamResult HandleDeclineRequest(
+        TeamState state,
+        DeclineJoinRequestCommand command,
+        DateTime now,
+        Guid adminId
+        )
+    {
+        if (!state.Members.Contains(adminId))
+        {
+            return new TeamResult(
+                new Outcome(OutcomeStatus.Rejected, "HandlerIsNotAMember"),
+                state,
+                new List<IDomainEvent>()
+                );
+        }
+        if (!state.PendingInvitations.Contains(command.UserId))
+        {
+            return new TeamResult(
+                new Outcome(OutcomeStatus.Rejected, "UserHasNotSentRequest"),
+                state,
+                new List<IDomainEvent>()
+            );
+        }
+
+        if (state.Members.Contains(command.UserId))
+        {
+            return new TeamResult(
+                new Outcome(OutcomeStatus.Rejected, "UserIsAlreadyAMember"),
+                state,
+                new List<IDomainEvent>()
+            );
+        }
+
+        var newPendingInvitations = state.PendingInvitations
+            .Where(inv => inv != command.UserId)
+            .ToList();
+        var newState = state with
+        {
+            PendingInvitations = newPendingInvitations
+        };
+
+        return new TeamResult(
+            Outcome.Accepted(),
+            newState,
+            new List<IDomainEvent>
+            {
+                new JoinRequestDeclined(
+                    state.TeamId, 
+                    command.RequestId, 
+                    command.UserId, 
+                    command.DeclinedByUserId, 
+                    DateTime.UtcNow)
+            }
+            );
     }
     
     public static TeamResult HandleInviteToTeam(
@@ -162,20 +227,20 @@ public static class TeamService
         );
     }
 
-    public static (Outcome outcome, List<IDomainEvent> events) Handle(
-        RequestToJoinTeamCommand command,
-        DateTime now
-    )
-    {
-        // Create the domain event for the join request
-        var requestEvent = new UserRequestedToJoinTeam(
-            command.TeamId,
-            command.UserId,
-            now
-        );
-
-        return (Outcome.Accepted(), new List<IDomainEvent> { requestEvent });
-    }
+    // public static (Outcome outcome, List<IDomainEvent> events) Handle(
+    //     RequestToJoinTeamCommand command,
+    //     DateTime now
+    // )
+    // {
+    //     // Create the domain event for the join request
+    //     var requestEvent = new UserRequestedToJoinTeam(
+    //         command.TeamId,
+    //         command.UserId,
+    //         now
+    //     );
+    //
+    //     return (Outcome.Accepted(), new List<IDomainEvent> { requestEvent });
+    // }
 
     // public static (Outcome outcome, List<IDomainEvent> events) Handle(
     //     ApproveJoinRequestCommand command,
@@ -195,21 +260,21 @@ public static class TeamService
     //     return (Outcome.Accepted(), new List<IDomainEvent> { approvedEvent });
     // }
 
-    public static (Outcome outcome, List<IDomainEvent> events) Handle(
-        DeclineJoinRequestCommand command,
-        Guid userId,
-        DateTime now
-    )
-    {
-        // Create the domain event for declining the join request
-        var declinedEvent = new JoinRequestDeclined(
-            command.TeamId,
-            command.RequestId,
-            userId,
-            command.DeclinedByUserId,
-            now
-        );
-
-        return (Outcome.Accepted(), new List<IDomainEvent> { declinedEvent });
-    }
+    // public static (Outcome outcome, List<IDomainEvent> events) Handle(
+    //     DeclineJoinRequestCommand command,
+    //     Guid userId,
+    //     DateTime now
+    // )
+    // {
+    //     // Create the domain event for declining the join request
+    //     var declinedEvent = new JoinRequestDeclined(
+    //         command.TeamId,
+    //         command.RequestId,
+    //         userId,
+    //         command.DeclinedByUserId,
+    //         now
+    //     );
+    //
+    //     return (Outcome.Accepted(), new List<IDomainEvent> { declinedEvent });
+    // }
 }
