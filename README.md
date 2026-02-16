@@ -51,6 +51,12 @@ npm install
 npm run dev
 ```
 
+## pgAdmin - legge til server
+
+Logg inn med detaljer fra `.env` til pgAdmin dashboard. Legg til en server ("Add new server"):
+1) Name - kan være hva som helst
+2) Host, username og password må samsvare med `.env`
+
 ## Prosjekt oversikt
 
 Du vil nå kunne se / administrere database via pgAdmin på http://localhost:8080 - email og passord settes i .env i root. 
