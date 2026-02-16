@@ -50,3 +50,9 @@ npm install
 ```bash
 npm run dev
 ```
+
+## Prosjekt oversikt
+
+Du vil nå kunne se / administrere database via pgAdmin på http://localhost:8080 - email og passord settes i .env i root. 
+
+Frontenden kjøres på http://localhost:3000 
