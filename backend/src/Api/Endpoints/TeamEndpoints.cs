@@ -87,55 +87,52 @@ public static class TeamEndpoints
                 // 5. Persist state based on domain events
                 foreach (var evt in result.Events)
                 {
-                    if (evt is TeamCreated tc)
-                    {
-                        // Insert team
-                        var createTeamSql = SqlLoader.Load("Commands/Teams_Create.sql");
-                        await connection.ExecuteAsync(
-                            createTeamSql,
-                            new
-                            {
-                                Id = tc.TeamId,
-                                Name = tc.Name,
-                                Description = tc.Description,
-                                AdminUserId = tc.AdminUserId
-                            },
-                            transaction);
+                    if (evt is not TeamCreated tc) continue;
+                    // Insert team
+                    var createTeamSql = SqlLoader.Load("Commands/Teams_Create.sql");
+                    await connection.ExecuteAsync(
+                        createTeamSql,
+                        new
+                        {
+                            Id = tc.TeamId,
+                            Name = tc.Name,
+                            Description = tc.Description,
+                            AdminUserId = tc.AdminUserId
+                        },
+                        transaction);
 
-                        // Insert team member (admin)
-                        var insertMemberSql = SqlLoader.Load("Commands/TeamMembers_Insert.sql");
-                        await connection.ExecuteAsync(
-                            insertMemberSql,
-                            new
-                            {
-                                TeamId = tc.TeamId,
-                                UserId = tc.AdminUserId,
-                                Role = "admin"
-                            },
-                            transaction);
+                    // Insert team member (admin)
+                    var insertMemberSql = SqlLoader.Load("Commands/TeamMembers_Insert.sql");
+                    await connection.ExecuteAsync(
+                        insertMemberSql,
+                        new
+                        {
+                            TeamId = tc.TeamId,
+                            UserId = tc.AdminUserId,
+                            Role = "admin"
+                        },
+                        transaction);
 
-                        // 6. Write to EventLog
-                        var eventLogSql = SqlLoader.Load("Outbox/EventLog_Insert.sql");
-                        await connection.ExecuteAsync(
-                            eventLogSql,
-                            new
-                            {
-                                EventType = nameof(TeamCreated),
-                                OccurredAt = tc.OccurredAt
-                            },
-                            transaction);
+                    // 6. Write to EventLog
+                    var eventLogSql = SqlLoader.Load("Outbox/EventLog_Insert.sql");
+                    await connection.ExecuteAsync(
+                        eventLogSql,
+                        new
+                        {
+                            EventType = nameof(TeamCreated),
+                            OccurredAt = tc.OccurredAt
+                        },
+                        transaction);
 
-                        // 7. Write to Outbox
-                        var outboxSql = SqlLoader.Load("Outbox/Outbox_Insert.sql");
-                        await connection.ExecuteAsync(
-                            outboxSql,
-                            new
-                            {
-                                EventType = nameof(TeamCreated),
-                                
-                            },
-                            transaction);
-                    }
+                    // 7. Write to Outbox
+                    var outboxSql = SqlLoader.Load("Outbox/Outbox_Insert.sql");
+                    await connection.ExecuteAsync(
+                        outboxSql,
+                        new
+                        {
+                            EventType = nameof(TeamCreated),
+                        },
+                        transaction);
                 }
 
                 // 8. Commit transaction
@@ -167,7 +164,7 @@ public static class TeamEndpoints
         await connection.OpenAsync();
         
         var sql = SqlLoader.Load("Queries/Teams_GetAvailable.sql");
-        var teams = await connection.QueryAsync<Persistence.DbModels.TeamEntity>(
+        var teams = await connection.QueryAsync<TeamEntity>(
             sql, 
             new { DiscordId = discordId });
 
@@ -195,7 +192,7 @@ public static class TeamEndpoints
         await connection.OpenAsync();
         
         var sql = SqlLoader.Load("Queries/Teams_GetUserTeams.sql");
-        var teams = await connection.QueryAsync<Persistence.DbModels.TeamEntity>(
+        var teams = await connection.QueryAsync<TeamEntity>(
             sql,
             new { DiscordId = discordId });
 
@@ -284,48 +281,44 @@ public static class TeamEndpoints
                 // 5. Persist state based on domain events
                 foreach (var evt in result.Events)
                 {
-                    if (evt is UserRequestedToJoinTeam userRequest)
-                    {
-                        var invitationId = Guid.NewGuid();
+                    if (evt is not UserRequestedToJoinTeam userRequest) continue;
+                    var invitationId = Guid.NewGuid();
                         
-                        // Insert invitation (join request stored as self-invitation)
-                        var insertInvitationSql = SqlLoader.Load("Commands/Invitations_Insert.sql");
-                        await connection.ExecuteAsync(
-                            insertInvitationSql,
-                            new
-                            {
-                                Id = invitationId,
-                                TeamId = userRequest.TeamId,
-                                InvitedUserId = userRequest.UserId,
-                                InvitedBy = userRequest.UserId,  // Self-requested
-                                Status = "pending",
-                                InvitedAt = userRequest.OccurredAt
-                            },
-                            transaction);
+                    // Insert invitation (join request stored as self-invitation)
+                    var insertInvitationSql = SqlLoader.Load("Commands/Invitations_Insert.sql");
+                    await connection.ExecuteAsync(
+                        insertInvitationSql,
+                        new
+                        {
+                            Id = invitationId,
+                            TeamId = userRequest.TeamId,
+                            InvitedUserId = userRequest.UserId,
+                            InvitedBy = userRequest.UserId,  // Self-requested
+                            Status = "pending",
+                            InvitedAt = userRequest.OccurredAt
+                        },
+                        transaction);
 
-                        // 6. Write to EventLog
-                        var eventLogSql = SqlLoader.Load("Outbox/EventLog_Insert.sql");
-                        await connection.ExecuteAsync(
-                            eventLogSql,
-                            new
-                            {
-                                EventType = nameof(UserRequestedToJoinTeam),
-                               
-                                OccurredAt = userRequest.OccurredAt
-                            },
-                            transaction);
+                    // 6. Write to EventLog
+                    var eventLogSql = SqlLoader.Load("Outbox/EventLog_Insert.sql");
+                    await connection.ExecuteAsync(
+                        eventLogSql,
+                        new
+                        {
+                            EventType = nameof(UserRequestedToJoinTeam),
+                            OccurredAt = userRequest.OccurredAt
+                        },
+                        transaction);
 
-                        // 7. Write to Outbox
-                        var outboxSql = SqlLoader.Load("Outbox/Outbox_Insert.sql");
-                        await connection.ExecuteAsync(
-                            outboxSql,
-                            new
-                            {
-                                EventType = nameof(UserRequestedToJoinTeam),
-                               
-                            },
-                            transaction);
-                    }
+                    // 7. Write to Outbox
+                    var outboxSql = SqlLoader.Load("Outbox/Outbox_Insert.sql");
+                    await connection.ExecuteAsync(
+                        outboxSql,
+                        new
+                        {
+                            EventType = nameof(UserRequestedToJoinTeam),
+                        },
+                        transaction);
                 }
 
                 // 8. Commit transaction
@@ -387,7 +380,6 @@ public static class TeamEndpoints
                     getAdminSql,
                     new { TeamId = teamId },
                     transaction);
-                Console.WriteLine(adminUser);
 
                 if (adminUser == null)
                 {
@@ -400,7 +392,7 @@ public static class TeamEndpoints
                 var userIds = (await connection.QueryAsync<Guid>(
                     allTeamMembersSql,
                     new { Id = teamId },
-                    transaction)).ToList();;
+                    transaction)).ToList();
                 
                 // Retrieve team invitations
                 var allTeamInvitesSql = SqlLoader.Load("Queries/Invitations_GetIdsByTeamId.sql");
@@ -444,45 +436,43 @@ public static class TeamEndpoints
                 // 5. Persist state based on domain events
                 foreach (var evt in result.Events)
                 {
-                    if (evt is JoinRequestApproved jra)
-                    {
-                        // Remove pending invitation after approval
-                        var approveSql = SqlLoader.Load("Commands/Invitations_DeletePending.sql");
-                        await connection.ExecuteAsync(
-                            approveSql,
-                            new { RequestId = requestId, TeamId = teamId },
-                            transaction);
+                    if (evt is not JoinRequestApproved jra) continue;
+                    // Remove pending invitation after approval
+                    var approveSql = SqlLoader.Load("Commands/Invitations_DeletePending.sql");
+                    await connection.ExecuteAsync(
+                        approveSql,
+                        new { RequestId = requestId, TeamId = teamId },
+                        transaction);
 
-                        // Add user to team
-                        var addMemberSql = SqlLoader.Load("Commands/TeamMembers_Insert.sql");
-                        await connection.ExecuteAsync(
-                            addMemberSql,
-                            new
-                            {
-                                TeamId = teamId,
-                                UserId = jra.UserId,
-                                Role = "member"
-                            },
-                            transaction);
+                    // Add user to team
+                    var addMemberSql = SqlLoader.Load("Commands/TeamMembers_Insert.sql");
+                    await connection.ExecuteAsync(
+                        addMemberSql,
+                        new
+                        {
+                            TeamId = teamId,
+                            UserId = jra.UserId,
+                            Role = "member"
+                        },
+                        transaction);
 
-                        // Write to EventLog
-                        var eventLogSql = SqlLoader.Load("Outbox/EventLog_Insert.sql");
-                        await connection.ExecuteAsync(
-                            eventLogSql,
-                            new
-                            {
-                                EventType = nameof(JoinRequestApproved),
-                                OccurredAt = jra.OccurredAt
-                            },
-                            transaction);
+                    // Write to EventLog
+                    var eventLogSql = SqlLoader.Load("Outbox/EventLog_Insert.sql");
+                    await connection.ExecuteAsync(
+                        eventLogSql,
+                        new
+                        {
+                            EventType = nameof(JoinRequestApproved),
+                            OccurredAt = jra.OccurredAt
+                        },
+                        transaction);
 
-                        // Write to Outbox
-                        var outboxSql = SqlLoader.Load("Outbox/Outbox_Insert.sql");
-                        await connection.ExecuteAsync(
-                            outboxSql,
-                            new { EventType = nameof(JoinRequestApproved) },
-                            transaction);
-                    }
+                    // Write to Outbox
+                    var outboxSql = SqlLoader.Load("Outbox/Outbox_Insert.sql");
+                    await connection.ExecuteAsync(
+                        outboxSql,
+                        new { EventType = nameof(JoinRequestApproved) },
+                        transaction);
                 }
 
                 await transaction.CommitAsync();
@@ -531,12 +521,6 @@ public static class TeamEndpoints
                     await transaction.RollbackAsync();
                     return Results.BadRequest(new { message = "User not found" });
                 }
-
-                // if (adminUser.DiscordId != body.DiscordId)
-                // {
-                //     await transaction.RollbackAsync();
-                //     return Results.BadRequest(new { message = "User is not an admin" });
-                // }
                 
                 // Retrieve team members
                 var allTeamMembersSql = SqlLoader.Load("Queries/TeamMembers_GetByTeamId.sql");
@@ -586,33 +570,31 @@ public static class TeamEndpoints
                 // 5. Persist state based on domain events
                 foreach (var evt in result.Events)
                 {
-                    if (evt is JoinRequestDeclined jrd)
-                    {
-                        // Remove pending invitation
-                        var declineSql = SqlLoader.Load("Commands/Invitations_DeletePending.sql");
-                        await connection.ExecuteAsync(
-                            declineSql,
-                            new { RequestId = requestId, TeamId = teamId },
-                            transaction);
+                    if (evt is not JoinRequestDeclined jrd) continue;
+                    // Remove pending invitation
+                    var declineSql = SqlLoader.Load("Commands/Invitations_DeletePending.sql");
+                    await connection.ExecuteAsync(
+                        declineSql,
+                        new { RequestId = requestId, TeamId = teamId },
+                        transaction);
 
-                        // Write to EventLog
-                        var eventLogSql = SqlLoader.Load("Outbox/EventLog_Insert.sql");
-                        await connection.ExecuteAsync(
-                            eventLogSql,
-                            new
-                            {
-                                EventType = nameof(JoinRequestDeclined),
-                                OccurredAt = jrd.OccurredAt
-                            },
-                            transaction);
+                    // Write to EventLog
+                    var eventLogSql = SqlLoader.Load("Outbox/EventLog_Insert.sql");
+                    await connection.ExecuteAsync(
+                        eventLogSql,
+                        new
+                        {
+                            EventType = nameof(JoinRequestDeclined),
+                            OccurredAt = jrd.OccurredAt
+                        },
+                        transaction);
 
-                        // Write to Outbox
-                        var outboxSql = SqlLoader.Load("Outbox/Outbox_Insert.sql");
-                        await connection.ExecuteAsync(
-                            outboxSql,
-                            new { EventType = nameof(JoinRequestDeclined) },
-                            transaction);
-                    }
+                    // Write to Outbox
+                    var outboxSql = SqlLoader.Load("Outbox/Outbox_Insert.sql");
+                    await connection.ExecuteAsync(
+                        outboxSql,
+                        new { EventType = nameof(JoinRequestDeclined) },
+                        transaction);
                 }
 
                 await transaction.CommitAsync();
@@ -686,9 +668,4 @@ public record CreateTeamRequest(
 
 public record AdminActionRequest(
     string DiscordId
-);
-
-public record InvitationRequest(
-    Guid UserId,
-    string Status
 );

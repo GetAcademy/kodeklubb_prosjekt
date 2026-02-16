@@ -3,7 +3,7 @@ using Core.State;
 
 namespace Core.Outcomes;
 
-public readonly record struct UserResult(
+public record UserResult(
     Outcome Outcome,
     UserState NewState,
     IReadOnlyList<IDomainEvent> Events
