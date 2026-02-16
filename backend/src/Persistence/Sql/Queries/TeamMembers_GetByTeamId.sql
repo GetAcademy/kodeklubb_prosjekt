@@ -8,4 +8,4 @@ SELECT
     updated_at,
     version
 FROM team_members
-WHERE team_id = @Id;
+WHERE team_id = @TeamId;

@@ -25,8 +25,7 @@ public static class UserEndpoints
         await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
         await connection.OpenAsync();
         
-        var sql = SqlLoader.Load("Queries/Users_GetAll.sql");
-        var users = await connection.QueryAsync<UserEntity>(sql);
+        var users = await connection.QueryManyAsync<UserEntity>(() => SqlLoader.Load("Queries/Users_GetAll.sql"));
         
         return Results.Ok(users);
     }
@@ -36,8 +35,7 @@ public static class UserEndpoints
         await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
         await connection.OpenAsync();
         
-        var sql = SqlLoader.Load("Queries/Users_GetById.sql");
-        var user = await connection.QueryFirstOrDefaultAsync<UserEntity>(sql, new { Id = id });
+        var user = await connection.QueryOneOrDefaultAsync<UserEntity>(() => SqlLoader.Load("Queries/Users_GetById.sql"), new { Id = id });
         
         if (user is null)
             return Results.NotFound();
@@ -50,17 +48,7 @@ public static class UserEndpoints
         await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
         await connection.OpenAsync();
         
-        var sql = SqlLoader.Load("Commands/Users_Insert.sql");
-        var createdUser = await connection.QuerySingleAsync<UserEntity>(
-            sql,
-            new
-            {
-                DiscordId = request.DiscordId ?? string.Empty,
-                Username = request.Username ?? string.Empty,
-                Email = request.Email,
-                AvatarUrl = request.AvatarUrl,
-                PreferencesJson = request.PreferencesJson
-            });
+        var createdUser = await connection.QueryOneAsync<UserEntity>(() => SqlLoader.Load("Commands/Users_Insert.sql"), new { DiscordId = request.DiscordId ?? string.Empty, Username = request.Username ?? string.Empty, Email = request.Email, AvatarUrl = request.AvatarUrl, PreferencesJson = request.PreferencesJson });
 
         return Results.Created($"/api/users/{createdUser.Id}", createdUser);
     }
@@ -121,11 +109,7 @@ ORDER BY pt.name;
 
         try
         {
-            var getUserSql = SqlLoader.Load("Queries/Users_GetByDiscordId.sql");
-            var user = await connection.QuerySingleOrDefaultAsync<UserEntity>(
-                getUserSql,
-                new { DiscordId = discordId },
-                transaction);
+            var user = await connection.QueryOneOrDefaultAsync<UserEntity>(() => SqlLoader.Load("Queries/Users_GetByDiscordId.sql"), new { DiscordId = discordId }, transaction);
 
             if (user == null)
             {

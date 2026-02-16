@@ -12,4 +12,4 @@ SELECT
     updated_at AS UpdatedAt,
     version
 FROM teams
-WHERE id = @Id;
+WHERE id = @TeamId;

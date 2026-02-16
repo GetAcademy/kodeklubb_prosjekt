@@ -1,5 +1,5 @@
 <template>
-    <NavigationMenu :data="menu" />
+    <NavigationMenu :data="menu" :cls="teamMenuCls" />
     <section>
     <h2>{{ teamDetails?.name ?? 'Team' }}</h2>
     <p class="muted">Team ID: {{ teamId }}</p>
@@ -52,9 +52,25 @@
     const router = useRouter()
     const route = useRoute()
 
+    const teamLinkOrder: Record<string, number> = {
+        '/teams/:teamId': 0,
+        '/teams/:id/members': 1,
+        '/teams/:id/news': 2
+    };
+
+    const teamMenuCls = [
+        ['nav-bar'],
+        ['nav-list', 'flex-wrap-row-align-content-start-justify-space-between'],
+        ['nav-item'],
+        ['nav-link']
+    ];
+
     const menu = computed(() =>
     {
-        return router.getRoutes().filter(route => route.meta?.isTeam).map(route =>
+        return router.getRoutes()
+        .filter(route => route.meta?.isTeam)
+        .sort((a, b) => (teamLinkOrder[a.path] ?? Number.MAX_SAFE_INTEGER) - (teamLinkOrder[b.path] ?? Number.MAX_SAFE_INTEGER))
+        .map(route =>
         {
             const routeName = route.name?.toString() || 'Unknown';
             return { type: 'router', path: route.path, label: toTitleCase(routeName), cls:'router-btn'};
