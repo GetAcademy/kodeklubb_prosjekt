@@ -226,33 +226,31 @@ public static class TeamEndpoints
                     if (evt is not UserRequestedToJoinTeam userRequest) continue;
                     var invitationId = Guid.NewGuid();
                         
-                        // Insert invitation (join request stored as self-invitation)
-                        await connection.ExecuteCommandAsync(InvitationSql.SendInvitation, new { Id = invitationId, TeamId = userRequest.TeamId, InvitedUserId = userRequest.UserId, InvitedBy = userRequest.UserId, Status = "pending", InvitedAt = userRequest.OccurredAt }, transaction);
+                    // Insert invitation (join request stored as self-invitation)
+                    await connection.ExecuteCommandAsync(InvitationSql.SendInvitation, new { Id = invitationId, TeamId = userRequest.TeamId, InvitedUserId = userRequest.UserId, InvitedBy = userRequest.UserId, Status = "pending", InvitedAt = userRequest.OccurredAt }, transaction);
 
-                        // 6. Write to EventLog
-                        await connection.ExecuteCommandAsync(TeamSql.InsertEventLog, new { EventType = nameof(UserRequestedToJoinTeam), OccurredAt = userRequest.OccurredAt }, transaction);
+                    // 6. Write to EventLog
+                    await connection.ExecuteCommandAsync(TeamSql.InsertEventLog, new { EventType = nameof(UserRequestedToJoinTeam), OccurredAt = userRequest.OccurredAt }, transaction);
 
-                        // 7. Write to Outbox
-                        await connection.ExecuteCommandAsync(TeamSql.InsertOutbox, new { EventType = nameof(UserRequestedToJoinTeam) }, transaction);
-                    }
+                    // 7. Write to Outbox
+                    await connection.ExecuteCommandAsync(TeamSql.InsertOutbox, new { EventType = nameof(UserRequestedToJoinTeam) }, transaction);
                 }
-
-                // 8. Commit transaction
-                await transaction.CommitAsync();
-
-                return Results.Ok(new
-                {
-                    teamId,
-                    userId = user.Id,
-                    status = "pending",
-                    message = "Join request submitted successfully"
-                });
             }
             catch (Exception)
             {
                 await transaction.RollbackAsync();
                 throw;
             }
+
+            // 8. Commit transaction
+            await transaction.CommitAsync();
+
+            return Results.Ok(new
+            {
+                teamId,
+                status = "pending",
+                message = "Join request submitted successfully"
+            });
         }
         catch (Exception ex)
         {
