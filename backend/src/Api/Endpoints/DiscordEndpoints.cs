@@ -106,10 +106,10 @@ public static class DiscordEndpoints
                 await connection.OpenAsync();
 
                 var getUserSql = SqlLoader.Load("Queries/Users_GetByDiscordId.sql");
-                var existingUser = await connection.QueryFirstOrDefaultAsync<UserEntity>(
-                    getUserSql,
-                    new { DiscordId = discordUser.Id }
-                );
+                var existingUser = await connection.QueryOneOrDefaultAsync<UserEntity>(() => 
+                    SqlLoader.Load("Queries/Users_GetByDiscordId.sql"), 
+                    new { DiscordId = discordUser.Id });
+
 
                 UserEntity savedUser;
 
@@ -119,14 +119,14 @@ public static class DiscordEndpoints
                         ? $"https://cdn.discordapp.com/avatars/{discordUser.Id}/{discordUser.Avatar}.png"
                         : "https://cdn.discordapp.com/embed/avatars/0.png";
                     var insertUserSql = SqlLoader.Load("Commands/Users_Insert.sql");
-                    savedUser = await connection.QuerySingleAsync<UserEntity>(
-                        insertUserSql,
+                    savedUser = await connection.QueryOneAsync<UserEntity>(() => 
+                        SqlLoader.Load("Commands/Users_Insert.sql"), 
                         new
                         {
-                            DiscordId = discordUser.Id,
-                            Username = discordUser.Username,
-                            Email = discordUser.Email,
-                            AvatarUrl = avatarUrl,
+                            DiscordId = discordUser.Id, 
+                            Username = discordUser.Username, 
+                            Email = discordUser.Email, 
+                            AvatarUrl = avatarUrl, 
                             PreferencesJson = (string?)null
                         });
                     Console.WriteLine($"Created new user: {savedUser.Id} ({savedUser.Username})");
