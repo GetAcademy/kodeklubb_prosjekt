@@ -49,8 +49,7 @@ public static class TeamEndpoints
             }
 
             // 1. Start connection and transaction
-            await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
-            await connection.OpenAsync();
+            await using var connection = await AppConfig.OpenConnectionAsync();
             await using var transaction = await connection.BeginTransactionAsync();
 
             try
@@ -124,8 +123,7 @@ public static class TeamEndpoints
 
     private static async Task<IResult> GetAvailableTeams(string? discordId)
     {
-        await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
-        await connection.OpenAsync();
+        await using var connection = await AppConfig.OpenConnectionAsync();
         
         var teams = await connection.QueryManyAsync<Persistence.DbModels.TeamEntity>(TeamSql.GetAvailable, new { DiscordId = discordId });
 
@@ -149,8 +147,7 @@ public static class TeamEndpoints
             return Results.BadRequest(new { message = "Discord ID is required" });
         }
 
-        await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
-        await connection.OpenAsync();
+        await using var connection = await AppConfig.OpenConnectionAsync();
         
         var teams = await connection.QueryManyAsync<Persistence.DbModels.TeamEntity>(TeamSql.GetUserTeams, new { DiscordId = discordId });
 
@@ -179,8 +176,7 @@ public static class TeamEndpoints
             }
 
             // 1. Start connection and transaction
-            await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
-            await connection.OpenAsync();
+            await using var connection = await AppConfig.OpenConnectionAsync();
             await using var transaction = await connection.BeginTransactionAsync();
 
             try
@@ -260,8 +256,7 @@ public static class TeamEndpoints
 
     private static async Task<IResult> GetTeamRequests(Guid teamId)
     {
-        await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
-        await connection.OpenAsync();
+        await using var connection = await AppConfig.OpenConnectionAsync();
         
         var requests = await connection.QueryManyAsync(InvitationSql.GetPendingByTeam, new { TeamId = teamId });
 
@@ -279,8 +274,7 @@ public static class TeamEndpoints
                 return Results.BadRequest(new { message = "Discord ID is required" });
             }
 
-            await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
-            await connection.OpenAsync();
+            await using var connection = await AppConfig.OpenConnectionAsync();
             await using var transaction = await connection.BeginTransactionAsync();
 
             try
@@ -375,8 +369,7 @@ public static class TeamEndpoints
                 return Results.BadRequest(new { message = "Discord ID is required" });
             }
 
-            await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
-            await connection.OpenAsync();
+            await using var connection = await AppConfig.OpenConnectionAsync();
             await using var transaction = await connection.BeginTransactionAsync();
 
             try
@@ -458,8 +451,7 @@ public static class TeamEndpoints
 
     private static async Task<IResult> GetTeamDetails(Guid teamId, string? discordId)
     {
-        await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
-        await connection.OpenAsync();
+        await using var connection = await AppConfig.OpenConnectionAsync();
 
         var team = await connection.QueryOneOrDefaultAsync<Persistence.DbModels.TeamEntity>(TeamSql.GetById, new { TeamId = teamId });
 
@@ -473,17 +465,8 @@ public static class TeamEndpoints
             return Results.Ok(team);
         }
 
-        var isMemberSql = @"
-            SELECT EXISTS(
-                SELECT 1
-                FROM team_members tm
-                INNER JOIN users u ON u.id = tm.user_id
-                WHERE tm.team_id = @TeamId
-                  AND u.discord_id = @DiscordId
-            );";
-
-        var isMember = await connection.QuerySingleAsync<bool>(
-            isMemberSql,
+        var isMember = await connection.QueryOneAsync<bool>(
+            TeamSql.IsUserMemberByDiscordId,
             new { TeamId = teamId, DiscordId = discordId });
 
         return Results.Ok(new { team, isMember });

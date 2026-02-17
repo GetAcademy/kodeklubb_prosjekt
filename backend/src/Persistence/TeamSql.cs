@@ -18,6 +18,8 @@ public static class TeamSql
 
     public static string GetMemberIdsByTeamId() => SqlLoader.Load("Queries/TeamMembers_GetByTeamId.sql");
 
+    public static string IsUserMemberByDiscordId() => SqlLoader.Load("Queries/TeamMembers_IsUserMemberByDiscordId.sql");
+
     public static string InsertTeamMember() => SqlLoader.Load("Commands/TeamMembers_Insert.sql");
 
     public static string InsertEventLog() => SqlLoader.Load("Outbox/EventLog_Insert.sql");

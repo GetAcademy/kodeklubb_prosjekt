@@ -102,12 +102,10 @@ public static class DiscordEndpoints
                     return Results.Redirect($"{frontendRedirect}?error=invalid_user_data");
                 }
 
-                await using var connection = new NpgsqlConnection(AppConfig.ConnectionString);
-                await connection.OpenAsync();
+                await using var connection = await AppConfig.OpenConnectionAsync();
 
-                var getUserSql = SqlLoader.Load("Queries/Users_GetByDiscordId.sql");
-                var existingUser = await connection.QueryOneOrDefaultAsync<UserEntity>(() => 
-                    SqlLoader.Load("Queries/Users_GetByDiscordId.sql"), 
+                var existingUser = await connection.QueryOneOrDefaultAsync<UserEntity>(
+                    UserSql.GetByDiscordId,
                     new { DiscordId = discordUser.Id });
 
 
@@ -118,9 +116,8 @@ public static class DiscordEndpoints
                     var avatarUrl = !string.IsNullOrWhiteSpace(discordUser.Avatar)
                         ? $"https://cdn.discordapp.com/avatars/{discordUser.Id}/{discordUser.Avatar}.png"
                         : "https://cdn.discordapp.com/embed/avatars/0.png";
-                    var insertUserSql = SqlLoader.Load("Commands/Users_Insert.sql");
-                    savedUser = await connection.QueryOneAsync<UserEntity>(() => 
-                        SqlLoader.Load("Commands/Users_Insert.sql"), 
+                    savedUser = await connection.QueryOneAsync<UserEntity>(
+                        UserSql.Insert,
                         new
                         {
                             DiscordId = discordUser.Id, 

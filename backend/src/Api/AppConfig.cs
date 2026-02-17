@@ -1,5 +1,7 @@
 namespace Api;
 
+using Npgsql;
+
 /// <summary>
 /// Static configuration helper for accessing application configuration without dependency injection
 /// </summary>
@@ -14,6 +16,13 @@ public static class AppConfig
     }
 
     public static string ConnectionString { get; set; } = string.Empty;
+
+    public static async Task<NpgsqlConnection> OpenConnectionAsync()
+    {
+        var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        return connection;
+    }
 
     public static void Initialize(IConfiguration configuration)
     {
