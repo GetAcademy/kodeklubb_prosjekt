@@ -3,8 +3,8 @@ namespace Core.DomainEvents;
 public record UserInvitedToTeam(
     Guid UserId,
     Guid InvitedByUserId,
-    DateTime OccuredAt
+    DateTime OccurredAt
 ) : IDomainEvent
 {
-    public DateTime TimeStamp { get; } = OccuredAt;
+    public DateTime OccurredAt { get; } = OccurredAt;
 }

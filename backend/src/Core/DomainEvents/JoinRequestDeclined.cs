@@ -8,5 +8,5 @@ public record JoinRequestDeclined(
     DateTime OccurredAt
 ) : IDomainEvent
 {
-    public DateTime TimeStamp { get; } = OccurredAt;
+    public DateTime OccurredAt { get; } = OccurredAt;
 }
