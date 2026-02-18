@@ -3,6 +3,7 @@ using Persistence;
 using Persistence.DbModels;
 using Npgsql;
 using Dapper;
+using Endpoints.Users;
 
 namespace Api.Endpoints;
 
@@ -12,32 +13,12 @@ public static class UserEndpoints
     {
         var group = app.MapGroup("/api/users").WithName("Users");
 
-        group.MapGet("/", GetAllUsers).WithName("GetAllUsers");
-        group.MapGet("/{id}", GetUserById).WithName("GetUserById");
-        group.MapPost("/", CreateUser).WithName("CreateUser");
-        group.MapGet("/tags/predefined", GetPredefinedTags).WithName("GetPredefinedTags");
-        group.MapGet("/{discordId}/tags", GetUserTags).WithName("GetUserTags");
-        group.MapPost("/{discordId}/tags", AddUserTags).WithName("AddUserTags");
-    }
-
-    private static async Task<IResult> GetAllUsers()
-    {
-        await using var connection = await AppConfig.OpenConnectionAsync();
-        return Results.Ok(await connection.QueryManyAsync<UserEntity>(UserSql.GetAll));
-    }
-
-    private static async Task<IResult> GetUserById(Guid id)
-    {
-        await using var connection = await AppConfig.OpenConnectionAsync();
-        var user = await connection.QueryOneOrDefaultAsync<UserEntity>(UserSql.GetById, new { Id = id });
-        return user is null ? Results.NotFound() : Results.Ok(user);
-    }
-
-    private static async Task<IResult> CreateUser(CreateUserRequest request)
-    {
-        await using var connection = await AppConfig.OpenConnectionAsync();
-        var createdUser = await connection.QueryOneAsync<UserEntity>(UserSql.Insert, new { DiscordId = request.DiscordId ?? string.Empty, Username = request.Username ?? string.Empty, Email = request.Email, AvatarUrl = request.AvatarUrl, PreferencesJson = request.PreferencesJson });
-        return Results.Created($"/api/users/{createdUser.Id}", createdUser);
+        group.MapGet("/", Endpoints.Users.GetAllUsers).WithName("GetAllUsers");
+        group.MapGet("/{id}", Endpoints.Users.GetUserById).WithName("GetUserById");
+        group.MapPost("/", Endpoints.Users.CreateUser).WithName("CreateUser");
+        group.MapGet("/tags/predefined", Endpoints.Users.GetPredefinedTags).WithName("GetPredefinedTags");
+        group.MapGet("/{discordId}/tags", Endpoints.Users.GetUserTags).WithName("GetUserTags");
+        group.MapPost("/{discordId}/tags", Endpoints.Users.AddUserTags).WithName("AddUserTags");
     }
 
     private static async Task<IResult> GetPredefinedTags()
@@ -46,14 +27,7 @@ public static class UserEndpoints
         return Results.Ok(await connection.QueryManyAsync(UserSql.GetPredefinedTags));
     }
 
-    private static async Task<IResult> GetUserTags(string discordId)
-    {
-        if (string.IsNullOrWhiteSpace(discordId)) return Results.BadRequest(new { message = "Discord ID is required" });
-
-        await using var connection = await AppConfig.OpenConnectionAsync();
-        return Results.Ok(await connection.QueryManyAsync(UserSql.GetUserPredefinedTagsByDiscordId, new { DiscordId = discordId }));
-    }
-
+   
     private static async Task<IResult> AddUserTags(string discordId, UpdateUserTagsRequest request)
     {
         if (string.IsNullOrWhiteSpace(discordId)) return Results.BadRequest(new { message = "Discord ID is required" });
