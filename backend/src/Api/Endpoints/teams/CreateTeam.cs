@@ -1,15 +1,13 @@
-namespace Api.Endpoints.Teams
-{
-    using Api;
-    using Api.Endpoints;
-    using Core.Commands;
-    using Core.DomainEvents;
-    using Core.Logic;
-    using Core.Outcomes;
-    using Core.State;
-    using Persistence;
+using Core.Commands;
+using Core.DomainEvents;
+using Core.Logic;
+using Core.Outcomes;
+using Core.State;
+using Persistence;
+using static Api.Endpoints.TeamEndpoints;
+namespace Api.Endpoints.Teams;
 
-    public static class CreateTeamEndpoint
+public static class CreateTeamEndpoint
     {
         public static async Task<IResult> CreateTeam(HttpContext context)
         {
@@ -95,4 +93,3 @@ namespace Api.Endpoints.Teams
             }
         }
     }
-}

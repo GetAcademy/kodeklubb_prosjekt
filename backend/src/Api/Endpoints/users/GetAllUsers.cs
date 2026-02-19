@@ -1,9 +1,8 @@
-namespace Endpoints
+using Api;
+using Persistence;
+using Persistence.DbModels;
+namespace Api.Endpoints.Users
 {
-    using Api;
-    using Persistence;
-    using Persistence.DbModels;
-
     public static partial class Users
     {
         public static async Task<IResult> GetAllUsers()

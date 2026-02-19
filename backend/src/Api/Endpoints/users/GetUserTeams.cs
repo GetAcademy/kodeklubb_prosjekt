@@ -1,10 +1,10 @@
-namespace Endpoints
-{
-    using Api;
-    using Api.Endpoints;
-    using Persistence;
-    using Persistence.DbModels;
+using Api;
+using Persistence;
+using Persistence.DbModels;
+using static Api.Endpoints.TeamEndpoints;
 
+namespace Api.Endpoints.Users
+{
     public static partial class Users
     {
         public static async Task<IResult> GetUserTeams(string? discordId)

@@ -1,14 +1,13 @@
+using Core.Commands;
+using Core.DomainEvents;
+using Core.Logic;
+using Core.Outcomes;
+using Core.State;
+using Persistence;
+using Persistence.DbModels;
 namespace Api.Endpoints.Teams
 {
-    using Api;
-    using Api.Endpoints;
-    using Core.Commands;
-    using Core.DomainEvents;
-    using Core.Logic;
-    using Core.Outcomes;
-    using Core.State;
-    using Persistence;
-    using Persistence.DbModels;
+
 
     public static class RequestToJoinTeamEndpoint
     {

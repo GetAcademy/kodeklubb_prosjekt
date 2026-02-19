@@ -1,7 +1,3 @@
-namespace Api.Endpoints.Teams
-{
-    using Api;
-    using Api.Endpoints;
     using Core.Commands;
     using Core.DomainEvents;
     using Core.Logic;
@@ -9,7 +5,8 @@ namespace Api.Endpoints.Teams
     using Core.State;
     using Persistence;
     using Persistence.DbModels;
-
+using static Api.Endpoints.TeamEndpoints;
+namespace Api.Endpoints.Teams;
     public static class ApproveTeamRequestEndpoint
     {
         public static async Task<IResult> ApproveTeamRequest(Guid teamId, Guid requestId, HttpContext context)
@@ -107,4 +104,3 @@ namespace Api.Endpoints.Teams
             }
         }
     }
-}

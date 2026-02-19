@@ -1,8 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Api.Contracts;
-using Dapper;
-using Npgsql;
 using Persistence;
 using Persistence.DbModels;
 

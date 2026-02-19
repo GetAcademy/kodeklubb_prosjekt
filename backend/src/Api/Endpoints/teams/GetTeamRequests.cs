@@ -2,8 +2,6 @@
 using Persistence;
 namespace Api.Endpoints.Teams
 {
-  
-
     public static class GetTeamRequestsEndpoint
     {
         public static async Task<IResult> GetTeamRequests(Guid teamId)

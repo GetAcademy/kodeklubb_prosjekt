@@ -1,5 +1,3 @@
-using Api;
-using Api.Endpoints;
 using Core.Commands;
 using Core.DomainEvents;
 using Core.Logic;
@@ -7,6 +5,7 @@ using Core.Outcomes;
 using Core.State;
 using Persistence;
 using Persistence.DbModels;
+using static Api.Endpoints.TeamEndpoints;
 
 namespace Api.Endpoints.Teams;
 
