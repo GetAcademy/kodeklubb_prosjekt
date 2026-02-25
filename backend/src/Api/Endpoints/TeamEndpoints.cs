@@ -53,7 +53,6 @@ public static class TeamEndpoints
         }
     }
 
-    // Core logic for CreateTeam
     private static async Task<IResult> CreateTeamCore(CreateTeamRequest body, DbSession db)
     {
         var userExists = await db.QueryOneAsync<bool>(TeamSql.CheckUserExists(), new { Id = body.AdminUserId });
@@ -134,7 +133,6 @@ public static class TeamEndpoints
         }
     }
 
-    // Core logic for RequestToJoinTeam
     private static async Task<IResult> RequestToJoinTeamCore(Guid teamId, TeamJoinRequest body, DbSession db)
     {
         var user = await db.QueryOneOrDefaultAsync<UserEntity>(TeamSql.GetUserByDiscordId(), new { body.DiscordId });
@@ -197,7 +195,6 @@ public static class TeamEndpoints
         }
     }
 
-    // Core logic for ApproveTeamRequest
     private static async Task<IResult> ApproveTeamRequestCore(Guid teamId, Guid requestId, AdminActionRequest body, DbSession db)
     {
         var adminUser = await db.QueryOneOrDefaultAsync<TeamMemberEntity>(TeamSql.GetAdminUserByTeamId(), new { TeamId = teamId });
@@ -245,7 +242,6 @@ public static class TeamEndpoints
         }
     }
 
-    // Core logic for DeclineTeamRequest
     private static async Task<IResult> DeclineTeamRequestCore(Guid teamId, Guid requestId, AdminActionRequest body, DbSession db)
     {
         var adminUser = await db.QueryOneOrDefaultAsync<TeamMemberEntity>(TeamSql.GetAdminUserByTeamId(), new { TeamId = teamId });
