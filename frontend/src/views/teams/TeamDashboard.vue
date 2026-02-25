@@ -54,8 +54,8 @@
 
     const teamLinkOrder: Record<string, number> = {
         '/teams/:teamId': 0,
-        '/teams/:id/members': 1,
-        '/teams/:id/news': 2
+        '/teams/:teamId/members': 1,
+        '/teams/:teamId/news': 2
     };
 
     const teamMenuCls = [
@@ -65,16 +65,19 @@
         ['nav-link']
     ];
 
-    const menu = computed(() =>
-    {
+    const menu = computed(() => {
         return router.getRoutes()
-        .filter(route => route.meta?.isTeam)
-        .sort((a, b) => (teamLinkOrder[a.path] ?? Number.MAX_SAFE_INTEGER) - (teamLinkOrder[b.path] ?? Number.MAX_SAFE_INTEGER))
-        .map(route =>
-        {
-            const routeName = route.name?.toString() || 'Unknown';
-            return { type: 'router', path: route.path, label: toTitleCase(routeName), cls:'router-btn'};
-        });
+            .filter(route => route.meta?.isTeam)
+            .sort((a, b) => (teamLinkOrder[a.path] ?? Number.MAX_SAFE_INTEGER) - (teamLinkOrder[b.path] ?? Number.MAX_SAFE_INTEGER))
+            .map(route => {
+                const routeName = route.name?.toString() || 'Unknown';
+                // Replace :teamId in path with actual teamId
+                let path = route.path;
+                if (teamId.value) {
+                    path = path.replace(':teamId', teamId.value);
+                }
+                return { type: 'router', path, label: toTitleCase(routeName), cls: 'router-btn' };
+            });
     });
 
     function toTitleCase(str: string) { return str.replace(/\w\S*/g, (txt) => { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(); } );}
