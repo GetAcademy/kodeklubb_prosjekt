@@ -23,6 +23,7 @@ public static class TeamEndpoints
         group.MapGet("/{teamId}/requests", GetTeamRequests).WithName("GetTeamRequests");
         group.MapPatch("/{teamId}/requests/{requestId}/approve", ApproveTeamRequest).WithName("ApproveTeamRequest");
         group.MapPatch("/{teamId}/requests/{requestId}/decline", DeclineTeamRequest).WithName("DeclineTeamRequest");
+        group.MapGet("/{teamId}/members", GetTeamMembers).WithName("GetTeamMembers");
     }
 
     private static Task<IResult> GetTeamContent(Guid teamId)
@@ -33,7 +34,6 @@ public static class TeamEndpoints
     
     private static async Task<IResult> CreateTeam(HttpContext context)
     {
-        
         var body = await context.Request.ReadFromJsonAsync<CreateTeamRequest>();
         if (body == null || string.IsNullOrWhiteSpace(body.Name) || body.AdminUserId == Guid.Empty)
         {
@@ -44,33 +44,36 @@ public static class TeamEndpoints
 
         try
         {
-            var userExists = await db.QueryOneAsync<bool>(TeamSql.CheckUserExists(),
-                new { Id = body.AdminUserId });
-            if (!userExists) return await db.RollbackAsync("Admin user not found");
-
-            var state = new TeamState(Guid.NewGuid(), new List<Guid>(), new List<Guid>());
-            var command = new CreateTeamCommand(state.TeamId, body.Name, body.Description, body.AdminUserId);
-            var result = TeamService.HandleCreateTeam(state, command, DateTime.UtcNow);
-
-            if (result.Outcome.Status == OutcomeStatus.Rejected) 
-                await db.RollbackAsync(result.Outcome.Message);
-
-            await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx);
-            await db.CommitAsync();
-
-            return Results.Created($"/api/discover/{state.TeamId}", new
-            {
-                state.TeamId,
-                name = body.Name,
-                adminUserId = body.AdminUserId,
-                message = "Team created successfully"
-            });
+            return await CreateTeamCore(body, db);
         }
         catch (Exception ex)
         {
             await db.Tx.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
+    }
+
+    private static async Task<IResult> CreateTeamCore(CreateTeamRequest body, DbSession db)
+    {
+        var userExists = await db.QueryOneAsync<bool>(TeamSql.CheckUserExists(), new { Id = body.AdminUserId });
+        if (!userExists) return await db.RollbackAsync("Admin user not found");
+
+        var state = new TeamState(Guid.NewGuid(), new List<Guid>(), new List<Guid>());
+        var command = new CreateTeamCommand(state.TeamId, body.Name, body.Description, body.AdminUserId);
+        var result = TeamService.HandleCreateTeam(state, command, DateTime.UtcNow);
+
+        if (result.Outcome.Status == OutcomeStatus.Rejected)
+            return await db.RollbackAsync(result.Outcome.Message);
+
+        await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx);
+        await db.CommitAsync();
+        return Results.Created($"/api/discover/{state.TeamId}", new
+        {
+            state.TeamId,
+            name = body.Name,
+            adminUserId = body.AdminUserId,
+            message = "Team created successfully"
+        });
     }
 
     private static async Task<IResult> GetAvailableTeams(string? discordId)
@@ -111,7 +114,6 @@ public static class TeamEndpoints
 
     private static async Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context)
     {
-        
         var body = await context.Request.ReadFromJsonAsync<TeamJoinRequest>();
         if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
         {
@@ -122,31 +124,39 @@ public static class TeamEndpoints
 
         try
         {
-            var user = await db.QueryOneOrDefaultAsync<UserEntity>(TeamSql.GetUserByDiscordId(), new { body.DiscordId });
-            if (user == null) await db.Tx.RollbackAsync();
-
-            var team = await db.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById(), new { TeamId = teamId });
-            if (team == null) await db.Tx.RollbackAsync();
-
-            var userIds = await db.QueryListAsync<Guid>(TeamSql.GetMemberIdsByTeamId(), new { TeamId = teamId });
-            var teamInvitations = await db.QueryListAsync<Guid>(InvitationSql.GetIdsByTeamId(), new { TeamId = teamId });
-
-            var state = new TeamState(teamId, userIds, teamInvitations);
-            var command = new RequestToJoinTeamCommand(teamId, user.Id);
-            var result = TeamService.HandleRequestToJoinTeam(state, command, DateTime.UtcNow);
-
-            if (result.Outcome.Status == OutcomeStatus.Rejected)
-                return await db.RollbackAsync(result.Outcome.Message);
-
-            await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx);
-            
+            return await RequestToJoinTeamCore(teamId, body, db);
         }
         catch (Exception ex)
         {
             await db.Tx.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
-        } 
+        }
+    }
 
+    private static async Task<IResult> RequestToJoinTeamCore(Guid teamId, TeamJoinRequest body, DbSession db)
+    {
+        var user = await db.QueryOneOrDefaultAsync<UserEntity>(TeamSql.GetUserByDiscordId(), new { body.DiscordId });
+        if (user == null) {
+            await db.Tx.RollbackAsync();
+            return Results.BadRequest(new { message = "User not found" });
+        }
+        var team = await db.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById(), new { TeamId = teamId });
+        if (team == null) {
+            await db.Tx.RollbackAsync();
+            return Results.BadRequest(new { message = "Team not found" });
+        }
+
+        var userIds = await db.QueryListAsync<Guid>(TeamSql.GetMemberIdsByTeamId(), new { TeamId = teamId });
+        var teamInvitations = await db.QueryListAsync<Guid>(InvitationSql.GetIdsByTeamId(), new { TeamId = teamId });
+
+        var state = new TeamState(teamId, userIds, teamInvitations);
+        var command = new RequestToJoinTeamCommand(teamId, user.Id);
+        var result = TeamService.HandleRequestToJoinTeam(state, command, DateTime.UtcNow);
+
+        if (result.Outcome.Status == OutcomeStatus.Rejected)
+            return await db.RollbackAsync(result.Outcome.Message);
+
+        await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx);
         await db.CommitAsync();
 
         return Results.Ok(new
@@ -176,34 +186,39 @@ public static class TeamEndpoints
 
         try
         {
-            var adminUser = await db.QueryOneOrDefaultAsync<TeamMemberEntity>(TeamSql.GetAdminUserByTeamId(), new { TeamId = teamId });
-            if (adminUser == null) return await db.RollbackAsync("Admin user not found");
-            
-            var userIds = await db.QueryListAsync<Guid>(TeamSql.GetMemberIdsByTeamId(), new { TeamId = teamId });
-            var teamInvitations = await db.QueryListAsync<Guid>(InvitationSql.GetIdsByTeamId(), new { TeamId = teamId });
-            
-            var request = await db.QueryOneOrDefaultAsync<InvitationEntity>(InvitationSql.GetById(), new { RequestId = requestId, TeamId = teamId });
-            if (request == null) return await db.RollbackAsync("Request not found");
-            
-            if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
-                return await db.RollbackAsync("Request has already been processed");
-
-            var state = new TeamState(teamId, userIds, teamInvitations);
-            var command = new ApproveJoinRequestCommand(teamId, request.InvitedUserId, request.Id);
-            var result = TeamService.HandleApproveRequest(state, command, DateTime.UtcNow, adminUser.Id);
-
-            if (result.Outcome.Status == OutcomeStatus.Rejected)
-                return await db.RollbackAsync(result.Outcome.Message);
-
-            await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx);
-            await db.CommitAsync();
-            return Results.Ok(new { message = "Request approved successfully" });
+            return await ApproveTeamRequestCore(teamId, requestId, body, db);
         }
         catch (Exception ex)
         {
             await db.Tx.RollbackAsync();
             return Results.BadRequest(new { ex.Message });
         }
+    }
+
+    private static async Task<IResult> ApproveTeamRequestCore(Guid teamId, Guid requestId, AdminActionRequest body, DbSession db)
+    {
+        var adminUser = await db.QueryOneOrDefaultAsync<TeamMemberEntity>(TeamSql.GetAdminUserByTeamId(), new { TeamId = teamId });
+        if (adminUser == null) return await db.RollbackAsync("Admin user not found");
+
+        var userIds = await db.QueryListAsync<Guid>(TeamSql.GetMemberIdsByTeamId(), new { TeamId = teamId });
+        var teamInvitations = await db.QueryListAsync<Guid>(InvitationSql.GetIdsByTeamId(), new { TeamId = teamId });
+
+        var request = await db.QueryOneOrDefaultAsync<InvitationEntity>(InvitationSql.GetById(), new { RequestId = requestId, TeamId = teamId });
+        if (request == null) return await db.RollbackAsync("Request not found");
+
+        if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
+            return await db.RollbackAsync("Request has already been processed");
+
+        var state = new TeamState(teamId, userIds, teamInvitations);
+        var command = new ApproveJoinRequestCommand(teamId, request.InvitedUserId, request.Id);
+        var result = TeamService.HandleApproveRequest(state, command, DateTime.UtcNow, adminUser.Id);
+
+        if (result.Outcome.Status == OutcomeStatus.Rejected)
+            return await db.RollbackAsync(result.Outcome.Message);
+
+        await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx);
+        await db.CommitAsync();
+        return Results.Ok(new { message = "Request approved successfully" });
     }
 
     private static async Task<IResult> DeclineTeamRequest(Guid teamId, Guid requestId, HttpContext context)
@@ -218,33 +233,38 @@ public static class TeamEndpoints
 
         try
         {
-            var adminUser = await db.QueryOneOrDefaultAsync<TeamMemberEntity>(TeamSql.GetAdminUserByTeamId(), new { TeamId = teamId });
-            if (adminUser == null) return await db.RollbackAsync("User not found");
-            
-            var userIds = await db.QueryListAsync<Guid>(TeamSql.GetMemberIdsByTeamId(), new { TeamId = teamId });
-            var teamInvitations = await db.QueryListAsync<Guid>(InvitationSql.GetIdsByTeamId(), new { TeamId = teamId });
-            var request = await db.QueryOneOrDefaultAsync<InvitationEntity>(InvitationSql.GetById(), new { RequestId = requestId, TeamId = teamId });
-            if (request == null) return await db.RollbackAsync("Request not found");
-            
-            if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
-                return await db.RollbackAsync("Request has already been processed");
-
-            var state = new TeamState(teamId, userIds, teamInvitations);
-            var command = new DeclineJoinRequestCommand(teamId, request.InvitedUserId, request.Id, adminUser.UserId);
-            var result = TeamService.HandleDeclineRequest(state, command, DateTime.UtcNow, adminUser.Id);
-
-            if (result.Outcome.Status == OutcomeStatus.Rejected)
-                return await db.RollbackAsync(result.Outcome.Message);
-
-            await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx);
-            await db.CommitAsync();
-            return Results.Ok(new { message = "Request declined successfully" });
+            return await DeclineTeamRequestCore(teamId, requestId, body, db);
         }
         catch (Exception ex)
         {
             await db.Tx.RollbackAsync();
             return Results.BadRequest(new { ex.Message });
         }
+    }
+
+    private static async Task<IResult> DeclineTeamRequestCore(Guid teamId, Guid requestId, AdminActionRequest body, DbSession db)
+    {
+        var adminUser = await db.QueryOneOrDefaultAsync<TeamMemberEntity>(TeamSql.GetAdminUserByTeamId(), new { TeamId = teamId });
+        if (adminUser == null) return await db.RollbackAsync("User not found");
+
+        var userIds = await db.QueryListAsync<Guid>(TeamSql.GetMemberIdsByTeamId(), new { TeamId = teamId });
+        var teamInvitations = await db.QueryListAsync<Guid>(InvitationSql.GetIdsByTeamId(), new { TeamId = teamId });
+        var request = await db.QueryOneOrDefaultAsync<InvitationEntity>(InvitationSql.GetById(), new { RequestId = requestId, TeamId = teamId });
+        if (request == null) return await db.RollbackAsync("Request not found");
+
+        if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
+            return await db.RollbackAsync("Request has already been processed");
+
+        var state = new TeamState(teamId, userIds, teamInvitations);
+        var command = new DeclineJoinRequestCommand(teamId, request.InvitedUserId, request.Id, adminUser.UserId);
+        var result = TeamService.HandleDeclineRequest(state, command, DateTime.UtcNow, adminUser.Id);
+
+        if (result.Outcome.Status == OutcomeStatus.Rejected)
+            return await db.RollbackAsync(result.Outcome.Message);
+
+        await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx);
+        await db.CommitAsync();
+        return Results.Ok(new { message = "Request declined successfully" });
     }
 
     private static async Task<IResult> GetTeamDetails(Guid teamId, string? discordId)
@@ -265,6 +285,13 @@ public static class TeamEndpoints
             new { TeamId = teamId, DiscordId = discordId });
         
         return Results.Ok(new { team, isMember });
+    }
+
+    private static async Task<IResult> GetTeamMembers(Guid teamId)
+    {
+        await using var connection = await AppConfig.OpenConnectionAsync();
+        var members = await connection.QueryManyAsync<TeamMemberEntity>(TeamSql.GetMemberListByTeamId(), new { TeamId = teamId });
+        return Results.Ok(members);
     }
 }
 

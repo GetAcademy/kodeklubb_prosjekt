@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Sql\**\*.sql" />
+    <EmbeddedResource Include="Queries\*.sql" />
   </ItemGroup>
 
 </Project>

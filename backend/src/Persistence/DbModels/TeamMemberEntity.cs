@@ -6,6 +6,9 @@ public class TeamMemberEntity
     public Guid TeamId { get; init; }
     public Guid UserId { get; init; }
     public string DiscordId { get; init; }
+    public string Username { get; init; } = string.Empty;
+    public string Email { get; init; } = string.Empty;
+    public string AvatarUrl { get; init; } = string.Empty;
     public string Role { get; init; } = "member";
     public string Status { get; init; } = "active";
     public DateTime JoinedAt { get; init; }
