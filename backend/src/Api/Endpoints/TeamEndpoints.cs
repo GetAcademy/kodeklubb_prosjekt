@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Persistence;
 using Core.Commands;
 using Core.Logic;
@@ -313,4 +314,8 @@ public record CreateTeamRequest(
 
 public record AdminActionRequest(
     string DiscordId
+);
+
+public record TeamJoinRequest(
+    [property: JsonPropertyName("discordId")] string DiscordId
 );
