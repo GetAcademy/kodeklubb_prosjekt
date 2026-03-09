@@ -9,13 +9,14 @@ public static class TeamEventHandler
     public static async Task HandleAsync(
         IReadOnlyList<IDomainEvent> events,
         NpgsqlConnection connection,
-        NpgsqlTransaction transaction)
+        NpgsqlTransaction transaction,
+        IServiceProvider? serviceProvider = null)
     {
         foreach (var evt in events)
         {
             if (evt is TeamCreated created) await HandleEvent(created, connection, transaction);
-            if (evt is UserRequestedToJoinTeam team) await HandleEvent(team, connection, transaction);
-            if (evt is JoinRequestApproved approved) await HandleEvent(approved, connection, transaction);
+            if (evt is UserRequestedToJoinTeam team) await HandleEvent(team, connection, transaction, serviceProvider);
+            if (evt is JoinRequestApproved approved) await HandleEvent(approved, connection, transaction, serviceProvider);
             if (evt is JoinRequestDeclined declined) await HandleEvent(declined, connection, transaction);
         }
     }
@@ -31,7 +32,7 @@ public static class TeamEventHandler
     }
 
     private static async Task HandleEvent(JoinRequestApproved evt, NpgsqlConnection connection,
-        NpgsqlTransaction transaction)
+        NpgsqlTransaction transaction, IServiceProvider? serviceProvider)
     {
         await connection.ExecuteCommandAsync(
             InvitationSql.DeletePendingInvitation, 
@@ -42,10 +43,21 @@ public static class TeamEventHandler
             new { TeamId = evt.TeamId, UserId = evt.UserId, Role = "member" }, 
             transaction);
         await InsertToEventLogAndOutbox(evt, connection, transaction);
+
+        if (serviceProvider != null)
+        {
+            var emailService = (Core.Logic.IEmailService)serviceProvider.GetService(typeof(Core.Logic.IEmailService));
+            // Get user email
+            var user = await connection.QueryOneOrDefaultAsync<Persistence.DbModels.UserEntity>("SELECT * FROM users WHERE id = @UserId", new { UserId = evt.UserId }, transaction);
+            if (user?.Email != null)
+            {
+                await emailService.SendEmailAsync(user.Email, "You have been accepted to the team!", $"<h1>Congratulations!</h1><p>Your request to join the team has been approved.</p>");
+            }
+        }
     }
 
     private static async Task HandleEvent(UserRequestedToJoinTeam evt, NpgsqlConnection connection,
-        NpgsqlTransaction transaction)
+        NpgsqlTransaction transaction, IServiceProvider? serviceProvider)
     {
         var invitationId = Guid.NewGuid();
         await connection.ExecuteCommandAsync(
@@ -60,6 +72,17 @@ public static class TeamEventHandler
                 InvitedAt = evt.OccurredAt
             }, transaction);
         await InsertToEventLogAndOutbox(evt, connection, transaction);
+
+        if (serviceProvider != null)
+        {
+            var emailService = (Core.Logic.IEmailService)serviceProvider.GetService(typeof(Core.Logic.IEmailService));
+            // Get team admin email
+            var admin = await connection.QueryOneOrDefaultAsync<Persistence.DbModels.UserEntity>("SELECT u.* FROM users u JOIN teams t ON u.id = t.team_admin_id WHERE t.id = @TeamId", new { TeamId = evt.TeamId }, transaction);
+            if (admin?.Email != null)
+            {
+                await emailService.SendEmailAsync(admin.Email, "New team join request", $"<h1>New join request</h1><p>A user has requested to join your team.</p>");
+            }
+        }
     }
     private static async Task HandleEvent(TeamCreated evt, NpgsqlConnection connection, NpgsqlTransaction transaction)
     {
