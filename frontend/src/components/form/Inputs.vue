@@ -1,6 +1,4 @@
 <template>
-    <label v-if="!!data.label":for="data.name" :class="cls[0]">{{ !!data.label ? data.label : data.name }}</label>
-    <input
         :id="data.id"
         :class="cls[1]"
         :name="data.name"
@@ -22,6 +20,30 @@
         :autofocus="!!data.autofocus ? data.autofocus : false"
         :multiple="!!data.multiple && data.type == 'file' ? data.multiple : false"
         @input="emit('update:modelValue', $event.target.value)"
+    />
+    <label v-if="data.label" :for="data.name" :class="cls[0]">{{ data.label || data.name }}</label>
+    <input
+        :id="data.id"
+        :class="cls[1]"
+        :name="data.name"
+        :placeholder="data.placeholder || ''"
+        :min="data.type === 'range' ? (data.rangeMin ?? 0) : undefined"
+        :step="data.type === 'range' ? 1 : undefined"
+        :max="data.type === 'range' ? (data.rangeMax ?? 100) : undefined"
+        :value="data.value || ''"
+        :type="data.type || 'text'"
+        :size="data.size || '30'"
+        :width="data.width || undefined"
+        :height="data.height || undefined"
+        :pattern="data.pattern || undefined"
+        :readonly="data.readonly || false"
+        :required="data.required || false"
+        :disabled="data.disabled || false"
+        :maxlength="data.maxlength || undefined"
+        :minlength="data.minlength || undefined"
+        :autofocus="data.autofocus || false"
+        :multiple="data.multiple && data.type === 'file' ? data.multiple : false"
+        @input="emit('update:modelValue', ($event.target as HTMLInputElement)?.value)"
     />
 </template>
 <script lang="ts" setup>

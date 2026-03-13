@@ -1,5 +1,45 @@
-export interface FormItem
-{
+export interface SelectionOption {
+    id: string;
+    label: string;
+    value: string;
+}
+
+export interface SelectionItem {
+    id: string;
+    label: string;
+    multiple?: boolean;
+    selectOptions?: SelectionOption[];
+}
+
+export interface DataListOption {
+    id: string;
+    label: string;
+    value: string;
+    name?: string;
+    placeholder?: string;
+    required?: boolean;
+}
+
+export interface OutputItem {
+    id: string;
+    label: string;
+    value: string;
+    name: string;
+    for?: string;
+}
+
+export interface TextAreaItem {
+    id: string;
+    label: string;
+    name: string;
+    placeholder?: string;
+    rows?: number;
+    cols?: number;
+    maxlength?: number;
+    required?: boolean;
+}
+
+export interface FormItem {
     rel?: string;
     name: string;
     title?: string;
@@ -10,10 +50,10 @@ export interface FormItem
     acceptcharset?: string;
     inputControl?: InputItem[];
     autocomplete?: 'on' | 'off';
-    outputs?: Record<string,string>;
-    textarea?: Record<string,string>;
-    datalist?: Record<string,string>;
-    selections?: Record<string,string>;
+    outputs?: OutputItem[];
+    textarea?: TextAreaItem;
+    datalist?: DataListOption[];
+    selections?: SelectionItem[];
     method: 'POST' | 'GET' | 'PUT' | 'DELETE' | 'PATCH';
 };
 
