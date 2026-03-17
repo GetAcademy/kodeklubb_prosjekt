@@ -18,6 +18,13 @@ public static class UserEndpoints
         group.MapGet("/tags/predefined", () => GetPredefinedTags()).WithName("GetPredefinedTags");
         group.MapGet("/{discordId}/tags", (string discordId) => GetUserTags(discordId)).WithName("GetUserTags");
         group.MapPost("/{discordId}/tags", (string discordId, UpdateUserTagsRequest request) => AddUserTags(discordId, request)).WithName("AddUserTags");
+
+        group.MapPost("/send-test-email", async (IServiceProvider sp, string toEmail) =>
+        {
+            var emailService = sp.GetRequiredService<Core.Logic.IEmailService>();
+            await emailService.SendEmailAsync(toEmail, "Test Email from Kodeklubb", "<h1>This is a test email sent via Resend!</h1>");
+            return Results.Ok(new { message = $"Test email sent to {toEmail}" });
+        }).WithName("SendTestEmail");
     }
 
 

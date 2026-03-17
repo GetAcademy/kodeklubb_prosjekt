@@ -29,8 +29,27 @@ if (string.IsNullOrWhiteSpace(connectionString))
 // Store connection string for static access
 AppConfig.ConnectionString = connectionString;
 
+
 // Register CORS service (required by CORS middleware)
 builder.Services.AddCors();
+
+
+// Register Resend .NET SDK services
+var resendApiKey = builder.Configuration["RESEND_API_KEY"] ?? Environment.GetEnvironmentVariable("RESEND_API_KEY");
+var resendFrom = builder.Configuration["RESEND_FROM_EMAIL"] ?? "updates@updates.getacademy.no";
+builder.Services.AddOptions();
+builder.Services.AddHttpClient<Resend.ResendClient>();
+builder.Services.Configure<Resend.ResendClientOptions>(o =>
+{
+    o.ApiToken = resendApiKey!;
+});
+builder.Services.AddTransient<Resend.IResend, Resend.ResendClient>();
+builder.Services.AddTransient<Core.Logic.IEmailService>(sp =>
+    new Core.Logic.ResendEmailService(
+        sp.GetRequiredService<Resend.IResend>(),
+        resendFrom
+    )
+);
 
 var app = builder.Build();
 

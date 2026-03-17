@@ -19,45 +19,48 @@
         </section>
         <section v-if="isSelections" v-for="selection in data.selections" :key="selection.id">
             <label :for="selection.label">{{ selection.label }}</label>
-            <select v-model="formData.selectedOption" 
-                    :multiple="selection.multiple ? selection.multiple : false">
-                <option v-for="option in data.selectOptions" :key="option.id" :value="option.value">
+            <select v-model="schemaData[selection.id]"
+                    :multiple="selection.multiple || false">
+                <option v-for="option in (selection.selectOptions || [])" :key="option.id" :value="option.value">
                     {{ option.label }}
                 </option>
             </select>
         </section>
-        <section v-if="isTextArea">
+        <section v-if="isTextArea && data.textarea && data.textarea.name">
             <label :for="data.textarea.name">{{ data.textarea.label }}</label>
-            <textarea 
+            <textarea
                 :id="data.textarea.id"
-                v-model="formData[data.textarea.name]"
+                v-model="schemaData[data.textarea.name]"
                 :placeholder="data.textarea.placeholder"
-                :rows="data.textarea.rows ? data.textarea.rows : 4"
-                :cols="data.textarea.cols ? data.textarea.cols : 50"
-                :maxlength="data.textarea.maxlength ? data.textarea.maxlength : ''"
-                :required="data.textarea.required ? data.textarea.required : false">
+                :rows="data.textarea.rows || 4"
+                :cols="data.textarea.cols || 50"
+                :maxlength="data.textarea.maxlength || undefined"
+                :required="!!data.textarea.required">
             </textarea>
         </section>
-        <section v-if="isDataList">
-            <label :for="data.dataList.name">{{ data.dataList.label }}</label>
-            <input 
-                :id="data.dataList.id"
-                v-model="formData[data.dataList.name]"
-                :list="data.dataList.list"
-                :placeholder="data.dataList.placeholder"
-                :required="data.dataList.required ? data.dataList.required : false" />
-            <datalist :id="data.dataList.list">
-                <option v-for="option in data.dataList.options" :key="option.id" :value="option.value">
+        <section v-if="isDataList && Array.isArray(data.datalist) && data.datalist.length">
+            <label v-if="data.datalist[0]?.name" :for="data.datalist[0].name">{{ data.datalist[0].label }}</label>
+            <input
+                v-if="data.datalist[0]?.name"
+                :id="data.datalist[0].id"
+                v-model="schemaData[data.datalist[0].name]"
+                :list="data.datalist[0].id"
+                :placeholder="data.datalist[0].placeholder"
+                :required="!!data.datalist[0].required" />
+            <datalist :id="data.datalist[0]?.id">
+                <option v-for="option in data.datalist" :key="option.id" :value="option.value">
                     {{ option.label }}
                 </option>
             </datalist>
         </section>
-        <section v-if="isOutputs">
-            <label :for="data.outputs.name">{{ data.outputs.label }}</label>
-            <output 
-                :id="data.outputs.id"
-                :for="data.outputs.for"
-                :v-model="formData[data.outputs.name]">
+        <section v-if="isOutputs && Array.isArray(data.outputs) && data.outputs.length">
+            <label v-for="output in data.outputs" :for="output.name" :key="output.id">{{ output.label }}</label>
+            <output
+                v-for="output in data.outputs"
+                :key="output.id"
+                :id="output.id"
+                :for="output.for"
+                :v-model="schemaData[output.name]">
             </output>
         </section>
         <section  class="flex-wrap-row">
@@ -68,22 +71,22 @@
 <script lang="ts" setup>
 
     //  --- Importing Dependencies & Types
-    import { computed } from 'vue';
-    import type { FormProps } from '@/types/form'
+    import { computed, ref } from 'vue';
+    import type { FormProps, SelectionItem } from '@/types/form'
 
     //  --- Props Definition Logic
     const props = defineProps<FormProps>();
     const data = computed(() => props.data);
 
     //  --- Flag Logic
-    const isOutputs = computed<boolean>(() => !!data.value.outputs);
+    const isOutputs = computed<boolean>(() => Array.isArray(data.value.outputs) && data.value.outputs.length > 0);
     const isTextArea = computed<boolean>(() => !!data.value.textarea);
-    const isDataList = computed<boolean>(() => !!data.value.datalist);
+    const isDataList = computed<boolean>(() => Array.isArray(data.value.datalist) && data.value.datalist.length > 0);
     const isInput = computed<boolean>(() => !!data.value.inputControl);
-    const isSelections = computed<boolean>(() => !!data.value.selections);
+    const isSelections = computed<boolean>(() => Array.isArray(data.value.selections) && data.value.selections.length > 0);
 
     //  Form Logic
-    let schemaData = {}
+    const schemaData = ref<Record<string, any>>({});
     const buttons = [
         {
             type : "submit",

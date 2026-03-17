@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+    <ItemGroup>
+      <PackageReference Include="Resend" Version="0.2.1" />
+    </ItemGroup>
+
   <ItemGroup>
     <Folder Include="Domain\" />
   </ItemGroup>

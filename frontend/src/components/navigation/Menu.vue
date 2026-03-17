@@ -4,32 +4,40 @@
             <li v-for="(item, i) in data" :key="i"
                 :class="[cls[2]]">
 
-                   <RouterLink v-if="!!isRouterLink"
-                        :to="item.path"
-                        v-slot="{ navigate }"
-                        :class="[{ 'active': $route.path === item.path}]">
-                        <span @click="item.action ? item.action(navigate) : navigate()">{{ item.label }}</span>
+                   <RouterLink v-if="isRouterItem(item)" :to="item.path" v-slot="{ navigate }" :class="[{ 'active': $route.path === item.path}]">
+                        <span @click="item.action && typeof item.action === 'function' ? item.action() : navigate()">{{ item.label }}</span>
                     </RouterLink>
 
-                    <NavigationAnchor v-if="!!isAnchor && !!item.anchor"
-                        :data="item.anchor"
-                        :cls="[cls[3]]"/>
+                    <NavigationAnchor v-if="isAnchorItem(item)"
+                        :data="item"
+                        :cls="cls[3] ? [cls[3]] : undefined"/>
 
-                    <NavigationButton v-if="!!isButton"
-                        :data="item.data"
-                        :cls="[item.cls]"/>
+                    <NavigationButton v-if="isButtonItem(item)"
+                        :data="item"
+                        :cls="'cls' in item && item.cls ? [item.cls] : undefined"/>
             </li>
         </ul>
     </nav>
 </template>
 
 <script lang="ts" setup>
+    import type { RouterItem, AnchorItem } from '@/types/navigation/navigation';
+    import type { ButtonItem } from '@/types/navigation/buttons';
+
+    function isRouterItem(item: any): item is RouterItem {
+        return item && item.type === 'router' && 'path' in item;
+    }
+    function isAnchorItem(item: any): item is AnchorItem {
+        return item && item.type === 'anchor' && 'href' in item;
+    }
+    function isButtonItem(item: any): item is ButtonItem {
+        return item && item.type === 'button' && 'label' in item && 'action' in item;
+    }
 
     //  --- Importing Dependencies & Types
     import { computed } from 'vue';
 
     import type { NavigationProp } from '@/types/navigation/navigation';
-
 
     //  --- Props Definition Logic
     const props = withDefaults(defineProps<NavigationProp>(),
@@ -44,8 +52,6 @@
     const data = computed<NavigationProp['data']>(() => props.data || []);
 
     //  --  State Logic
-    const isButton = computed<boolean>(() => { return !!(data.value && data.value.some(item => item.type == 'button'))});
-    const isAnchor = computed<boolean>(() => { return !!(data.value && data.value.some(item => item.type == 'anchor'))});
     const isRouterLink = computed<boolean>(() => { return !!(data.value && data.value.some(item => item.type == 'router' ))});
     
 
