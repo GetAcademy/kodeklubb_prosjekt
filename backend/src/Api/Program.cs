@@ -70,6 +70,29 @@ if (!string.IsNullOrWhiteSpace(connectionString))
     await migrator.MigrateAsync();
 }
 
+public static string ConvertConnectionString(string databaseUrl)
+{
+    // If it's already in .NET format, just return it
+    if (!databaseUrl.Contains("://")) return databaseUrl;
+
+    var uri = new Uri(databaseUrl);
+    var userInfo = uri.UserInfo.Split(':');
+
+    return $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
+}
+
+var rawUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+
+// If it starts with postgresql://, we need to convert it
+if (rawUrl != null && rawUrl.StartsWith("postgres://")) 
+{
+    var uri = new Uri(rawUrl);
+    var userInfo = uri.UserInfo.Split(':');
+    rawUrl = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
+}
+
+builder.Services.AddDbContext<YourDbContext>(options =>
+    options.UseNpgsql(rawUrl));
 // Map user endpoints
 app.MapUserEndpoints();
 app.MapTeamEndpoints();
