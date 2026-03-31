@@ -75,7 +75,7 @@ catch (Exception ex)
 app.MapUserEndpoints();
 app.MapTeamEndpoints();
 app.MapDiscordEndpoints();
-
+app.MapGet("/", () => "API is online!");
 app.Run();
 
 // --- HELPER FUNCTION (at the very bottom) ---

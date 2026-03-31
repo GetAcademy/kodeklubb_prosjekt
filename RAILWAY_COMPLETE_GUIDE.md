@@ -274,7 +274,7 @@ Once it starts building:
 5. Once generated, you'll see: `https://api-xxxxx.up.railway.app`
 6. **COPY THIS URL**
 
-✅ **Backend domain: `https://api-xxxxx.up.railway.app`**
+✅ **Backend domain: `https://kodeklubbprosjektapi-production.up.railway.app/`**
 
 ---
 
