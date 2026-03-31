@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+.github
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Documentation
+*.md
+docs/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# .NET
+bin/
+obj/
+*.user
+*.userprefs
+.DS_Store
+
+# Build artifacts
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

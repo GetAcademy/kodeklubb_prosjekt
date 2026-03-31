@@ -55,8 +55,10 @@ var app = builder.Build();
 
 // app.UseHttpsRedirection(); // Disabled for local development
 
+// Configure CORS with environment-specific origins
+var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(",") ?? new[] { "http://localhost:3000" };
 app.UseCors(policy => policy
-    .WithOrigins("http://localhost:3000")
+    .WithOrigins(allowedOrigins)
     .AllowAnyHeader()
     .AllowAnyMethod()
     .AllowCredentials());
