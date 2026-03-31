@@ -49,7 +49,7 @@ builder.Services.AddTransient<Core.Logic.IEmailService>(sp =>
 var app = builder.Build();
 
 // --- 3. MIDDLEWARE & CORS ---
-var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(",") ?? new[] { "http://localhost:3000" };
+var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(",") ?? new[] { "https://kodeklubbprosjekt-production-8ee8.up.railway.app/" };
 app.UseCors(policy => policy
     .WithOrigins(allowedOrigins)
     .AllowAnyHeader()
