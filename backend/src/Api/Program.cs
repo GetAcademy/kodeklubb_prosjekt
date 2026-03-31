@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Api;
 using DotNetEnv;
 using Persistence;
@@ -70,16 +71,7 @@ if (!string.IsNullOrWhiteSpace(connectionString))
     await migrator.MigrateAsync();
 }
 
-public static string ConvertConnectionString(string databaseUrl)
-{
-    // If it's already in .NET format, just return it
-    if (!databaseUrl.Contains("://")) return databaseUrl;
-
-    var uri = new Uri(databaseUrl);
-    var userInfo = uri.UserInfo.Split(':');
-
-    return $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
-}
+ 
 
 var rawUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 
@@ -99,3 +91,13 @@ app.MapTeamEndpoints();
 app.MapDiscordEndpoints();
 
 app.Run();
+string ConvertConnectionString(string databaseUrl)
+{
+    // If it's already in .NET format, just return it
+    if (!databaseUrl.Contains("://")) return databaseUrl;
+
+    var uri = new Uri(databaseUrl);
+    var userInfo = uri.UserInfo.Split(':');
+
+    return $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
+}
