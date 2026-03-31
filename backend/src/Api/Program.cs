@@ -1,42 +1,41 @@
+using Npgsql;
 using Api;
 using DotNetEnv;
 using Persistence;
 using Api.Endpoints;
 using Api.Contracts;
 using Persistence.DbModels;
-using Npgsql;
+
 using Dapper;
 
 DotNetEnv.Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- DATABASE CONFIGURATION START ---
-
-// 1. Get the Railway URL (or fallback to Local)
+// --- 1. DATABASE CONFIGURATION ---
+// Priority 1: Railway Environment Variable
+// Priority 2: Local appsettings.json
 var rawUrl = Environment.GetEnvironmentVariable("DATABASE_URL") 
              ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
 if (string.IsNullOrWhiteSpace(rawUrl))
 {
-    throw new InvalidOperationException("No database connection string found.");
+    throw new InvalidOperationException("No database connection string found in Environment or Configuration.");
 }
 
-// 2. Convert to Npgsql format using our helper
+// Convert the URL (postgres://...) to Npgsql format (Host=...)
 var connectionString = ConvertConnectionString(rawUrl);
 
-// 3. Store for static access (as your code expects)
+// Store for your existing AppConfig static class
 AppConfig.Initialize(builder.Configuration);
 AppConfig.ConnectionString = connectionString;
 
-// 4. Register Npgsql services
+// Register the Npgsql DataSource for Dapper
 builder.Services.AddNpgsqlDataSource(connectionString);
 
-// --- DATABASE CONFIGURATION END ---
-
+// --- 2. OTHER SERVICES ---
 builder.Services.AddCors();
 
-// Resend Service Configuration
 var resendApiKey = builder.Configuration["RESEND_API_KEY"] ?? Environment.GetEnvironmentVariable("RESEND_API_KEY");
 var resendFrom = builder.Configuration["RESEND_FROM_EMAIL"] ?? "updates@updates.getacademy.no";
 
@@ -49,7 +48,7 @@ builder.Services.AddTransient<Core.Logic.IEmailService>(sp =>
 
 var app = builder.Build();
 
-// Configure CORS
+// --- 3. MIDDLEWARE & CORS ---
 var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(",") ?? new[] { "http://localhost:3000" };
 app.UseCors(policy => policy
     .WithOrigins(allowedOrigins)
@@ -57,43 +56,38 @@ app.UseCors(policy => policy
     .AllowAnyMethod()
     .AllowCredentials());
 
-// --- RUN MIGRATIONS ---
-// Wrap in a try-catch with a small delay for Railway's network to wake up
+// --- 4. RUN MIGRATIONS ---
 try 
 {
-    Console.WriteLine("Starting Database Migrations...");
-    await Task.Delay(2000); // Give Railway 2 seconds to stabilize
+    Console.WriteLine("Railway: Starting Database Migrations...");
+    // Wait 2 seconds to ensure Railway's internal network is fully resolved
+    await Task.Delay(2000); 
     var migrator = new DatabaseMigrator(connectionString);
     await migrator.MigrateAsync();
-    Console.WriteLine("Migrations completed successfully.");
+    Console.WriteLine("Railway: Migrations successful.");
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"Migration failed: {ex.Message}");
-    // Don't crash the whole app if migrations fail once, 
-    // or let it crash if migrations are critical.
+    Console.WriteLine($"Migration Error: {ex.Message}");
 }
 
-// Map endpoints
+// Map Endpoints
 app.MapUserEndpoints();
 app.MapTeamEndpoints();
 app.MapDiscordEndpoints();
 
 app.Run();
 
-// --- THE HELPER FUNCTION ---
-string ConvertConnectionString(string databaseUrl)
+// --- HELPER FUNCTION (at the very bottom) ---
+string ConvertConnectionString(string url)
 {
-    if (string.IsNullOrEmpty(databaseUrl)) return "";
-    
-    // If it's already in Key=Value format, return as is
-    if (!databaseUrl.Contains("://")) return databaseUrl;
+    if (string.IsNullOrEmpty(url)) return "";
+    if (!url.Contains("://")) return url;
 
-    // Convert postgres://user:pass@host:port/db to Npgsql format
-    var uri = new Uri(databaseUrl);
+    var uri = new Uri(url);
     var userInfo = uri.UserInfo.Split(':');
     var user = userInfo[0];
-    var password = userInfo.Length > 1 ? userInfo[1] : "";
+    var pass = userInfo.Length > 1 ? userInfo[1] : "";
 
-    return $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={user};Password={password};SSL Mode=Require;Trust Server Certificate=true";
+    return $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={user};Password={pass};SSL Mode=Require;Trust Server Certificate=true";
 }
