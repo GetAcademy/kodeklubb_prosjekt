@@ -287,7 +287,7 @@ Once it starts building:
 3. Once generated, you'll see: `https://kodeklubb-frontend-xxxxx.up.railway.app`
 4. **COPY THIS URL**
 
-✅ **Frontend domain: `https://kodeklubb-frontend-xxxxx.up.railway.app`**
+✅ **Frontend domain: `https://kodeklubbprosjekt-production-8ee8.up.railway.app`**
 
 ---
 
@@ -305,15 +305,15 @@ Once it starts building:
 
 #### Update:
 - **Name**: `Discord__RedirectUri`
-- **New Value**: `https://api-xxxxx.up.railway.app/auth/discord/callback`
+- **New Value**: `https://api-8ee8.up.railway.app/auth/discord/callback`
 
 #### Update:
 - **Name**: `Discord__FrontendRedirectUri`
-- **New Value**: `https://kodeklubb-frontend-xxxxx.up.railway.app`
+- **New Value**: `https://kodeklubbprosjekt-production-8ee8.up.railway.app`
 
 #### Update:
 - **Name**: `AllowedOrigins`
-- **New Value**: `https://kodeklubb-frontend-xxxxx.up.railway.app`
+- **New Value**: `https://kodeklubbprosjekt-production-8ee8.up.railway.app`
 
 4. Click "Save" after each change
 
@@ -329,7 +329,7 @@ Once it starts building:
 2. Click **"Variables"** tab
 3. Click edit (✏️) next to:
    - **Name**: `VITE_BASE_API`
-   - **New Value**: `https://api-xxxxx.up.railway.app`
+   - **New Value**: `https://kodeklubbprosjektapi-production.up.railway.app/`
 4. Click "Save"
 
 ✅ **Frontend variables updated!**
@@ -372,7 +372,7 @@ Once it starts building:
 ### Step 11.2: Test Frontend
 
 1. Open browser
-2. Go to: `https://kodeklubb-frontend-xxxxx.up.railway.app`
+2. Go to: `https://kodeklubbprosjekt-production-8ee8.up.railway.app`
 3. You should see your **login page**
 
 ✅ **Frontend is working!**
@@ -393,8 +393,8 @@ Once it starts building:
 Your kodeklubb project is now **live on Railway**!
 
 **Your app is running at:**
-- **Frontend**: `https://kodeklubb-frontend-xxxxx.up.railway.app`
-- **Backend API**: `https://api-xxxxx.up.railway.app`
+- **Frontend**: `https://kodeklubbprosjekt-production-8ee8.up.railway.app`
+- **Backend API**: `https://kodeklubbprosjektapi-production.up.railway.app/`
 - **Database**: PostgreSQL (managed by Railway)
 
 ---

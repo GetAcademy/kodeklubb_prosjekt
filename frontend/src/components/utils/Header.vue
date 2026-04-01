@@ -50,7 +50,8 @@
     {
         return router.getRoutes().filter(route => !route.meta?.requiresAuth).map(route => {
             const routeName = route.name?.toString() || 'Unknown';
-            if (route.path === '/') { return { type: 'button', label: toTitleCase("discord"), action: () => {window.location.href = discordAPI;}, cls:"discord-btn"}}
+            if (route.path === '/') { return { type: 'button', label: toTitleCase("discord"), action: () => {window.location.href = `${import.meta.env.VITE_BASE_API}${import.meta.env.VITE_LOGIN_API}`;
+}, cls:"discord-btn"}}
             return { type: 'router', path: route.path, cls: "router-btn", label: toTitleCase(routeName)};
         });
     });
