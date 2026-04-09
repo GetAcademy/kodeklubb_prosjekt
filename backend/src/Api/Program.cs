@@ -76,6 +76,9 @@ app.MapUserEndpoints();
 app.MapTeamEndpoints();
 app.MapDiscordEndpoints();
 app.MapGet("/", () => "API is online!");
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
 app.Run();
 
 // --- HELPER FUNCTION (at the very bottom) ---
