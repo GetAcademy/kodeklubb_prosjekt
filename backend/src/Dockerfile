@@ -9,10 +9,10 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Copy solution and projects (correct paths)
-COPY ../kodeklubb_prosjekt.sln .
-COPY ../src/Api ./Api
-COPY ../src/Core ./Core
+# Copy solution and projects
+COPY kodeklubb_prosjekt.sln .
+COPY src/Api ./Api
+COPY src/Core ./Core
 
 # Restore and build
 WORKDIR /src/Api
