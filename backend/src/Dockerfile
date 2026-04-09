@@ -9,11 +9,12 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Copy ONLY the backend projects (not the whole repo)
-COPY Api ./Api
-COPY Core ./Core
+# Copy solution and projects
+COPY backend/kodeklubb_prosjekt.sln .
+COPY backend/src/Api ./Api
+COPY backend/src/Core ./Core
 
-# Restore and build API
+# Restore and build
 WORKDIR /src/Api
 RUN dotnet restore
 RUN dotnet build -c $BUILD_CONFIGURATION -o /app/build
