@@ -76,6 +76,7 @@ app.MapUserEndpoints();
 app.MapTeamEndpoints();
 app.MapDiscordEndpoints();
 app.MapGet("/", () => "API is online!");
+app.Urls.Add("http://0.0.0.0:8080");
 app.Run();
 
 // --- HELPER FUNCTION (at the very bottom) ---
