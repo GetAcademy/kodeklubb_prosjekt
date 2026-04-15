@@ -9,21 +9,23 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Copy solution and projects
+# Copy solution and all projects
 COPY kodeklubb_prosjekt.sln .
-COPY src/Api ./Api
-COPY src/Core ./Core
+COPY src/Api ./src/Api
+COPY src/Core ./src/Core
+COPY src/Persistence ./src/Persistence
+COPY src/Worker ./src/Worker
 
-# Restore and build
-WORKDIR /src/Api
-RUN dotnet restore
-RUN dotnet build -c $BUILD_CONFIGURATION -o /app/build
+# Restore dependencies for the whole solution
+RUN dotnet restore kodeklubb_prosjekt.sln
+
+# Build the Api project (pulls in all dependencies)
+RUN dotnet build src/Api/Api.csproj -c $BUILD_CONFIGURATION -o /app/build --no-restore
 
 # Publish stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-WORKDIR /src/Api
-RUN dotnet publish -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish src/Api/Api.csproj -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false --no-restore
 
 # Final runtime image
 FROM base AS final
