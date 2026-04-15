@@ -175,7 +175,7 @@ frontend/lerna-debug.log*
 
 # Editor
 .idea
-*.sln
+
 *.sw?
 *.suo
 *.ntvs*
