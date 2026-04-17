@@ -12,9 +12,17 @@ namespace Api.Endpoints;
 public static class TeamEndpoints
 {
     public static void MapTeamEndpoints(this WebApplication app)
+         
     {
         var group = app.MapGroup("/api/discover").WithName("Teams");
-
+        group.MapGet("/tags/hierarchy", async () =>
+            {
+                var jsonPath = Path.Combine("src", "Persistence", "tag_hierarchy.json");
+                if (!File.Exists(jsonPath))
+                    return Results.NotFound(new { message = "Tag hierarchy not found" });
+                var json = await File.ReadAllTextAsync(jsonPath);
+                return Results.Content(json, "application/json");
+            }).WithName("GetTagHierarchy");
         group.MapPost("/", (HttpContext context, IServiceProvider sp) => CreateTeam(context, sp)).WithName("CreateTeam");
         group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams");
         group.MapGet("/available", GetAvailableTeams).WithName("GetAvailableTeams");

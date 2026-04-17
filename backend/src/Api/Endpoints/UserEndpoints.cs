@@ -70,15 +70,26 @@ public static class UserEndpoints
     private static async Task<IResult> AddUserTags(string discordId, UpdateUserTagsRequest request)
     {
         if (string.IsNullOrWhiteSpace(discordId)) return Results.BadRequest(new { message = "Discord ID is required" });
-        if (request.TagIds == null || request.TagIds.Length == 0) return Results.BadRequest(new { message = "At least one tag ID is required" });
+        if ((request.TagIds == null || request.TagIds.Length == 0) && (request.TagPaths == null || request.TagPaths.Length == 0))
+            return Results.BadRequest(new { message = "At least one tag ID or tag path is required" });
 
         await using var db = await Handlers.DbSession.OpenAsync();
         try
         {
             var user = await db.QueryOneOrDefaultAsync<UserEntity>(UserSql.GetByDiscordId(), new { DiscordId = discordId });
             if (user == null) { await db.Tx.RollbackAsync(); return Results.NotFound(new { message = "User not found" }); }
-            foreach (var tagId in request.TagIds)
-                await db.ExecuteAsync(UserSql.InsertUserPredefinedTag(), new { UserId = user.Id, PredefinedTagId = tagId });
+            if (request.TagIds != null)
+            {
+                foreach (var tagId in request.TagIds)
+                    await db.ExecuteAsync(UserSql.InsertUserPredefinedTag(), new { UserId = user.Id, PredefinedTagId = tagId });
+            }
+            if (request.TagPaths != null)
+            {
+                foreach (var tagPath in request.TagPaths)
+                {
+                    await db.ExecuteAsync("INSERT INTO UserTags_Hierarchical (UserId, TagPath) VALUES (@UserId, @TagPath)", new { UserId = user.Id, TagPath = tagPath });
+                }
+            }
             await db.CommitAsync();
             return Results.Ok(new { message = "Tags added successfully" });
         }
@@ -87,4 +98,4 @@ public static class UserEndpoints
 }
 
 public record CreateUserRequest(string? DiscordId, string? Email, string? Username, string? AvatarUrl, string? PreferencesJson);
-public record UpdateUserTagsRequest(Guid[] TagIds);
+public record UpdateUserTagsRequest(Guid[] TagIds, string[]? TagPaths);

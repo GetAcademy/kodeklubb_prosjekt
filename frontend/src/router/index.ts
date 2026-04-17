@@ -14,6 +14,7 @@ const teamRoutes: Array<Record<string, any>> =
   { path: "/teams/:teamId", name : "Team Info", component: () => import(`../views/teams/TeamDashboard.vue`), meta: {requiresAuth: true, isTeam: true} },
   { path: "/teams/:teamId/members", name : "Medlemmer", component: () => import(`../views/teams/Members.vue`), meta: {requiresAuth: true, isTeam: true} },
   { path: "/teams/:teamId/news", name : "Aktuelt", component: () => import(`../views/teams/News.vue`), meta: {requiresAuth: true, isTeam: true} },
+  { path: "/teams/:teamId/add-tags", name : "LeggTilTags", component: () => import(`../views/teams/AddTagsPage.vue`), meta: {requiresAuth: true, isTeam: true} },
 ];
 
 const requiredAuthorization: Array<any> =
