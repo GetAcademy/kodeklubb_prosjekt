@@ -288,6 +288,8 @@ public static class TeamEndpoints
         return Results.Ok(new { team, isMember });
     }
 
+    
+
     private static async Task<IResult> GetTeamMembers(Guid teamId)
     {
         await using var connection = await AppConfig.OpenConnectionAsync();
