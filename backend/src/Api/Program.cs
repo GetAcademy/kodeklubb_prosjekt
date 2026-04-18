@@ -26,6 +26,9 @@ if (string.IsNullOrWhiteSpace(rawUrl))
 // Convert the URL (postgres://...) to Npgsql format (Host=...)
 var connectionString = ConvertConnectionString(rawUrl);
 
+Console.WriteLine("Raw DATABASE_URL exists: " + (!string.IsNullOrWhiteSpace(rawUrl)));
+Console.WriteLine("Converted connection string: " + connectionString);
+
 // Store for your existing AppConfig static class
 AppConfig.Initialize(builder.Configuration);
 AppConfig.ConnectionString = connectionString;
