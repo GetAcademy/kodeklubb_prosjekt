@@ -27,7 +27,6 @@ if (string.IsNullOrWhiteSpace(rawUrl))
 var connectionString = ConvertConnectionString(rawUrl);
 
 Console.WriteLine("Raw DATABASE_URL exists: " + (!string.IsNullOrWhiteSpace(rawUrl)));
-Console.WriteLine("Converted connection string: " + connectionString);
 
 // Store for your existing AppConfig static class
 AppConfig.Initialize(builder.Configuration);
