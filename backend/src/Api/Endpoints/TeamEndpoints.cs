@@ -12,7 +12,6 @@ namespace Api.Endpoints;
 public static class TeamEndpoints
 {
     public static void MapTeamEndpoints(this WebApplication app)
-         
     {
         var group = app.MapGroup("/api/discover").WithName("Teams");
         group.MapGet("/tags/hierarchy", async () =>
@@ -25,32 +24,96 @@ public static class TeamEndpoints
             }).WithName("GetTagHierarchy");
         group.MapPost("/", (HttpContext context, IServiceProvider sp) => CreateTeam(context, sp)).WithName("CreateTeam");
         group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams");
+        group.MapGet("/my-requests", GetMyRequests).WithName("GetMyRequests");
         group.MapGet("/available", GetAvailableTeams).WithName("GetAvailableTeams");
-        group.MapGet("/{teamId}", GetTeamDetails).WithName("GetTeamDetails");
-        group.MapGet("/{teamId}/content", GetTeamContent).WithName("GetTeamContent");
-        group.MapPost("/{teamId}/request", (Guid teamId, HttpContext context, IServiceProvider sp) => RequestToJoinTeam(teamId, context, sp)).WithName("RequestToJoinTeam");
-        group.MapGet("/{teamId}/requests", GetTeamRequests).WithName("GetTeamRequests");
-        group.MapPatch("/{teamId}/requests/{requestId}/approve", (Guid teamId, Guid requestId, HttpContext context, IServiceProvider sp) => ApproveTeamRequest(teamId, requestId, context, sp)).WithName("ApproveTeamRequest");
-        group.MapPatch("/{teamId}/requests/{requestId}/decline", DeclineTeamRequest).WithName("DeclineTeamRequest");
-        group.MapGet("/{teamId}/members", GetTeamMembers).WithName("GetTeamMembers");
+        group.MapGet("/{teamId:guid}", GetTeamDetails).WithName("GetTeamDetails");
+        group.MapGet("/{teamId:guid}/content", GetTeamContent).WithName("GetTeamContent");
+        group.MapPost("/{teamId:guid}/request", (Guid teamId, HttpContext context, IServiceProvider sp) => RequestToJoinTeam(teamId, context, sp)).WithName("RequestToJoinTeam");
+        group.MapGet("/{teamId:guid}/requests", GetTeamRequests).WithName("GetTeamRequests");
+        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/approve", (Guid teamId, Guid requestId, HttpContext context, IServiceProvider sp) => ApproveTeamRequest(teamId, requestId, context, sp)).WithName("ApproveTeamRequest");
+        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/decline", DeclineTeamRequest).WithName("DeclineTeamRequest");
+        group.MapDelete("/{teamId:guid}/requests/{requestId:guid}", (Guid teamId, Guid requestId, string discordId, IServiceProvider sp) => CancelJoinRequest(teamId, requestId, discordId, sp)).WithName("CancelJoinRequest");
+        group.MapGet("/{teamId:guid}/members", GetTeamMembers).WithName("GetTeamMembers");
     }
 
     private static Task<IResult> GetTeamContent(Guid teamId)
     {
-        // TODO: Refactor to use Dapper + Core pattern
-        return Task.FromResult(Results.StatusCode(501)); // return new Result
+        return Task.FromResult(Results.StatusCode(501));
     }
-    
+
+    // ✅ FIXED: Now uses typed DTO so teamName and invitedAt serialize correctly
+    private static async Task<IResult> GetMyRequests(string? discordId)
+    {
+        if (string.IsNullOrWhiteSpace(discordId))
+            return Results.BadRequest(new { message = "Discord ID is required" });
+
+        await using var db = await DbSession.OpenAsync();
+
+        var user = await db.QueryOneOrDefaultAsync<UserEntity>(
+            TeamSql.GetUserByDiscordId(), new { DiscordId = discordId });
+        if (user == null)
+            return Results.NotFound(new { message = "User not found" });
+
+        var requests = await db.Conn.QueryManyAsync<JoinRequestDto>(
+            @"SELECT i.id         AS Id,
+                     i.team_id    AS TeamId,
+                     t.name       AS TeamName,
+                     i.status     AS Status,
+                     i.invited_at AS InvitedAt
+              FROM invitations i
+              JOIN teams t ON i.team_id = t.id
+              WHERE i.invited_user_id = @UserId
+              ORDER BY i.invited_at DESC",
+            new { UserId = user.Id });
+
+        return Results.Ok(requests);
+    }
+
+    private static async Task<IResult> CancelJoinRequest(Guid teamId, Guid requestId, string discordId, IServiceProvider sp)
+    {
+        if (string.IsNullOrWhiteSpace(discordId))
+            return Results.BadRequest(new { message = "Discord ID is required" });
+
+        await using var db = await DbSession.OpenAsync();
+        try
+        {
+            var user = await db.QueryOneOrDefaultAsync<UserEntity>(
+                TeamSql.GetUserByDiscordId(), new { DiscordId = discordId });
+            if (user == null)
+                return await db.RollbackAsync("User not found");
+
+            var request = await db.QueryOneOrDefaultAsync<InvitationEntity>(
+                InvitationSql.GetById(), new { RequestId = requestId, TeamId = teamId });
+            if (request == null)
+                return await db.RollbackAsync("Request not found");
+
+            if (request.InvitedUserId != user.Id)
+                return Results.Forbid();
+
+            if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
+                return await db.RollbackAsync("Request has already been processed and cannot be cancelled");
+
+            await db.ExecuteAsync(
+                InvitationSql.DeletePendingInvitation(),
+                new { RequestId = requestId, TeamId = teamId });
+
+            await db.CommitAsync();
+            return Results.Ok(new { message = "Request cancelled successfully" });
+        }
+        catch (Exception ex)
+        {
+            await db.Tx.RollbackAsync();
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
     private static async Task<IResult> CreateTeam(HttpContext context, IServiceProvider sp)
     {
         var body = await context.Request.ReadFromJsonAsync<CreateTeamRequest>();
         if (body == null || string.IsNullOrWhiteSpace(body.Name) || body.AdminUserId == Guid.Empty)
-        {
             return Results.BadRequest(new { message = "Team name and admin user ID are required" });
-        }
 
         await using var db = await DbSession.OpenAsync();
-
         try
         {
             return await CreateTeamCore(body, db, sp);
@@ -90,34 +153,21 @@ public static class TeamEndpoints
         await using var connection = await AppConfig.OpenConnectionAsync();
         var teams = await connection.QueryManyAsync<TeamEntity>(TeamSql.GetAvailable, new { DiscordId = discordId });
         var results = teams.Select(team => new TeamListItem(
-            team.Id,
-            team.Name,
-            team.Description,
-            team.IsOpenToJoinRequests,
-            team.CreatedBy,
-            team.CreatedAt,
-            new string[0]
-        ));
+            team.Id, team.Name, team.Description,
+            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt, new string[0]));
         return Results.Ok(results);
     }
 
     private static async Task<IResult> GetUserTeams(string? discordId)
     {
         if (string.IsNullOrWhiteSpace(discordId))
-        {
             return Results.BadRequest(new { message = "Discord ID is required" });
-        }
+
         await using var connection = await AppConfig.OpenConnectionAsync();
         var teams = await connection.QueryManyAsync<TeamEntity>(TeamSql.GetUserTeams, new { DiscordId = discordId });
         var results = teams.Select(team => new TeamListItem(
-            team.Id,
-            team.Name,
-            team.Description,
-            team.IsOpenToJoinRequests,
-            team.CreatedBy,
-            team.CreatedAt,
-            new string[0]
-        ));
+            team.Id, team.Name, team.Description,
+            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt, new string[0]));
         return Results.Ok(results);
     }
 
@@ -125,12 +175,9 @@ public static class TeamEndpoints
     {
         var body = await context.Request.ReadFromJsonAsync<TeamJoinRequest>();
         if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
-        {
             return Results.BadRequest(new { message = "Discord ID is required" });
-        }
 
         await using var db = await DbSession.OpenAsync();
-
         try
         {
             return await RequestToJoinTeamCore(teamId, body, db, sp);
@@ -145,15 +192,10 @@ public static class TeamEndpoints
     private static async Task<IResult> RequestToJoinTeamCore(Guid teamId, TeamJoinRequest body, DbSession db, IServiceProvider sp)
     {
         var user = await db.QueryOneOrDefaultAsync<UserEntity>(TeamSql.GetUserByDiscordId(), new { body.DiscordId });
-        if (user == null) {
-            await db.Tx.RollbackAsync();
-            return Results.BadRequest(new { message = "User not found" });
-        }
+        if (user == null) { await db.Tx.RollbackAsync(); return Results.BadRequest(new { message = "User not found" }); }
+
         var team = await db.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById(), new { TeamId = teamId });
-        if (team == null) {
-            await db.Tx.RollbackAsync();
-            return Results.BadRequest(new { message = "Team not found" });
-        }
+        if (team == null) { await db.Tx.RollbackAsync(); return Results.BadRequest(new { message = "Team not found" }); }
 
         var userIds = await db.QueryListAsync<Guid>(TeamSql.GetMemberIdsByTeamId(), new { TeamId = teamId });
         var teamInvitations = await db.QueryListAsync<Guid>(InvitationSql.GetIdsByTeamId(), new { TeamId = teamId });
@@ -167,13 +209,7 @@ public static class TeamEndpoints
 
         await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx, sp);
         await db.CommitAsync();
-
-        return Results.Ok(new
-        {
-            teamId,
-            status = "pending",
-            message = "Join request submitted successfully"
-        });
+        return Results.Ok(new { teamId, status = "pending", message = "Join request submitted successfully" });
     }
 
     private static async Task<IResult> GetTeamRequests(Guid teamId)
@@ -187,12 +223,9 @@ public static class TeamEndpoints
     {
         var body = await context.Request.ReadFromJsonAsync<AdminActionRequest>();
         if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
-        {
             return Results.BadRequest(new { message = "Discord ID is required" });
-        }
 
         await using var db = await DbSession.OpenAsync();
-
         try
         {
             return await ApproveTeamRequestCore(teamId, requestId, body, db, sp);
@@ -234,12 +267,9 @@ public static class TeamEndpoints
     {
         var body = await context.Request.ReadFromJsonAsync<AdminActionRequest>();
         if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
-        {
             return Results.BadRequest(new { message = "Discord ID is required" });
-        }
 
         await using var db = await DbSession.OpenAsync();
-
         try
         {
             return await DeclineTeamRequestCore(teamId, requestId, body, db, sp);
@@ -258,6 +288,7 @@ public static class TeamEndpoints
 
         var userIds = await db.QueryListAsync<Guid>(TeamSql.GetMemberIdsByTeamId(), new { TeamId = teamId });
         var teamInvitations = await db.QueryListAsync<Guid>(InvitationSql.GetIdsByTeamId(), new { TeamId = teamId });
+
         var request = await db.QueryOneOrDefaultAsync<InvitationEntity>(InvitationSql.GetById(), new { RequestId = requestId, TeamId = teamId });
         if (request == null) return await db.RollbackAsync("Request not found");
 
@@ -280,19 +311,12 @@ public static class TeamEndpoints
     {
         await using var connection = await AppConfig.OpenConnectionAsync();
         var team = await connection.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById, new { TeamId = teamId });
-        if (team == null)
-        {
-            return Results.NotFound(new { message = "Team not found" });
-        }
-        if (string.IsNullOrWhiteSpace(discordId))
-        {
-            return Results.Ok(team);
-        }
-        
+        if (team == null) return Results.NotFound(new { message = "Team not found" });
+
+        if (string.IsNullOrWhiteSpace(discordId)) return Results.Ok(team);
+
         var isMember = await connection.QueryOneAsync<bool>(
-            TeamSql.IsUserMemberByDiscordId,
-            new { TeamId = teamId, DiscordId = discordId });
-        
+            TeamSql.IsUserMemberByDiscordId, new { TeamId = teamId, DiscordId = discordId });
         return Results.Ok(new { team, isMember });
     }
 
@@ -304,26 +328,11 @@ public static class TeamEndpoints
     }
 }
 
-public record TeamListItem(
-    Guid Id,
-    string Name,
-    string? Description,
-    bool IsOpenToJoinRequests,
-    Guid CreatedBy,
-    DateTime CreatedAt,
-    string[] Tags
-);
+// ── Records ──────────────────────────────────────────────────────────────────
+public record TeamListItem(Guid Id, string Name, string? Description, bool IsOpenToJoinRequests, Guid CreatedBy, DateTime CreatedAt, string[] Tags);
+public record CreateTeamRequest(string Name, string? Description, Guid AdminUserId);
+public record AdminActionRequest(string DiscordId);
+public record TeamJoinRequest([property: JsonPropertyName("discordId")] string DiscordId);
 
-public record CreateTeamRequest(
-    string Name,
-    string? Description,
-    Guid AdminUserId
-);
-
-public record AdminActionRequest(
-    string DiscordId
-);
-
-public record TeamJoinRequest(
-    [property: JsonPropertyName("discordId")] string DiscordId
-);
+// ✅ NEW: Typed DTO so Dapper maps teamName and invitedAt correctly
+public record JoinRequestDto(Guid Id, Guid TeamId, string TeamName, string Status, DateTime? InvitedAt);

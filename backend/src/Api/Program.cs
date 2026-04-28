@@ -8,7 +8,9 @@ using Persistence.DbModels;
 
 using Dapper;
 
-DotNetEnv.Env.Load();
+//DotNetEnv.Env.Load();
+// Try this instead:
+//DotNetEnv.Env.Load(new DotNetEnv.LoadOptions(setEnvVars: false));
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,7 +26,15 @@ if (string.IsNullOrWhiteSpace(rawUrl))
 }
 
 // Convert the URL (postgres://...) to Npgsql format (Host=...)
-var connectionString = ConvertConnectionString(rawUrl);
+var connectionString = rawUrl.Contains("://") 
+    ? ConvertConnectionString(rawUrl) 
+    : rawUrl;
+
+// Add this line temporarily:
+Console.WriteLine($"DEBUG ConnectionString: {connectionString}");
+
+AppConfig.Initialize(builder.Configuration);
+AppConfig.ConnectionString = connectionString;
 
 // Store for your existing AppConfig static class
 AppConfig.Initialize(builder.Configuration);
@@ -35,6 +45,12 @@ builder.Services.AddNpgsqlDataSource(connectionString);
 
 // --- 2. OTHER SERVICES ---
 builder.Services.AddCors();
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.PropertyNamingPolicy = null;
+});
+
 
 var resendApiKey = builder.Configuration["RESEND_API_KEY"] ?? Environment.GetEnvironmentVariable("RESEND_API_KEY");
 var resendFrom = builder.Configuration["RESEND_FROM_EMAIL"] ?? "updates@updates.getacademy.no";

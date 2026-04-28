@@ -23,11 +23,7 @@
             <button class="remove-btn" @click="removeTag(tag)">✕</button>
           </li>
         </ul>
-        <button class="save-btn" :disabled="saveStatus === 'saving'" @click="saveTags">
-          {{ saveStatus === 'saving' ? '⏳ Lagrer...' : '💾 Lagre tags' }}
-        </button>
-        <p v-if="saveStatus === 'saved'" class="status-success">✅ Tags lagret!</p>
-        <p v-if="saveStatus === 'error'" class="status-error">❌ Noe gikk galt. Prøv igjen.</p>
+        <button class="save-btn" @click="saveTags">💾 Lagre tags</button>
       </div>
 
       <div v-else class="no-tags">
@@ -45,7 +41,6 @@ import TagTree from './TagTree.vue';
 // Get discordId from localStorage
 const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
 const discordId = userData.id;
-
 const tagHierarchy = ref<any>(null);
 const selectedTags = ref<string[]>([]);
 const saveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -76,17 +71,9 @@ function formatTag(tagPath: string) {
 }
 
 async function saveTags() {
-  if (!discordId) {
-    alert('Bruker ikke funnet. Logg inn på nytt.');
-    return;
-  }
-
   saveStatus.value = 'saving';
   try {
-    await axios.post(`/api/users/${discordId}/tags`, {
-      tagIds: [],
-      tagPaths: selectedTags.value
-    });
+    await axios.post('/api/discover/tags/save', { tags: selectedTags.value });
     saveStatus.value = 'saved';
   } catch (err) {
     console.error('Failed to save tags', err);
@@ -205,27 +192,8 @@ async function saveTags() {
   cursor: pointer;
 }
 
-.save-btn:disabled {
-  background: #99c9e8;
-  cursor: not-allowed;
-}
-
-.save-btn:hover:not(:disabled) {
+.save-btn:hover {
   background: #005fa3;
-}
-
-.status-success {
-  margin-top: 8px;
-  font-size: 13px;
-  color: #2e7d32;
-  text-align: center;
-}
-
-.status-error {
-  margin-top: 8px;
-  font-size: 13px;
-  color: #cc0000;
-  text-align: center;
 }
 
 .no-tags {
