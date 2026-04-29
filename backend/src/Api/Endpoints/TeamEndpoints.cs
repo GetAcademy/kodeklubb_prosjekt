@@ -13,7 +13,7 @@ public static class TeamEndpoints
 {
     public static void MapTeamEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/discover").WithName("Teams");
+        var group = app.MapGroup("/discover").WithName("Teams");
 
         group.MapPost("/", (HttpContext context, IServiceProvider sp) => CreateTeam(context, sp)).WithName("CreateTeam");
         group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams");
