@@ -21,17 +21,17 @@
         </section>
 
         <ul v-else class="teams-list">
-            <li v-for="team in teams" :key="team.id" class="team-card">
-                <h3>{{ team.name }}</h3>
-                <p v-if="team.description">{{ team.description }}</p>
-                <ul v-if="team.tags.length" class="team-tags">
-                    <li v-for="tag in team.tags" :key="tag">{{ tag }}</li>
+            <li v-for="team in teams" :key="team.Id" class="team-card">
+                <h3>{{ team.Name }}</h3>
+                <p v-if="team.Description">{{ team.Description }}</p>
+                <ul v-if="team.Tags && team.Tags.length" class="team-tags">
+                    <li v-for="tag in team.Tags" :key="tag">{{ tag }}</li>
                 </ul>
                 <button 
-                    v-if="team.isOpenToJoinRequests"
-                    @click="joinTeam(team.id)" 
-                    :disabled="joiningTeamId === team.id">
-                    {{ joiningTeamId === team.id ? 'Blir med...' : 'Bli med' }}
+                    v-if="team.IsOpenToJoinRequests"
+                    @click="joinTeam(team.Id)" 
+                    :disabled="joiningTeamId === team.Id">
+                    {{ joiningTeamId === team.Id ? 'Blir med...' : 'Bli med' }}
                 </button>
                 <p v-else class="closed-team">Dette teamet er stengt for nye medlemmer</p>
             </li>
