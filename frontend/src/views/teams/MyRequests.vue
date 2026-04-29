@@ -78,13 +78,13 @@ async function fetchMyRequests() {
     const payload = await response.json();
     const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
 
-    requests.value = rows.map((row: any) => ({
-      id: row.id,
-      teamId: row.teamId ?? row.team_id,
-      teamName: row.teamName ?? row.team_name ?? 'Unknown Team',
-      status: row.status,
-      invitedAt: row.invitedAt ?? row.invited_at,
-    }));
+   requests.value = rows.map((row: any) => ({
+  id: row.Id ?? row.id,
+  teamId: row.TeamId ?? row.teamId ?? row.team_id,
+  teamName: row.TeamName ?? row.teamName ?? row.team_name ?? 'Unknown Team',
+  status: row.Status ?? row.status,
+  invitedAt: row.InvitedAt ?? row.invitedAt ?? row.invited_at,
+}));
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Unknown error.';
   } finally {

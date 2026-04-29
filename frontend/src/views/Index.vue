@@ -34,7 +34,16 @@
                 throw new Error('Failed to fetch user teams');
             }
             const payload = await response.json();
-            userTeams.value = Array.isArray(payload) ? payload : (payload?.value ?? []);
+           const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
+userTeams.value = rows.map((team: any) => ({
+    id: team.Id ?? team.id,
+    name: team.Name ?? team.name,
+    description: team.Description ?? team.description,
+    isOpenToJoinRequests: team.IsOpenToJoinRequests ?? team.isOpenToJoinRequests,
+    createdBy: team.CreatedBy ?? team.createdBy,
+    createdAt: team.CreatedAt ?? team.createdAt,
+    tags: team.Tags ?? team.tags ?? [],
+}));
         } catch (error) {
             userTeamsError.value = error instanceof Error ? error.message : 'An error occurred';
         } finally {

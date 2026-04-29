@@ -229,9 +229,15 @@
         }
         throw new Error('Kunne ikke hente teamdetaljer.');
         }
-        const payload = await res.json();
-        // payload may contain { team: {...}, isMember: bool } or just team
-        teamDetails.value = payload.team ?? payload;
+       const payload = await res.json();
+// Normalize casing from API (handles both PascalCase and camelCase)
+const raw = payload.team ?? payload;
+teamDetails.value = {
+    id: raw.Id ?? raw.id,
+    name: raw.Name ?? raw.name,
+    description: raw.Description ?? raw.description,
+    isOpenToJoinRequests: raw.IsOpenToJoinRequests ?? raw.isOpenToJoinRequests,
+    };
     } catch (err) {
         teamError.value = err instanceof Error ? err.message : 'Ukjent feil.';
     } finally {
