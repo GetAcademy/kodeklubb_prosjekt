@@ -50,7 +50,14 @@
     {
         return router.getRoutes().filter(route => !route.meta?.requiresAuth).map(route => {
             const routeName = route.name?.toString() || 'Unknown';
-            if (route.path === '/') { return { type: 'button', label: toTitleCase("discord"), action: () => {window.location.href = discordAPI;}, cls:"discord-btn"}}
+            if (route.path === '/') { 
+                return { 
+                    type: 'button', 
+                    label: `<img src="https://cdn.jsdelivr.net/gh/edent/SuperTinyIcons/images/svg/discord.svg" alt="Discord" class="discord-icon-nav" /> Discord`, 
+                    action: () => {window.location.href = discordAPI;}, 
+                    cls:"discord-btn-new"
+                }
+            }
             return { type: 'router', path: route.path, cls: "router-btn", label: toTitleCase(routeName)};
         });
     });

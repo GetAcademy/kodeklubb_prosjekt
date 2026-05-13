@@ -8,6 +8,7 @@ const profileRoutes: Array<Record<string, any>> =
   { path: "/profile", name : "min-side", component: () => import(`../views/profile/Profile.vue`), meta: {requiresAuth: true} },
   { path: "/profile/edit", name : "ModifyProfile", component: () => import(`../views/profile/EditProfile.vue`), meta: {requiresAuth: true, isHidden: true} },
   { path: "/profile/my-requests", name : "MyRequests", component: () => import(`../views/teams/MyRequests.vue`), meta: {requiresAuth: true} },
+  { path: "/profile/add-tags", name: "LeggTilInteresser", component: () => import('../views/teams/AddTagsPage.vue'), meta: { requiresAuth: true, isHidden: true } },
 ];
 
 
@@ -54,8 +55,7 @@ router.beforeEach((to, from, next) =>
 });
 
 router.afterEach((to) => {
-  if (Object.keys(to.query).length > 0) router.replace({ path: to.path,  query: {}, hash: to.hash});
-  // Save user to database
+  if (Object.keys(to.query).length > 0) 
+    router.replace({ path: to.path, query: {}, hash: to.hash });
 });
-router.afterEach((to) => { if (Object.keys(to.query).length > 0) router.replace({ path: to.path,  query: {}, hash: to.hash});});
 export default router;

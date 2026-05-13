@@ -62,6 +62,13 @@ builder.Services.AddTransient<Resend.IResend, Resend.ResendClient>();
 builder.Services.AddTransient<Core.Logic.IEmailService>(sp =>
     new Core.Logic.ResendEmailService(sp.GetRequiredService<Resend.IResend>(), resendFrom));
 
+// Configure port for Railway (but let launchSettings handle local development)
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 var app = builder.Build();
 
 // --- 3. MIDDLEWARE & CORS ---
@@ -92,8 +99,6 @@ app.MapUserEndpoints();
 app.MapTeamEndpoints();
 app.MapDiscordEndpoints();
 app.MapGet("/", () => "API is online!");
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 app.Run();
 

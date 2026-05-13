@@ -23,31 +23,45 @@
             <button class="remove-btn" @click="removeTag(tag)">✕</button>
           </li>
         </ul>
-        <button class="save-btn" @click="saveTags">💾 Lagre tags</button>
+        <button class="save-btn" @click="saveTags" :disabled="saveStatus === 'saving'">
+          {{ saveStatus === 'saving' ? 'Lagrer...' : '💾 Lagre tags' }}
+        </button>
+        
       </div>
 
-      <div v-else class="no-tags">
+     <div v-else class="no-tags">
         Ingen tags valgt ennå. Velg fra treet til venstre.
       </div>
     </div>
+
+    <!-- Status message always visible -->
+    <p v-if="saveMessage" :class="saveStatus === 'error' ? 'error-msg' : 'success-msg'" class="status-msg">
+      {{ saveMessage }}
+    </p>
+
   </div>
 </template>
-
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import TagTree from './TagTree.vue';
+import { useAuthStore } from '@/stores/authStore';
+import { storeToRefs } from 'pinia';
 
-// Get discordId from localStorage
-const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
-const discordId = userData.id;
+const props = defineProps<{ teamId?: string }>();
+
+const authStore = useAuthStore();
+const { user } = storeToRefs(authStore);
+
 const tagHierarchy = ref<any>(null);
 const selectedTags = ref<string[]>([]);
 const saveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
+const saveMessage = ref('');
 
 onMounted(async () => {
   try {
-    const res = await axios.get('/api/discover/tags/hierarchy');
+    const baseApi = import.meta.env.VITE_BASE_API || '';
+    const res = await axios.get(`${baseApi}/api/discover/tags/hierarchy`);
     tagHierarchy.value = res.data;
   } catch (err) {
     console.error('Failed to load tags', err);
@@ -64,20 +78,41 @@ function removeTag(tagPath: string) {
   selectedTags.value = selectedTags.value.filter(t => t !== tagPath);
 }
 
-// Only show the last part of the path e.g. "Category/Sub/Easy" → "Easy"
 function formatTag(tagPath: string) {
   const parts = tagPath.split('/');
   return parts[parts.length - 1];
 }
 
 async function saveTags() {
+  if (!selectedTags.value.length) return;
   saveStatus.value = 'saving';
+  saveMessage.value = '';
+
   try {
-    await axios.post('/api/discover/tags/save', { tags: selectedTags.value });
+    const baseApi = import.meta.env.VITE_BASE_API || '';
+
+    if (props.teamId) {
+      // Save tags for a team
+      await axios.post(`${baseApi}/api/discover/${props.teamId}/tags`, {
+        tagPaths: selectedTags.value
+      });
+    } else {
+      // Save tags for a user
+      const discordId = user.value?.id;
+      if (!discordId) throw new Error('Not logged in');
+      await axios.post(`${baseApi}/api/users/${discordId}/tags`, {
+        tagIds: [],
+        tagPaths: selectedTags.value
+      });
+    }
+
     saveStatus.value = 'saved';
+    saveMessage.value = 'Tags lagret!';
+    selectedTags.value = [];
   } catch (err) {
     console.error('Failed to save tags', err);
     saveStatus.value = 'error';
+    saveMessage.value = 'Kunne ikke lagre tags.';
   }
 }
 </script>
@@ -206,4 +241,7 @@ async function saveTags() {
   border-radius: 10px;
   text-align: center;
 }
+.success-msg { color: #0f5132; margin-top: 8px; font-size: 13px; }
+.error-msg { color: #842029; margin-top: 8px; font-size: 13px; }
+.status-msg { margin-top: 16px; font-size: 14px; text-align: center; }
 </style>

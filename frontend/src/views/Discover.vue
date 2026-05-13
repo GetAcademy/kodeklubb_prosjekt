@@ -20,22 +20,22 @@
             <p>Ingen teams å vise enda.</p>
         </section>
 
-        <ul v-else class="teams-list">
-            <li v-for="team in teams" :key="team.Id" class="team-card">
-                <h3>{{ team.Name }}</h3>
-                <p v-if="team.Description">{{ team.Description }}</p>
-                <ul v-if="team.Tags && team.Tags.length" class="team-tags">
-                    <li v-for="tag in team.Tags" :key="tag">{{ tag }}</li>
-                </ul>
-                <button 
-                    v-if="team.IsOpenToJoinRequests"
-                    @click="joinTeam(team.Id)" 
-                    :disabled="joiningTeamId === team.Id">
-                    {{ joiningTeamId === team.Id ? 'Blir med...' : 'Bli med' }}
-                </button>
-                <p v-else class="closed-team">Dette teamet er stengt for nye medlemmer</p>
-            </li>
+       <ul v-else class="teams-list">
+    <li v-for="team in teams" :key="team.id" class="team-card">
+        <h3>{{ team.name }}</h3>
+        <p v-if="team.description">{{ team.description }}</p>
+        <ul v-if="team.tags && team.tags.length" class="team-tags">
+            <li v-for="tag in team.tags" :key="tag">{{ tag }}</li>
         </ul>
+        <button
+            v-if="team.isOpenToJoinRequests"
+            @click="joinTeam(team.id)"
+            :disabled="joiningTeamId === team.id">
+            {{ joiningTeamId === team.id ? 'Blir med...' : 'Bli med' }}
+        </button>
+        <p v-else class="closed-team">Dette teamet er stengt for nye medlemmer</p>
+    </li>
+</ul>
     </section>
 </template>
 
@@ -63,27 +63,46 @@
     const joiningTeamId = ref<number | null>(null);
 
     async function fetchTeams() {
-        loading.value = true;
-        error.value = null;
+    loading.value = true;
+    error.value = null;
 
-        try {
-            const baseApi = import.meta.env.VITE_BASE_API;
-            const discordId = user.value?.id;
-            const query = discordId ? `?discordId=${encodeURIComponent(discordId)}` : '';
+    try {
+        const baseApi = import.meta.env.VITE_BASE_API;
+        const discordId = user.value?.id;
+        const query = discordId ? `?discordId=${encodeURIComponent(discordId)}` : '';
 
-            const response = await fetch(`${baseApi}/api/discover/available${query}`);
-            console.log(response)
-            if (!response.ok) {
-                throw new Error('Kunne ikke hente teams.');
-            }
+        const response = await fetch(`${baseApi}/api/discover/available${query}`);
+        if (!response.ok) throw new Error('Kunne ikke hente teams.');
 
-            teams.value = await response.json();
-        } catch (err) {
-            error.value = err instanceof Error ? err.message : 'Ukjent feil.';
-        } finally {
-            loading.value = false;
-        }
+        const payload = await response.json();
+        const rows = payload.map((team: any) => ({
+            id: team.Id ?? team.id,
+            name: team.Name ?? team.name,
+            description: team.Description ?? team.description,
+            isOpenToJoinRequests: team.IsOpenToJoinRequests ?? team.isOpenToJoinRequests,
+            createdBy: team.CreatedBy ?? team.createdBy,
+            createdAt: team.CreatedAt ?? team.createdAt,
+            tags: [],
+        }));
+
+        // Fetch tags for each team
+        await Promise.all(rows.map(async (team: any) => {
+            try {
+                const tagRes = await fetch(`${baseApi}/api/discover/${team.id}/tags`);
+                if (tagRes.ok) {
+                    const tagData = await tagRes.json();
+                    team.tags = tagData.map((t: any) => t.Name ?? t.name ?? t);
+                }
+            } catch { /* ignore */ }
+        }));
+
+        teams.value = rows;
+    } catch (err) {
+        error.value = err instanceof Error ? err.message : 'Ukjent feil.';
+    } finally {
+        loading.value = false;
     }
+}
 
     async function joinTeam(teamId: number) {
         if (!user.value?.id) {

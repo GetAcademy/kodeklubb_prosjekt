@@ -2,6 +2,7 @@
     <NavigationMenu :data="menu" :cls="teamMenuCls" />
     <section>
     <h2>{{ teamDetails?.name ?? 'Team' }}</h2>
+    
     <p class="muted">Team ID: {{ teamId }}</p>
     <p v-if="teamLoading">Laster teamdetaljer…</p>
     <p v-else-if="teamError">{{ teamError }}</p>
@@ -116,13 +117,25 @@
 
     try {
         const baseApi = import.meta.env.VITE_BASE_API || '';
-        const response = await fetch(`${baseApi}/api/discover/${teamId.value}/requests`);
+        const url = `${baseApi}/api/discover/${teamId.value}/requests`;
+        console.log('Fetching requests from:', url);
+        
+        const response = await fetch(url);
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+        
         if (!response.ok) {
-        throw new Error('Kunne ikke hente forespørsler.');
+            const errorText = await response.text();
+            console.log('Error response:', errorText);
+            throw new Error('Kunne ikke hente foresp├©rsler.');
         }
 
         const payload = await response.json();
+        console.log('Payload received:', payload);
+        
         const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
+        console.log('Rows to map:', rows);
+        
         requests.value = rows.map((row: any) => ({
             id: row.id,
             teamId: row.team_id ?? row.teamId,
@@ -135,12 +148,15 @@
                 discordId: row.discord_id ?? row.invitedUser?.discordId ?? null
             }
         }));
+        
+        console.log('Final requests:', requests.value);
     } catch (err) {
         requestsError.value = err instanceof Error ? err.message : 'Ukjent feil.';
+        console.error('Fetch error:', err);
     } finally {
         requestsLoading.value = false;
     }
-    }
+}
 
     async function approveRequest(requestId: string) {
     if (!user.value?.id) {
@@ -229,15 +245,9 @@
         }
         throw new Error('Kunne ikke hente teamdetaljer.');
         }
-       const payload = await res.json();
-// Normalize casing from API (handles both PascalCase and camelCase)
-const raw = payload.team ?? payload;
-teamDetails.value = {
-    id: raw.Id ?? raw.id,
-    name: raw.Name ?? raw.name,
-    description: raw.Description ?? raw.description,
-    isOpenToJoinRequests: raw.IsOpenToJoinRequests ?? raw.isOpenToJoinRequests,
-    };
+        const payload = await res.json();
+        // payload may contain { team: {...}, isMember: bool } or just team
+        teamDetails.value = payload.team ?? payload;
     } catch (err) {
         teamError.value = err instanceof Error ? err.message : 'Ukjent feil.';
     } finally {
@@ -245,8 +255,12 @@ teamDetails.value = {
     }
     }
 
-    onMounted(async () => {
+   onMounted(async () => {
+    console.log('onMounted called!');
+    console.log('teamId:', teamId.value);
     await fetchTeamDetails();
+    console.log('fetchTeamDetails done');
     await fetchRequests();
-    });
+    console.log('fetchRequests done');
+});
 </script>

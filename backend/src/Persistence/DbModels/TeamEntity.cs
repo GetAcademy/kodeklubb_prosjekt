@@ -7,6 +7,9 @@ public class TeamEntity
     public string? Description { get; init; }
     public string? Location { get; init; }
     public string? DiscordLink { get; init; }
+    public string? DiscordServerId { get; init; }
+    public string? DiscordChannelId { get; init; }
+    public string? DiscordRoleId { get; init; }
     public string? MeetingSchedule { get; init; }
     public bool IsOpenToJoinRequests { get; init; } = true;
     public Guid CreatedBy { get; init; }

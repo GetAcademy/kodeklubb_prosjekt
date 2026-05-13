@@ -19,6 +19,11 @@ public static class UserEndpoints
         group.MapGet("/{discordId}/tags", (string discordId) => GetUserTags(discordId)).WithName("GetUserTags");
         group.MapPost("/{discordId}/tags", (string discordId, UpdateUserTagsRequest request) => AddUserTags(discordId, request)).WithName("AddUserTags");
         
+        // Discord account linking endpoints
+        group.MapPost("/{discordId}/discord/link", (string discordId, HttpContext context) => LinkDiscordAccount(discordId, context)).WithName("LinkDiscordAccount");
+        group.MapDelete("/{discordId}/discord/unlink", (string discordId, IServiceProvider sp) => UnlinkDiscordAccount(discordId, sp)).WithName("UnlinkDiscordAccount");
+        group.MapGet("/{discordId}/discord/status", (string discordId) => GetDiscordAccountStatus(discordId)).WithName("GetDiscordAccountStatus");
+        group.MapGet("/me", (HttpContext context) => GetCurrentUser(context)).WithName("GetCurrentUser");
 
         group.MapPost("/send-test-email", async (IServiceProvider sp, string toEmail) =>
         {
@@ -89,13 +94,120 @@ public static class UserEndpoints
             {
                 foreach (var tagPath in request.TagPaths)
                 {
-                    await db.ExecuteAsync("INSERT INTO UserTags_Hierarchical (UserId, TagPath) VALUES (@UserId, @TagPath)", new { UserId = user.Id, TagPath = tagPath });
+                    await db.ExecuteAsync("INSERT INTO usertags_hierarchical (userid, tagpath) VALUES (@UserId, @TagPath)", new { UserId = user.Id, TagPath = tagPath });
                 }
             }
             await db.CommitAsync();
             return Results.Ok(new { message = "Tags added successfully" });
         }
         catch (Exception) { await db.Tx.RollbackAsync(); throw; }
+    }
+
+    private static async Task<IResult> LinkDiscordAccount(string discordId, HttpContext context)
+    {
+        if (string.IsNullOrWhiteSpace(discordId))
+            return Results.BadRequest(new { message = "Discord ID is required" });
+
+        await using var connection = await AppConfig.OpenConnectionAsync();
+        try
+        {
+            var user = await connection.QueryOneOrDefaultAsync<UserEntity>(
+                UserSql.GetByDiscordId(), new { DiscordId = discordId });
+            if (user == null)
+                return Results.NotFound(new { message = "User not found" });
+
+            // User is already linked if they have a Discord ID
+            return Results.Ok(new { message = "Discord account is linked", userId = user.Id, discordId = user.DiscordId });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> UnlinkDiscordAccount(string discordId, IServiceProvider sp)
+{
+    if (string.IsNullOrWhiteSpace(discordId))
+        return Results.BadRequest(new { message = "Discord ID is required" });
+
+    await using var db = await Handlers.DbSession.OpenAsync();
+    try
+    {
+        var user = await db.QueryOneOrDefaultAsync<UserEntity>(
+            UserSql.GetByDiscordId(), new { DiscordId = discordId });
+        if (user == null)
+        {
+            await db.Tx.RollbackAsync();
+            return Results.NotFound(new { message = "User not found" });
+        }
+
+        // Delete user record - they must log in again to create new account
+        await db.ExecuteAsync("DELETE FROM usertags_hierarchical WHERE userid = @UserId", new { UserId = user.Id });
+        await db.ExecuteAsync("DELETE FROM user_tags WHERE user_id = @UserId", new { UserId = user.Id });
+        await db.ExecuteAsync("DELETE FROM users WHERE id = @UserId", new { UserId = user.Id });
+        
+        await db.CommitAsync();
+
+        return Results.Ok(new { message = "Account unlinked. Please log in again." });
+    }
+    catch (Exception ex)
+    {
+        await db.Tx.RollbackAsync();
+        return Results.BadRequest(new { message = $"Error: {ex.Message}" });
+    }
+}
+    private static async Task<IResult> GetCurrentUser(HttpContext context)
+{
+    // Get the Discord ID from claims or headers
+    var discordId = context.User.FindFirst("sub")?.Value 
+                   ?? context.Request.Headers["X-Discord-ID"].FirstOrDefault();
+    
+    if (string.IsNullOrWhiteSpace(discordId))
+        return Results.BadRequest(new { message = "Discord ID not found in request" });
+
+    await using var connection = await AppConfig.OpenConnectionAsync();
+    
+    // Search by username or email instead of discord_id
+    var user = await connection.QueryOneOrDefaultAsync<UserEntity>(
+        "SELECT * FROM users WHERE discord_id = @DiscordId OR username LIKE @DiscordId",
+        new { DiscordId = discordId });
+    
+    if (user == null)
+        return Results.NotFound(new { message = "User not found" });
+
+    return Results.Ok(new {
+        userId = user.Id,
+        username = user.Username,
+        email = user.Email,
+        discordId = user.DiscordId,
+        isLinked = !string.IsNullOrWhiteSpace(user.DiscordId)
+    });
+}
+    private static async Task<IResult> GetDiscordAccountStatus(string discordId)
+    {
+        if (string.IsNullOrWhiteSpace(discordId))
+            return Results.BadRequest(new { message = "Discord ID is required" });
+
+        Console.WriteLine($"[STATUS] Checking status for Discord ID: {discordId}");
+
+        await using var connection = await AppConfig.OpenConnectionAsync();
+        var user = await connection.QueryOneOrDefaultAsync<UserEntity>(
+            UserSql.GetByDiscordId(), new { DiscordId = discordId });
+        if (user == null)
+        {
+            Console.WriteLine($"[STATUS] User not found for Discord ID: {discordId}");
+            return Results.NotFound(new { message = "User not found" });
+        }
+
+        var isLinked = !string.IsNullOrWhiteSpace(user.DiscordId);
+        Console.WriteLine($"[STATUS] User found: {user.Id} ({user.Username}) - discord_id in DB: '{user.DiscordId}' - isLinked: {isLinked}");
+
+        return Results.Ok(new { 
+            userId = user.Id, 
+            isLinked = isLinked,
+            discordId = user.DiscordId,
+            username = user.Username
+        });
     }
 }
 
