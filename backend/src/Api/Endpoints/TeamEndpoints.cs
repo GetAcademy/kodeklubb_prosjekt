@@ -332,7 +332,7 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         return Task.FromResult(Results.StatusCode(501));
     }
 
-    private static async Task<IResult> GetMyRequests(string? discordId)
+    private static async Task<IResult> GetMyRequests(string? discordId, bool history = false)
     {
         if (string.IsNullOrWhiteSpace(discordId))
             return Results.BadRequest(new { message = "Discord ID is required" });
@@ -344,17 +344,36 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         if (user == null)
             return Results.NotFound(new { message = "User not found" });
 
-        var requests = await db.Conn.QueryManyAsync<JoinRequestDto>(
-            @"SELECT i.id         AS Id,
-                     i.team_id    AS TeamId,
-                     t.name       AS TeamName,
-                     i.status     AS Status,
-                     i.invited_at AS InvitedAt
-              FROM invitations i
-              JOIN teams t ON i.team_id = t.id
-              WHERE i.invited_user_id = @UserId
-              ORDER BY i.invited_at DESC",
-            new { UserId = user.Id });
+        string query;
+        if (history)
+        {
+            // Show all invitations (both pending and historical)
+            query = @"SELECT i.id         AS Id,
+                             i.team_id    AS TeamId,
+                             t.name       AS TeamName,
+                             i.status     AS Status,
+                             i.invited_at AS InvitedAt
+                      FROM invitations i
+                      JOIN teams t ON i.team_id = t.id
+                      WHERE i.invited_user_id = @UserId
+                      ORDER BY i.invited_at DESC";
+        }
+        else
+        {
+            // Show only pending invitations
+            query = @"SELECT i.id         AS Id,
+                             i.team_id    AS TeamId,
+                             t.name       AS TeamName,
+                             i.status     AS Status,
+                             i.invited_at AS InvitedAt
+                      FROM invitations i
+                      JOIN teams t ON i.team_id = t.id
+                      WHERE i.invited_user_id = @UserId
+                      AND i.status = 'pending'
+                      ORDER BY i.invited_at DESC";
+        }
+
+        var requests = await db.Conn.QueryManyAsync<JoinRequestDto>(query, new { UserId = user.Id });
 
         return Results.Ok(requests);
     }

@@ -1,6 +1,16 @@
 <template>
   <section class="requests-container">
-    <h2>My Join Requests</h2>
+    <div class="header-section">
+      <h2>My Join Requests</h2>
+      <label class="history-toggle">
+        <input 
+          v-model="showFullHistory" 
+          type="checkbox"
+          @change="fetchMyRequests"
+        />
+        <span>Show full history</span>
+      </label>
+    </div>
 
     <section v-if="loading" class="requests-placeholder">
       <p>Loading requests…</p>
@@ -55,6 +65,7 @@ const requests = ref<JoinRequest[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
 const cancellingId = ref<string | null>(null);
+const showFullHistory = ref(false);
 
 async function fetchMyRequests() {
   loading.value = true;
@@ -69,8 +80,9 @@ async function fetchMyRequests() {
       return;
     }
 
+    const historyParam = showFullHistory.value ? '&history=true' : '';
     const response = await fetch(
-      `${baseApi}/api/discover/my-requests?discordId=${encodeURIComponent(discordId)}`
+      `${baseApi}/api/discover/my-requests?discordId=${encodeURIComponent(discordId)}${historyParam}`
     );
 
     if (!response.ok) throw new Error('Could not load your requests.');
@@ -129,6 +141,38 @@ onMounted(fetchMyRequests);
 <style scoped>
 .requests-container {
   padding: 1rem 0;
+}
+
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.header-section h2 {
+  margin: 0;
+}
+
+.history-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.history-toggle input[type="checkbox"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+.history-toggle span {
+  font-size: 0.95rem;
+  color: #333;
 }
 
 .requests-list {
