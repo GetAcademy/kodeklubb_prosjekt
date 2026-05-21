@@ -15,22 +15,18 @@
         </div>
       </div>
 
-      <div v-if="selectedTags.length" class="selected-section">
+      <div class="selected-section">
         <h3 class="selected-title">✅ Valgte tags</h3>
-        <ul class="selected-list">
+        <ul v-if="selectedTags.length" class="selected-list">
           <li v-for="tag in selectedTags" :key="tag" class="selected-item">
             <span class="tag-badge">🏷️ {{ formatTag(tag) }}</span>
             <button class="remove-btn" @click="removeTag(tag)">✕</button>
           </li>
         </ul>
+        <p v-else class="no-tags-inline">Ingen tags valgt ennå. Velg fra treet til venstre.</p>
         <button class="save-btn" @click="saveTags" :disabled="saveStatus === 'saving'">
           {{ saveStatus === 'saving' ? 'Lagrer...' : '💾 Lagre tags' }}
         </button>
-        
-      </div>
-
-     <div v-else class="no-tags">
-        Ingen tags valgt ennå. Velg fra treet til venstre.
       </div>
     </div>
 
@@ -59,12 +55,38 @@ const saveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
 const saveMessage = ref('');
 
 onMounted(async () => {
+  const baseApi = import.meta.env.VITE_BASE_API || '';
+
+  // Load tag hierarchy tree
   try {
-    const baseApi = import.meta.env.VITE_BASE_API || '';
     const res = await axios.get(`${baseApi}/api/discover/tags/hierarchy`);
     tagHierarchy.value = res.data;
   } catch (err) {
-    console.error('Failed to load tags', err);
+    console.error('Failed to load tag hierarchy', err);
+  }
+
+  // Pre-populate already-saved tags
+  try {
+    if (props.teamId) {
+      // Team tags: GET /api/discover/{teamId}/tags → [{ tagPath, name, ... }]
+      const res = await axios.get(`${baseApi}/api/discover/${props.teamId}/tags`);
+      const tags = Array.isArray(res.data) ? res.data : (res.data?.value ?? []);
+      selectedTags.value = tags
+        .map((t: any) => t.tagPath ?? t.tagpath ?? null)
+        .filter(Boolean);
+    } else {
+      // User tags: GET /api/users/{discordId}/tags → [{ tagPath }]
+      const discordId = user.value?.id;
+      if (discordId) {
+        const res = await axios.get(`${baseApi}/api/users/${discordId}/tags`);
+        const tags = Array.isArray(res.data) ? res.data : (res.data?.value ?? []);
+        selectedTags.value = tags
+          .map((t: any) => t.tagPath ?? t.tagpath ?? null)
+          .filter(Boolean);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load existing tags', err);
   }
 });
 
@@ -84,7 +106,6 @@ function formatTag(tagPath: string) {
 }
 
 async function saveTags() {
-  if (!selectedTags.value.length) return;
   saveStatus.value = 'saving';
   saveMessage.value = '';
 
@@ -108,7 +129,7 @@ async function saveTags() {
 
     saveStatus.value = 'saved';
     saveMessage.value = 'Tags lagret!';
-    selectedTags.value = [];
+    // Keep selectedTags intact so the user sees what is saved
   } catch (err) {
     console.error('Failed to save tags', err);
     saveStatus.value = 'error';
@@ -229,6 +250,14 @@ async function saveTags() {
 
 .save-btn:hover {
   background: #005fa3;
+}
+
+.no-tags-inline {
+  color: #999;
+  font-size: 13px;
+  text-align: center;
+  padding: 12px 0;
+  margin: 0 0 12px 0;
 }
 
 .no-tags {

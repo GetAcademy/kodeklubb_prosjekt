@@ -56,7 +56,8 @@ public static class TeamEndpoints
     {
         await using var connection = await AppConfig.OpenConnectionAsync();
         var tags = await connection.QueryManyAsync<dynamic>(
-            @"SELECT pt.id, pt.name, pt.slug, pt.category
+            @"SELECT pt.id, pt.name, pt.slug, pt.category,
+                     CASE WHEN pt.category IS NOT NULL THEN pt.category || '/' || pt.name ELSE pt.name END AS tagPath
               FROM team_tags tt
               JOIN predefined_tags pt ON pt.id = tt.predefined_tag_id
               WHERE tt.team_id = @TeamId
@@ -67,25 +68,41 @@ public static class TeamEndpoints
 
     private static async Task<IResult> AddTeamTags(Guid teamId, AddTeamTagsRequest body)
     {
-        if (body.TagPaths == null || body.TagPaths.Length == 0)
-            return Results.BadRequest(new { message = "At least one tag path is required" });
+        if (body.TagPaths == null)
+            return Results.BadRequest(new { message = "TagPaths is required" });
 
         await using var db = await DbSession.OpenAsync();
         try
         {
+            // Replace: delete all existing team tags first
+            await db.ExecuteAsync("DELETE FROM team_tags WHERE team_id = @TeamId", new { TeamId = teamId });
+
             foreach (var tagPath in body.TagPaths)
             {
                 var parts = tagPath.Split('/');
                 var tagName = parts[^1];
                 var category = parts.Length > 1 ? parts[0] : null;
 
-                // Upsert into predefined_tags
+                // Fetch existing tag by name or slug first, insert only if missing
+                var slug = tagPath.ToLower().Replace("/", "-").Replace(" ", "-");
                 var tag = await db.QueryOneOrDefaultAsync<dynamic>(
-                    @"INSERT INTO predefined_tags (id, name, slug, category)
-                      VALUES (uuid_generate_v4(), @Name, @Slug, @Category)
-                      ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
-                      RETURNING id",
-                    new { Name = tagName, Slug = tagPath.ToLower().Replace("/", "-").Replace(" ", "-"), Category = category });
+                    "SELECT id FROM predefined_tags WHERE name = @Name OR slug = @Slug LIMIT 1",
+                    new { Name = tagName, Slug = slug });
+
+                if (tag == null)
+                {
+                    tag = await db.QueryOneOrDefaultAsync<dynamic>(
+                        @"INSERT INTO predefined_tags (id, name, slug, category)
+                          VALUES (uuid_generate_v4(), @Name, @Slug, @Category)
+                          ON CONFLICT DO NOTHING
+                          RETURNING id",
+                        new { Name = tagName, Slug = slug, Category = category });
+
+                    // Race condition fallback
+                    tag ??= await db.QueryOneOrDefaultAsync<dynamic>(
+                        "SELECT id FROM predefined_tags WHERE name = @Name OR slug = @Slug LIMIT 1",
+                        new { Name = tagName, Slug = slug });
+                }
 
                 // Insert into team_tags
                 await db.ExecuteAsync(
@@ -96,7 +113,7 @@ public static class TeamEndpoints
             }
 
             await db.CommitAsync();
-            return Results.Ok(new { message = "Tags added successfully" });
+            return Results.Ok(new { message = "Tags saved successfully" });
         }
         catch (Exception ex)
         {
@@ -463,7 +480,8 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         var teams = await connection.QueryManyAsync<TeamEntity>(TeamSql.GetAvailable, new { DiscordId = discordId });
         var results = teams.Select(team => new TeamListItem(
             team.Id, team.Name, team.Description,
-            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt, new string[0]));
+            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt,
+            team.Tags?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? []));
         return Results.Ok(results);
     }
 
@@ -476,7 +494,8 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         var teams = await connection.QueryManyAsync<TeamEntity>(TeamSql.GetUserTeams, new { DiscordId = discordId });
         var results = teams.Select(team => new TeamListItem(
             team.Id, team.Name, team.Description,
-            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt, new string[0]));
+            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt,
+            team.Tags?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? []));
         return Results.Ok(results);
     }
 
@@ -643,6 +662,6 @@ public record CreateTeamRequest(string Name, string? Description, Guid AdminUser
 public record AdminActionRequest(string DiscordId);
 public record TeamJoinRequest([property: JsonPropertyName("discordId")] string DiscordId);
 public record JoinRequestDto(Guid Id, Guid TeamId, string TeamName, string Status, DateTime? InvitedAt);
-public record AddTeamTagsRequest(string[] TagPaths);
+public record AddTeamTagsRequest([property: JsonPropertyName("tagPaths")] string[] TagPaths);
 public record SetDiscordConfigRequest(string DiscordServerId, string DiscordChannelId, string DiscordRoleId, string? DiscordLink);
 public record UpdateDiscordConfigRequest(string? DiscordServerId, string? DiscordChannelId, string? DiscordRoleId, string? DiscordLink);
