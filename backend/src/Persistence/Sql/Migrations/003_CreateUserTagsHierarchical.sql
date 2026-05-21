@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS UserTags_Hierarchical (
+    Id SERIAL PRIMARY KEY,
+    UserId UUID NOT NULL,
+    TagPath TEXT NOT NULL,
+    CreatedAt TIMESTAMP DEFAULT NOW(),
+    CONSTRAINT fk_user FOREIGN KEY(UserId) REFERENCES Users(Id)
+);

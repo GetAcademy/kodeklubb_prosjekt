@@ -20,6 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
     const isAuthenticated = computed(() => !!token.value && !!user.value);
 
 
+    
     // --- ACTIONS
     async function setToken (key: string) {
         token.value = key;

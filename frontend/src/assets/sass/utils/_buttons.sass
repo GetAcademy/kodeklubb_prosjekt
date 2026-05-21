@@ -13,3 +13,24 @@ button
     font-size: .8em !important
     @include mix.base-btn(color.$soft-white)
     @include mix.background-color(color.$discord-blurple, color.$soft-white)
+
+.discord-btn-new
+    padding: 0.7rem 1.5rem !important
+    font-size: 1.1rem !important
+    font-weight: 600 !important
+    display: flex !important
+    align-items: center !important
+    gap: 0.5rem !important
+    background: #5865f2 !important
+    color: #fff !important
+    border: none !important
+    border-radius: 6px !important
+    cursor: pointer !important
+    transition: background 0.2s !important
+
+    &:hover
+        background: #4752c4 !important
+    
+    .discord-icon-nav
+        width: 1.5rem
+        height: 1.5rem

@@ -2,10 +2,19 @@
     <NavigationMenu :data="menu" :cls="teamMenuCls" />
     <section>
     <h2>{{ teamDetails?.name ?? 'Team' }}</h2>
+    
     <p class="muted">Team ID: {{ teamId }}</p>
     <p v-if="teamLoading">Laster teamdetaljer…</p>
     <p v-else-if="teamError">{{ teamError }}</p>
-    <p v-else class="team-description">{{ teamDetails?.description }}</p>
+    <template v-else>
+      <p class="team-description">{{ teamDetails?.description }}</p>
+      <section v-if="teamTags.length" class="team-tags-section">
+        <h3>Tags</h3>
+        <div class="team-tags">
+          <span v-for="tag in teamTags" :key="tag" class="team-tag">{{ tag }}</span>
+        </div>
+      </section>
+    </template>
 
     <section class="requests">
       <h3>Forespørsler</h3>
@@ -109,6 +118,14 @@
     const teamLoading = ref(false);
     const teamError = ref<string | null>(null);
 
+    const teamTags = computed<string[]>(() => {
+        const raw = teamDetails.value?.Tags ?? teamDetails.value?.tags;
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        // fallback: handle comma-string if ever returned that way
+        return String(raw).split(',').map((t: string) => t.trim()).filter(Boolean);
+    });
+
     async function fetchRequests() {
     requestsLoading.value = true;
     requestsError.value = null;
@@ -116,13 +133,25 @@
 
     try {
         const baseApi = import.meta.env.VITE_BASE_API || '';
-        const response = await fetch(`${baseApi}/api/discover/${teamId.value}/requests`);
+        const url = `${baseApi}/api/discover/${teamId.value}/requests`;
+        console.log('Fetching requests from:', url);
+        
+        const response = await fetch(url);
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+        
         if (!response.ok) {
-        throw new Error('Kunne ikke hente forespørsler.');
+            const errorText = await response.text();
+            console.log('Error response:', errorText);
+            throw new Error('Kunne ikke hente foresp├©rsler.');
         }
 
         const payload = await response.json();
+        console.log('Payload received:', payload);
+        
         const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
+        console.log('Rows to map:', rows);
+        
         requests.value = rows.map((row: any) => ({
             id: row.id,
             teamId: row.team_id ?? row.teamId,
@@ -135,12 +164,15 @@
                 discordId: row.discord_id ?? row.invitedUser?.discordId ?? null
             }
         }));
+        
+        console.log('Final requests:', requests.value);
     } catch (err) {
         requestsError.value = err instanceof Error ? err.message : 'Ukjent feil.';
+        console.error('Fetch error:', err);
     } finally {
         requestsLoading.value = false;
     }
-    }
+}
 
     async function approveRequest(requestId: string) {
     if (!user.value?.id) {
@@ -239,8 +271,42 @@
     }
     }
 
-    onMounted(async () => {
+   onMounted(async () => {
+    console.log('onMounted called!');
+    console.log('teamId:', teamId.value);
     await fetchTeamDetails();
+    console.log('fetchTeamDetails done');
     await fetchRequests();
-    });
+    console.log('fetchRequests done');
+});
 </script>
+
+<style scoped>
+.team-tags-section {
+    margin-top: 1rem;
+}
+
+.team-tags-section h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #444;
+}
+
+.team-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.team-tag {
+    display: inline-block;
+    background: #e8f0fe;
+    color: #1a56db;
+    border: 1px solid #c3d9fd;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+</style>

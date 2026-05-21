@@ -4,19 +4,11 @@
     </section>
     <section class="tags-editor">
         <h2>Mine interesser</h2>
-        <div class="tags-input">
-            <select v-model="selectedTagId" :disabled="tagsLoading || tagsSaving">
-                <option value="">Velg interesser...</option>
-                <optgroup v-for="(tags, category) in groupedPredefinedTags" :key="category" :label="category || 'Annet'">
-                    <option v-for="tag in tags" :key="tag.id" :value="tag.id">
-                        {{ tag.name }}
-                    </option>
-                </optgroup>
-            </select>
-            <button type="button" @click="addTag" :disabled="tagsSaving || !selectedTagId">
-                {{ tagsSaving ? 'Lagrer...' : 'Legg til' }}
-            </button>
-        </div>
+        <AddTags
+          :user-mode="true"
+          :existing-tags="userTags"
+          @add-tag="addTagFromHierarchy"
+        />
         <p v-if="tagsError" class="error">{{ tagsError }}</p>
         <p v-else-if="tagsLoading" class="muted">Laster tags...</p>
         <ul v-else-if="userTags.length" class="tags-list">
@@ -30,6 +22,7 @@
 
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue';
+import AddTags from '@/components/teams/AddTags.vue';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -73,7 +66,6 @@ interface UserTag {
     category?: string;
 }
 
-const selectedTagId = ref('');
 const predefinedTags = ref<PredefinedTag[]>([]);
 const userTags = ref<UserTag[]>([]);
 const tagsLoading = ref(false);
@@ -93,19 +85,8 @@ const groupedPredefinedTags = computed(() => {
     return grouped;
 });
 
-const fetchPredefinedTags = async () => {
-    try {
-        const baseApi = import.meta.env.VITE_BASE_API || '';
-        const response = await fetch(`${baseApi}/api/users/tags/predefined`);
-        if (!response.ok) {
-            throw new Error('Kunne ikke hente tilgjengelige interesser.');
-        }
-        const payload = await response.json();
-        predefinedTags.value = Array.isArray(payload) ? payload : (payload?.tags ?? []);
-    } catch (error) {
-        tagsError.value = error instanceof Error ? error.message : 'Ukjent feil.';
-    }
-};
+
+// Remove fetchPredefinedTags, we now use the hierarchy system
 
 const fetchUserTags = async () => {
     if (!user.value?.id) return;
@@ -128,20 +109,14 @@ const fetchUserTags = async () => {
     }
 };
 
-const addTag = async () => {
+
+async function addTagFromHierarchy(tagPath: string) {
     if (!user.value?.id) {
         tagsError.value = 'Du må være logget inn.';
         return;
     }
-
-    if (!selectedTagId.value) {
-        tagsError.value = 'Velg en interesse.';
-        return;
-    }
-
     tagsSaving.value = true;
     tagsError.value = '';
-
     try {
         const baseApi = import.meta.env.VITE_BASE_API || '';
         const response = await fetch(`${baseApi}/api/users/${user.value.id}/tags`, {
@@ -149,15 +124,12 @@ const addTag = async () => {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ tagIds: [selectedTagId.value] })
+            body: JSON.stringify({ tagPaths: [tagPath] })
         });
-
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.message || 'Kunne ikke lagre interesse.');
         }
-
-        selectedTagId.value = '';
         tagsError.value = '';
         tagsSaving.value = false;
         await fetchUserTags();
@@ -165,7 +137,7 @@ const addTag = async () => {
         tagsError.value = error instanceof Error ? error.message : 'Ukjent feil.';
         tagsSaving.value = false;
     }
-};
+}
 
 watch(user, async () => {
     const discordId = user.value?.id || null;
@@ -175,7 +147,6 @@ watch(user, async () => {
 }, { immediate: true });
 
 onMounted(async () => {
-    await fetchPredefinedTags();
     if (user.value?.id) {
         await fetchUserTags();
     }

@@ -7,13 +7,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
     restart: always
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
     env_file:
       - .env
 
@@ -26,7 +24,6 @@ services:
     volumes:
       - pgadmin_data:/var/lib/pgadmin
       - ./backend/logs/db:/app/logs
-
     env_file:
       - .env
 
@@ -36,19 +33,16 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
-  
     image: kodeklubb_api
     depends_on:
       db:
         condition: service_healthy
-
     restart: always
-
     ports:
       - "5154:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=database;Username=postgres;Password=password
     volumes:
       - ./backend/src:/src
       - ./backend/logs/api:/app/logs

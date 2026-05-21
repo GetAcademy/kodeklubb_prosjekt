@@ -5,7 +5,7 @@
         :type="!!data.type ? data.type : 'button'"
         :disabled="data.disabled">
         
-        {{ data.label }}
+        <span v-html="data.label"></span>
     </button>
 </template>
 

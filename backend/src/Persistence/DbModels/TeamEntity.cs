@@ -7,6 +7,9 @@ public class TeamEntity
     public string? Description { get; init; }
     public string? Location { get; init; }
     public string? DiscordLink { get; init; }
+    public string? DiscordServerId { get; init; }
+    public string? DiscordChannelId { get; init; }
+    public string? DiscordRoleId { get; init; }
     public string? MeetingSchedule { get; init; }
     public bool IsOpenToJoinRequests { get; init; } = true;
     public Guid CreatedBy { get; init; }
@@ -14,4 +17,6 @@ public class TeamEntity
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public int Version { get; init; }
+    // Comma-separated tag names aggregated from predefined_tags via team_tags
+    public string? Tags { get; init; }
 }

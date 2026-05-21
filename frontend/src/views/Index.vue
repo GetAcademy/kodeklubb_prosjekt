@@ -1,5 +1,3 @@
-
-
 <template>
     <section v-if="!!isAuthenticated && user">
         <p v-if="userTeamsLoading" class="loading">Laster teams...</p>
@@ -8,6 +6,44 @@
     </section>
 
 </template>
+// Discord login handler
+function loginWithDiscord() {
+    const loginApi = import.meta.env.VITE_LOGIN_API || '/auth/discord/login';
+    const baseApi = import.meta.env.VITE_BASE_API || '';
+    window.location.href = baseApi + loginApi;
+}
+    .login-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 60vh;
+    }
+
+    .discord-login-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: #5865f2;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 0.7rem 1.5rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 1.5rem;
+        transition: background 0.2s;
+    }
+
+    .discord-login-btn:hover {
+        background: #4752c4;
+    }
+
+    .discord-icon {
+        width: 1.5rem;
+        height: 1.5rem;
+    }
 
 <script lang="ts" setup>
 
@@ -34,7 +70,16 @@
                 throw new Error('Failed to fetch user teams');
             }
             const payload = await response.json();
-            userTeams.value = Array.isArray(payload) ? payload : (payload?.value ?? []);
+           const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
+userTeams.value = rows.map((team: any) => ({
+    id: team.Id ?? team.id,
+    name: team.Name ?? team.name,
+    description: team.Description ?? team.description,
+    isOpenToJoinRequests: team.IsOpenToJoinRequests ?? team.isOpenToJoinRequests,
+    createdBy: team.CreatedBy ?? team.createdBy,
+    createdAt: team.CreatedAt ?? team.createdAt,
+    tags: team.Tags ?? team.tags ?? [],
+}));
         } catch (error) {
             userTeamsError.value = error instanceof Error ? error.message : 'An error occurred';
         } finally {

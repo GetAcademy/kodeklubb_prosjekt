@@ -8,7 +8,9 @@ using Persistence.DbModels;
 
 using Dapper;
 
-DotNetEnv.Env.Load();
+//DotNetEnv.Env.Load();
+// Try this instead:
+//DotNetEnv.Env.Load(new DotNetEnv.LoadOptions(setEnvVars: false));
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,7 +26,15 @@ if (string.IsNullOrWhiteSpace(rawUrl))
 }
 
 // Convert the URL (postgres://...) to Npgsql format (Host=...)
-var connectionString = ConvertConnectionString(rawUrl);
+var connectionString = rawUrl.Contains("://") 
+    ? ConvertConnectionString(rawUrl) 
+    : rawUrl;
+
+// Add this line temporarily:
+Console.WriteLine($"DEBUG ConnectionString: {connectionString}");
+
+AppConfig.Initialize(builder.Configuration);
+AppConfig.ConnectionString = connectionString;
 
 Console.WriteLine("Raw DATABASE_URL exists: " + (!string.IsNullOrWhiteSpace(rawUrl)));
 
@@ -38,8 +48,14 @@ builder.Services.AddNpgsqlDataSource(connectionString);
 // --- 2. OTHER SERVICES ---
 builder.Services.AddCors();
 
-var resendApiKey = builder.Configuration["RESEND_API_KEY"] ?? Environment.GetEnvironmentVariable("RESEND_API_KEY");
-var resendFrom = builder.Configuration["RESEND_FROM_EMAIL"] ?? "updates@updates.getacademy.no";
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.PropertyNamingPolicy = null;
+});
+
+
+var resendApiKey = Environment.GetEnvironmentVariable("RESEND_API_KEY");
+var resendFrom =  "updates@updates.getacademy.no";
 
 builder.Services.AddOptions();
 builder.Services.AddHttpClient<Resend.ResendClient>();
@@ -47,6 +63,13 @@ builder.Services.Configure<Resend.ResendClientOptions>(o => { o.ApiToken = resen
 builder.Services.AddTransient<Resend.IResend, Resend.ResendClient>();
 builder.Services.AddTransient<Core.Logic.IEmailService>(sp =>
     new Core.Logic.ResendEmailService(sp.GetRequiredService<Resend.IResend>(), resendFrom));
+
+// Configure port for Railway (but let launchSettings handle local development)
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
 
 var app = builder.Build();
 
@@ -80,9 +103,7 @@ catch (Exception ex)
 app.MapUserEndpoints();
 app.MapTeamEndpoints();
 app.MapDiscordEndpoints();
-app.MapGet("/api/health", () => "API is online!");
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+app.MapGet("/", () => "API is online!");
 
 app.Run();
 

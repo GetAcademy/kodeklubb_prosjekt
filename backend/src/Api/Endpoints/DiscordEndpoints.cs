@@ -104,6 +104,7 @@ public static class DiscordEndpoints
 
                 await using var connection = await AppConfig.OpenConnectionAsync();
 
+                Console.WriteLine($"Checking if user with Discord ID {discordUser.Id} exists...");
                 var existingUser = await connection.QueryOneOrDefaultAsync<UserEntity>(
                     UserSql.GetByDiscordId,
                     new { DiscordId = discordUser.Id });
@@ -113,20 +114,41 @@ public static class DiscordEndpoints
 
                 if (existingUser == null)
                 {
+                    Console.WriteLine($"User does not exist, creating new user for Discord ID: {discordUser.Id}");
                     var avatarUrl = !string.IsNullOrWhiteSpace(discordUser.Avatar)
                         ? $"https://cdn.discordapp.com/avatars/{discordUser.Id}/{discordUser.Avatar}.png"
                         : "https://cdn.discordapp.com/embed/avatars/0.png";
-                    savedUser = await connection.QueryOneAsync<UserEntity>(
-                        UserSql.Insert,
-                        new
+                    try
+                    {
+                        savedUser = await connection.QueryOneAsync<UserEntity>(
+                            UserSql.Insert,
+                            new
+                            {
+                                DiscordId = discordUser.Id, 
+                                Username = discordUser.Username, 
+                                Email = discordUser.Email, 
+                                AvatarUrl = avatarUrl, 
+                                PreferencesJson = (string?)null
+                            });
+                        Console.WriteLine($"Created new user: {savedUser.Id} ({savedUser.Username})");
+                    }
+                    catch (PostgresException pgEx) when (pgEx.SqlState == "23505") // Unique constraint violation
+                    {
+                        Console.WriteLine($"Duplicate user detected (race condition): {pgEx.Message}");
+                        // Re-query to get the user that was just created by another request
+                        var retryUser = await connection.QueryOneOrDefaultAsync<UserEntity>(
+                            UserSql.GetByDiscordId,
+                            new { DiscordId = discordUser.Id });
+                        if (retryUser != null)
                         {
-                            DiscordId = discordUser.Id, 
-                            Username = discordUser.Username, 
-                            Email = discordUser.Email, 
-                            AvatarUrl = avatarUrl, 
-                            PreferencesJson = (string?)null
-                        });
-                    Console.WriteLine($"Created new user: {savedUser.Id} ({savedUser.Username})");
+                            savedUser = retryUser;
+                            Console.WriteLine($"Retrieved existing user after race condition: {savedUser.Id} ({savedUser.Username})");
+                        }
+                        else
+                        {
+                            throw;
+                        }
+                    }
                 }
                 else
                 {

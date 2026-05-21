@@ -1,0 +1,66 @@
+{
+  "Lokasjon": {
+    "children": {
+      "Norge": {
+        "children": {
+          "Vestfold": {
+            "children": {
+              "Larvik": {},
+              "Sandefjord": {},
+              "Tønsberg": {}
+            }
+          },
+          "Østfold": {
+            "children": {
+              "Drammen": {},
+              "Kristiansand": {}
+            }
+          }
+        }
+      }
+    }
+  },
+  "Språk": {
+    "children": {
+      "C#": {
+        "children": {
+          ".NET": {},
+          "PC Applications": {},
+          "Mobile Applications": {}
+        }
+      },
+      "Java": {
+        "children": {
+          "JavaFX": {},
+          "JavaSwing": {},
+          "Java AWT": {},
+          "SpringBoot": {}
+        }
+      },
+      "C": {},
+      "C++": {},
+      "Python": {
+        "children": {
+          "Django": {},
+          "Flask": {}
+        }
+      }
+    }
+  },
+  "Nivå": {
+    "children": {
+      "Easy": {},
+      "Medium": {},
+      "Hard": {}
+    }
+  },
+  "Anvendelsesområde": {
+    "children": {
+      "Web": {},
+      "Mobil": {},
+      "Spill": {},
+      "Data Science": {},
+      "Embedded": {}
+    }
+  }
+}
