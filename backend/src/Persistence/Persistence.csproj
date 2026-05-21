@@ -26,6 +26,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Sql\**\*.sql" />
     <EmbeddedResource Include="Queries\*.sql" />
+    <EmbeddedResource Include="tag_hierarchy.json" />
   </ItemGroup>
 
 </Project>

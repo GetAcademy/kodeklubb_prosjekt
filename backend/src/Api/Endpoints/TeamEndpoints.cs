@@ -18,10 +18,17 @@ public static class TeamEndpoints
         var group = app.MapGroup("/api/discover").WithName("Teams");
         group.MapGet("/tags/hierarchy", async () =>
             {
-                var jsonPath = Path.Combine("src", "Persistence", "tag_hierarchy.json");
-                if (!File.Exists(jsonPath))
+                // Read from embedded resource — works in all environments (local, Docker, DO)
+                var assembly = System.Reflection.Assembly.Load("Persistence");
+                var resourceName = assembly.GetManifestResourceNames()
+                    .FirstOrDefault(n => n.EndsWith("tag_hierarchy.json"));
+
+                if (resourceName == null)
                     return Results.NotFound(new { message = "Tag hierarchy not found" });
-                var json = await File.ReadAllTextAsync(jsonPath);
+
+                await using var stream = assembly.GetManifestResourceStream(resourceName)!;
+                using var reader = new StreamReader(stream);
+                var json = await reader.ReadToEndAsync();
                 return Results.Content(json, "application/json");
             }).WithName("GetTagHierarchy");
         
@@ -56,8 +63,7 @@ public static class TeamEndpoints
     {
         await using var connection = await AppConfig.OpenConnectionAsync();
         var tags = await connection.QueryManyAsync<dynamic>(
-            @"SELECT pt.id, pt.name, pt.slug, pt.category,
-                     CASE WHEN pt.category IS NOT NULL THEN pt.category || '/' || pt.name ELSE pt.name END AS tagPath
+            @"SELECT pt.id, pt.name, pt.slug, pt.category
               FROM team_tags tt
               JOIN predefined_tags pt ON pt.id = tt.predefined_tag_id
               WHERE tt.team_id = @TeamId
@@ -68,56 +74,43 @@ public static class TeamEndpoints
 
     private static async Task<IResult> AddTeamTags(Guid teamId, AddTeamTagsRequest body)
     {
-        if (body.TagPaths == null)
-            return Results.BadRequest(new { message = "TagPaths is required" });
+        if (body.TagPaths == null || body.TagPaths.Length == 0)
+            return Results.BadRequest(new { message = "At least one tag path is required" });
 
         await using var db = await DbSession.OpenAsync();
         try
         {
-            // Replace: delete all existing team tags first
-            await db.ExecuteAsync("DELETE FROM team_tags WHERE team_id = @TeamId", new { TeamId = teamId });
-
             foreach (var tagPath in body.TagPaths)
             {
                 var parts = tagPath.Split('/');
                 var tagName = parts[^1];
                 var category = parts.Length > 1 ? parts[0] : null;
-
-                // Fetch existing tag by name or slug first, insert only if missing
                 var slug = tagPath.ToLower().Replace("/", "-").Replace(" ", "-");
-                var tag = await db.QueryOneOrDefaultAsync<dynamic>(
-                    "SELECT id FROM predefined_tags WHERE name = @Name OR slug = @Slug LIMIT 1",
-                    new { Name = tagName, Slug = slug });
 
-                if (tag == null)
-                {
-                    tag = await db.QueryOneOrDefaultAsync<dynamic>(
-                        @"INSERT INTO predefined_tags (id, name, slug, category)
-                          VALUES (uuid_generate_v4(), @Name, @Slug, @Category)
-                          ON CONFLICT DO NOTHING
-                          RETURNING id",
-                        new { Name = tagName, Slug = slug, Category = category });
-
-                    // Race condition fallback
-                    tag ??= await db.QueryOneOrDefaultAsync<dynamic>(
-                        "SELECT id FROM predefined_tags WHERE name = @Name OR slug = @Slug LIMIT 1",
-                        new { Name = tagName, Slug = slug });
-                }
+                // Upsert into predefined_tags — use a concrete type to avoid dynamic RuntimeBinderException
+                var tagId = await db.QueryOneAsync<Guid>(
+                    @"INSERT INTO predefined_tags (id, name, slug, category)
+                      VALUES (uuid_generate_v4(), @Name, @Slug, @Category)
+                      ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
+                      RETURNING id",
+                    new { Name = tagName, Slug = slug, Category = category });
 
                 // Insert into team_tags
                 await db.ExecuteAsync(
                     @"INSERT INTO team_tags (id, team_id, predefined_tag_id)
                       VALUES (uuid_generate_v4(), @TeamId, @TagId)
                       ON CONFLICT (team_id, predefined_tag_id) DO NOTHING",
-                    new { TeamId = teamId, TagId = tag!.id });
+                    new { TeamId = teamId, TagId = tagId });
             }
 
             await db.CommitAsync();
-            return Results.Ok(new { message = "Tags saved successfully" });
+            return Results.Ok(new { message = "Tags added successfully" });
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            // Only rollback if the transaction is still active to avoid double-dispose crash
+            if (db.Tx.Connection != null)
+                await db.Tx.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
@@ -139,7 +132,8 @@ public static class TeamEndpoints
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            if (db.Tx.Connection != null)
+                await db.Tx.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
@@ -480,8 +474,7 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         var teams = await connection.QueryManyAsync<TeamEntity>(TeamSql.GetAvailable, new { DiscordId = discordId });
         var results = teams.Select(team => new TeamListItem(
             team.Id, team.Name, team.Description,
-            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt,
-            team.Tags?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? []));
+            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt, new string[0]));
         return Results.Ok(results);
     }
 
@@ -494,8 +487,7 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         var teams = await connection.QueryManyAsync<TeamEntity>(TeamSql.GetUserTeams, new { DiscordId = discordId });
         var results = teams.Select(team => new TeamListItem(
             team.Id, team.Name, team.Description,
-            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt,
-            team.Tags?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? []));
+            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt, new string[0]));
         return Results.Ok(results);
     }
 
@@ -662,6 +654,6 @@ public record CreateTeamRequest(string Name, string? Description, Guid AdminUser
 public record AdminActionRequest(string DiscordId);
 public record TeamJoinRequest([property: JsonPropertyName("discordId")] string DiscordId);
 public record JoinRequestDto(Guid Id, Guid TeamId, string TeamName, string Status, DateTime? InvitedAt);
-public record AddTeamTagsRequest([property: JsonPropertyName("tagPaths")] string[] TagPaths);
+public record AddTeamTagsRequest(string[] TagPaths);
 public record SetDiscordConfigRequest(string DiscordServerId, string DiscordChannelId, string DiscordRoleId, string? DiscordLink);
 public record UpdateDiscordConfigRequest(string? DiscordServerId, string? DiscordChannelId, string? DiscordRoleId, string? DiscordLink);
