@@ -1,5 +1,5 @@
 <template>
-  <AddTags :teamId="teamId" />
+  <AddTags :teamId="teamId ?? undefined" />
 </template>
 
 <script setup lang="ts">
@@ -8,7 +8,5 @@ import { useRoute } from 'vue-router';
 import AddTags from '@/components/teams/AddTags.vue';
 
 const route = useRoute();
-
-// Present when accessed via /teams/:teamId/add-tags, undefined on /profile/add-tags
-const teamId = computed(() => route.params.teamId as string | undefined);
+const teamId = computed(() => route.params.teamId as string | null);
 </script>
