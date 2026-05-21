@@ -36,6 +36,8 @@ Console.WriteLine($"DEBUG ConnectionString: {connectionString}");
 AppConfig.Initialize(builder.Configuration);
 AppConfig.ConnectionString = connectionString;
 
+Console.WriteLine("Raw DATABASE_URL exists: " + (!string.IsNullOrWhiteSpace(rawUrl)));
+
 // Store for your existing AppConfig static class
 AppConfig.Initialize(builder.Configuration);
 AppConfig.ConnectionString = connectionString;
@@ -82,7 +84,9 @@ app.UseCors(policy => policy
 // --- 4. RUN MIGRATIONS ---
 try 
 {
-    Console.WriteLine("Railway: Starting Database Migrations...");
+    Console.WriteLine("Raw URL starts with: " + rawUrl[..Math.Min(rawUrl.Length, 30)]);
+Console.WriteLine("Converted connection string starts with: " + connectionString[..Math.Min(connectionString.Length, 80)]);
+
     // Wait 2 seconds to ensure Railway's internal network is fully resolved
     await Task.Delay(2000); 
     var migrator = new DatabaseMigrator(connectionString);
@@ -92,6 +96,7 @@ try
 catch (Exception ex)
 {
     Console.WriteLine($"Migration Error: {ex.Message}");
+    Console.WriteLine(ex.ToString());
 }
 
 // Map Endpoints
