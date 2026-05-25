@@ -1,3 +1,6 @@
+
+
+
 <template>
     <section v-if="!!isAuthenticated && user">
         <p v-if="userTeamsLoading" class="loading">Laster teams...</p>

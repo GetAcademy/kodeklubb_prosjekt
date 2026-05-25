@@ -36,8 +36,6 @@ Console.WriteLine($"DEBUG ConnectionString: {connectionString}");
 AppConfig.Initialize(builder.Configuration);
 AppConfig.ConnectionString = connectionString;
 
-Console.WriteLine("Raw DATABASE_URL exists: " + (!string.IsNullOrWhiteSpace(rawUrl)));
-
 // Store for your existing AppConfig static class
 AppConfig.Initialize(builder.Configuration);
 AppConfig.ConnectionString = connectionString;
@@ -74,7 +72,14 @@ if (!string.IsNullOrEmpty(port))
 var app = builder.Build();
 
 // --- 3. MIDDLEWARE & CORS ---
-var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(",") ?? new[] { "https://kodeklubbprosjekt-production-8ee8.up.railway.app/" };
+var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(",") ?? new[] 
+{ 
+    "https://kodeklubbprosjekt-production-8ee8.up.railway.app/",
+    "https://sea-lion-app-ay76e.ondigitalocean.app",
+    "http://localhost:3000",
+    "http://localhost:5173"
+};
+
 app.UseCors(policy => policy
     .WithOrigins(allowedOrigins)
     .AllowAnyHeader()
@@ -84,9 +89,7 @@ app.UseCors(policy => policy
 // --- 4. RUN MIGRATIONS ---
 try 
 {
-    Console.WriteLine("Raw URL starts with: " + rawUrl[..Math.Min(rawUrl.Length, 30)]);
-Console.WriteLine("Converted connection string starts with: " + connectionString[..Math.Min(connectionString.Length, 80)]);
-
+    Console.WriteLine("Railway: Starting Database Migrations...");
     // Wait 2 seconds to ensure Railway's internal network is fully resolved
     await Task.Delay(2000); 
     var migrator = new DatabaseMigrator(connectionString);
@@ -96,7 +99,6 @@ Console.WriteLine("Converted connection string starts with: " + connectionString
 catch (Exception ex)
 {
     Console.WriteLine($"Migration Error: {ex.Message}");
-    Console.WriteLine(ex.ToString());
 }
 
 // Map Endpoints

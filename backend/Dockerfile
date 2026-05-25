@@ -29,7 +29,8 @@ RUN dotnet build src/Api/Api.csproj -c $BUILD_CONFIGURATION -o /app/build --no-r
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish src/Api/Api.csproj -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false --no-restore
-
+# Copy tag_hierarchy.json to the publish directory
+COPY src/Persistence/tag_hierarchy.json /app/publish/src/Persistence/tag_hierarchy.json
 
 # Final runtime image
 FROM base AS final

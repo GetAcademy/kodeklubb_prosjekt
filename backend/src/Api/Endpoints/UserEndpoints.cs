@@ -17,9 +17,7 @@ public static class UserEndpoints
         group.MapPost("/", (CreateUserRequest request) => CreateUser(request)).WithName("CreateUser");
         group.MapGet("/tags/predefined", () => GetPredefinedTags()).WithName("GetPredefinedTags");
         group.MapGet("/{discordId}/tags", (string discordId) => GetUserTags(discordId)).WithName("GetUserTags");
-        group.MapGet("/{discordId}/tags/paths", (string discordId) => GetUserTagPaths(discordId)).WithName("GetUserTagPaths");
         group.MapPost("/{discordId}/tags", (string discordId, UpdateUserTagsRequest request) => AddUserTags(discordId, request)).WithName("AddUserTags");
-        group.MapPost("/{discordId}/tags/paths/remove", (string discordId, DeleteUserTagPathsRequest request) => DeleteUserTagPaths(discordId, request)).WithName("DeleteUserTagPaths");
         
         // Discord account linking endpoints
         group.MapPost("/{discordId}/discord/link", (string discordId, HttpContext context) => LinkDiscordAccount(discordId, context)).WithName("LinkDiscordAccount");
@@ -96,11 +94,7 @@ public static class UserEndpoints
             {
                 foreach (var tagPath in request.TagPaths)
                 {
-                    await db.ExecuteAsync(
-                        @"INSERT INTO usertags_hierarchical (userid, tagpath)
-                          VALUES (@UserId, @TagPath)
-                          ON CONFLICT DO NOTHING",
-                        new { UserId = user.Id, TagPath = tagPath });
+                    await db.ExecuteAsync("INSERT INTO usertags_hierarchical (userid, tagpath) VALUES (@UserId, @TagPath)", new { UserId = user.Id, TagPath = tagPath });
                 }
             }
             await db.CommitAsync();
@@ -215,50 +209,7 @@ public static class UserEndpoints
             username = user.Username
         });
     }
-
-    private static async Task<IResult> GetUserTagPaths(string discordId)
-    {
-        if (string.IsNullOrWhiteSpace(discordId))
-            return Results.BadRequest(new { message = "Discord ID is required" });
-
-        await using var db = await Handlers.DbSession.OpenAsync();
-        var user = await db.QueryOneOrDefaultAsync<UserEntity>(UserSql.GetByDiscordId(), new { DiscordId = discordId });
-        if (user == null) return Results.NotFound(new { message = "User not found" });
-
-        var paths = await db.QueryAsync<string>(
-            "SELECT tagpath FROM usertags_hierarchical WHERE userid = @UserId ORDER BY createdat DESC",
-            new { UserId = user.Id });
-
-        return Results.Ok(paths);
-    }
-
-    private static async Task<IResult> DeleteUserTagPaths(string discordId, DeleteUserTagPathsRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(discordId))
-            return Results.BadRequest(new { message = "Discord ID is required" });
-        if (request.TagPaths == null || request.TagPaths.Length == 0)
-            return Results.BadRequest(new { message = "At least one tag path is required" });
-
-        await using var db = await Handlers.DbSession.OpenAsync();
-        try
-        {
-            var user = await db.QueryOneOrDefaultAsync<UserEntity>(UserSql.GetByDiscordId(), new { DiscordId = discordId });
-            if (user == null) { await db.Tx.RollbackAsync(); return Results.NotFound(new { message = "User not found" }); }
-
-            foreach (var tagPath in request.TagPaths)
-            {
-                await db.ExecuteAsync(
-                    "DELETE FROM usertags_hierarchical WHERE userid = @UserId AND tagpath = @TagPath",
-                    new { UserId = user.Id, TagPath = tagPath });
-            }
-
-            await db.CommitAsync();
-            return Results.Ok(new { message = "Tags removed successfully" });
-        }
-        catch (Exception) { await db.Tx.RollbackAsync(); throw; }
-    }
 }
 
 public record CreateUserRequest(string? DiscordId, string? Email, string? Username, string? AvatarUrl, string? PreferencesJson);
 public record UpdateUserTagsRequest(Guid[] TagIds, string[]? TagPaths);
-public record DeleteUserTagPathsRequest(string[] TagPaths);

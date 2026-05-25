@@ -15,35 +15,22 @@
         </div>
       </div>
 
-      <div class="right-panel">
-        <!-- Already saved tags -->
-        <div v-if="savedTags.length" class="saved-section">
-          <h3 class="saved-title">💾 Lagrede tags</h3>
-          <ul class="selected-list">
-            <li v-for="tag in savedTags" :key="tag" class="selected-item">
-              <span class="tag-badge">🏷️ {{ formatTag(tag) }}</span>
-              <button class="remove-btn" @click="removeSavedTag(tag)">✕</button>
-            </li>
-          </ul>
-        </div>
+      <div v-if="selectedTags.length" class="selected-section">
+        <h3 class="selected-title">✅ Valgte tags</h3>
+        <ul class="selected-list">
+          <li v-for="tag in selectedTags" :key="tag" class="selected-item">
+            <span class="tag-badge">🏷️ {{ formatTag(tag) }}</span>
+            <button class="remove-btn" @click="removeTag(tag)">✕</button>
+          </li>
+        </ul>
+        <button class="save-btn" @click="saveTags" :disabled="saveStatus === 'saving'">
+          {{ saveStatus === 'saving' ? 'Lagrer...' : '💾 Lagre tags' }}
+        </button>
+        
+      </div>
 
-        <!-- Newly selected tags (not yet saved) -->
-        <div v-if="selectedTags.length" class="selected-section">
-          <h3 class="selected-title">✅ Nye valgte tags</h3>
-          <ul class="selected-list">
-            <li v-for="tag in selectedTags" :key="tag" class="selected-item">
-              <span class="tag-badge">🏷️ {{ formatTag(tag) }}</span>
-              <button class="remove-btn" @click="removeTag(tag)">✕</button>
-            </li>
-          </ul>
-          <button class="save-btn" @click="saveTags" :disabled="saveStatus === 'saving'">
-            {{ saveStatus === 'saving' ? 'Lagrer...' : '💾 Lagre tags' }}
-          </button>
-        </div>
-
-        <div v-if="!selectedTags.length && !savedTags.length" class="no-tags">
-          Ingen tags valgt ennå. Velg fra treet til venstre.
-        </div>
+     <div v-else class="no-tags">
+        Ingen tags valgt ennå. Velg fra treet til venstre.
       </div>
     </div>
 
@@ -68,29 +55,14 @@ const { user } = storeToRefs(authStore);
 
 const tagHierarchy = ref<any>(null);
 const selectedTags = ref<string[]>([]);
-const savedTags = ref<string[]>([]);
 const saveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
 const saveMessage = ref('');
 
 onMounted(async () => {
   try {
     const baseApi = import.meta.env.VITE_BASE_API || '';
-    const [hierarchyRes] = await Promise.all([
-      axios.get(`${baseApi}/api/discover/tags/hierarchy`),
-    ]);
-    tagHierarchy.value = hierarchyRes.data;
-
-    // Load already saved tags
-    if (props.teamId) {
-      const tagsRes = await axios.get(`${baseApi}/api/discover/${props.teamId}/tags`);
-      savedTags.value = (tagsRes.data as any[]).map((t: any) => t.slug || t.name);
-    } else {
-      const discordId = user.value?.id;
-      if (discordId) {
-        const tagsRes = await axios.get(`${baseApi}/api/users/${discordId}/tags/paths`);
-        savedTags.value = tagsRes.data as string[];
-      }
-    }
+    const res = await axios.get(`${baseApi}/api/discover/tags/hierarchy`);
+    tagHierarchy.value = res.data;
   } catch (err) {
     console.error('Failed to load tags', err);
   }
@@ -104,26 +76,6 @@ function addTag(tagPath: string) {
 
 function removeTag(tagPath: string) {
   selectedTags.value = selectedTags.value.filter(t => t !== tagPath);
-}
-
-async function removeSavedTag(tagPath: string) {
-  try {
-    const baseApi = import.meta.env.VITE_BASE_API || '';
-    if (props.teamId) {
-      await axios.delete(`${baseApi}/api/discover/${props.teamId}/tags/${encodeURIComponent(tagPath)}`);
-    } else {
-      const discordId = user.value?.id;
-      if (!discordId) throw new Error('Not logged in');
-      await axios.post(`${baseApi}/api/users/${discordId}/tags/paths/remove`, {
-        tagPaths: [tagPath]
-      });
-    }
-    savedTags.value = savedTags.value.filter(t => t !== tagPath);
-  } catch (err) {
-    console.error('Failed to remove tag', err);
-    saveMessage.value = 'Kunne ikke fjerne tag.';
-    saveStatus.value = 'error';
-  }
 }
 
 function formatTag(tagPath: string) {
@@ -156,10 +108,6 @@ async function saveTags() {
 
     saveStatus.value = 'saved';
     saveMessage.value = 'Tags lagret!';
-    // Move newly saved tags into the savedTags list
-    for (const tag of selectedTags.value) {
-      if (!savedTags.value.includes(tag)) savedTags.value.push(tag);
-    }
     selectedTags.value = [];
   } catch (err) {
     console.error('Failed to save tags', err);
@@ -188,28 +136,6 @@ async function saveTags() {
   display: flex;
   gap: 32px;
   align-items: flex-start;
-}
-
-.right-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  width: 280px;
-}
-
-.saved-section {
-  background: #f0fff4;
-  border: 1px solid #b7e2c8;
-  border-radius: 10px;
-  padding: 16px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-}
-
-.saved-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 12px;
-  color: #1a7340;
 }
 
 .tree-section {

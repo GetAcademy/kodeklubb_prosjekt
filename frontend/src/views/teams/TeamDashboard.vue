@@ -6,15 +6,7 @@
     <p class="muted">Team ID: {{ teamId }}</p>
     <p v-if="teamLoading">Laster teamdetaljer…</p>
     <p v-else-if="teamError">{{ teamError }}</p>
-    <template v-else>
-      <p class="team-description">{{ teamDetails?.description }}</p>
-      <section v-if="teamTags.length" class="team-tags-section">
-        <h3>Tags</h3>
-        <div class="team-tags">
-          <span v-for="tag in teamTags" :key="tag" class="team-tag">{{ tag }}</span>
-        </div>
-      </section>
-    </template>
+    <p v-else class="team-description">{{ teamDetails?.description }}</p>
 
     <section class="requests">
       <h3>Forespørsler</h3>
@@ -117,14 +109,6 @@
     const teamDetails = ref<any | null>(null);
     const teamLoading = ref(false);
     const teamError = ref<string | null>(null);
-
-    const teamTags = computed<string[]>(() => {
-        const raw = teamDetails.value?.Tags ?? teamDetails.value?.tags;
-        if (!raw) return [];
-        if (Array.isArray(raw)) return raw;
-        // fallback: handle comma-string if ever returned that way
-        return String(raw).split(',').map((t: string) => t.trim()).filter(Boolean);
-    });
 
     async function fetchRequests() {
     requestsLoading.value = true;
@@ -280,33 +264,3 @@
     console.log('fetchRequests done');
 });
 </script>
-
-<style scoped>
-.team-tags-section {
-    margin-top: 1rem;
-}
-
-.team-tags-section h3 {
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: #444;
-}
-
-.team-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.team-tag {
-    display: inline-block;
-    background: #e8f0fe;
-    color: #1a56db;
-    border: 1px solid #c3d9fd;
-    padding: 0.2rem 0.6rem;
-    border-radius: 999px;
-    font-size: 0.82rem;
-    font-weight: 500;
-}
-</style>

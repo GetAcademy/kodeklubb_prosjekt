@@ -18,17 +18,10 @@ public static class TeamEndpoints
         var group = app.MapGroup("/api/discover").WithName("Teams");
         group.MapGet("/tags/hierarchy", async () =>
             {
-                // Read from embedded resource — works in all environments (local, Docker, DO)
-                var assembly = System.Reflection.Assembly.Load("Persistence");
-                var resourceName = assembly.GetManifestResourceNames()
-                    .FirstOrDefault(n => n.EndsWith("tag_hierarchy.json"));
-
-                if (resourceName == null)
+                var jsonPath = Path.Combine("src", "Persistence", "tag_hierarchy.json");
+                if (!File.Exists(jsonPath))
                     return Results.NotFound(new { message = "Tag hierarchy not found" });
-
-                await using var stream = assembly.GetManifestResourceStream(resourceName)!;
-                using var reader = new StreamReader(stream);
-                var json = await reader.ReadToEndAsync();
+                var json = await File.ReadAllTextAsync(jsonPath);
                 return Results.Content(json, "application/json");
             }).WithName("GetTagHierarchy");
         
@@ -85,22 +78,21 @@ public static class TeamEndpoints
                 var parts = tagPath.Split('/');
                 var tagName = parts[^1];
                 var category = parts.Length > 1 ? parts[0] : null;
-                var slug = tagPath.ToLower().Replace("/", "-").Replace(" ", "-");
 
-                // Upsert into predefined_tags — use a concrete type to avoid dynamic RuntimeBinderException
-                var tagId = await db.QueryOneAsync<Guid>(
+                // Upsert into predefined_tags
+                var tag = await db.QueryOneOrDefaultAsync<dynamic>(
                     @"INSERT INTO predefined_tags (id, name, slug, category)
                       VALUES (uuid_generate_v4(), @Name, @Slug, @Category)
                       ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
                       RETURNING id",
-                    new { Name = tagName, Slug = slug, Category = category });
+                    new { Name = tagName, Slug = tagPath.ToLower().Replace("/", "-").Replace(" ", "-"), Category = category });
 
                 // Insert into team_tags
                 await db.ExecuteAsync(
                     @"INSERT INTO team_tags (id, team_id, predefined_tag_id)
                       VALUES (uuid_generate_v4(), @TeamId, @TagId)
                       ON CONFLICT (team_id, predefined_tag_id) DO NOTHING",
-                    new { TeamId = teamId, TagId = tagId });
+                    new { TeamId = teamId, TagId = tag!.id });
             }
 
             await db.CommitAsync();
@@ -108,9 +100,7 @@ public static class TeamEndpoints
         }
         catch (Exception ex)
         {
-            // Only rollback if the transaction is still active to avoid double-dispose crash
-            if (db.Tx.Connection != null)
-                await db.Tx.RollbackAsync();
+            await db.Tx.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
@@ -132,8 +122,7 @@ public static class TeamEndpoints
         }
         catch (Exception ex)
         {
-            if (db.Tx.Connection != null)
-                await db.Tx.RollbackAsync();
+            await db.Tx.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }

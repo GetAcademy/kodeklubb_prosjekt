@@ -10,13 +10,7 @@ SELECT DISTINCT
     t.team_admin_id AS TeamAdminId, 
     t.created_at AS CreatedAt,
     t.updated_at AS UpdatedAt, 
-    t.version,
-    (
-        SELECT STRING_AGG(pt.name, ',')
-        FROM team_tags tt
-        JOIN predefined_tags pt ON pt.id = tt.predefined_tag_id
-        WHERE tt.team_id = t.id
-    ) AS Tags
+    t.version
 FROM teams t
 INNER JOIN team_members tm ON tm.team_id = t.id
 INNER JOIN users u ON u.id = tm.user_id

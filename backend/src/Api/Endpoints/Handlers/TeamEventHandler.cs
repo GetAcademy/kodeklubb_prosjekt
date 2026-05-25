@@ -46,12 +46,18 @@ public static class TeamEventHandler
 
         if (serviceProvider != null)
         {
-            var emailService = (Core.Logic.IEmailService)serviceProvider.GetService(typeof(Core.Logic.IEmailService));
-            // Get user email
-            var user = await connection.QueryOneOrDefaultAsync<Persistence.DbModels.UserEntity>("SELECT * FROM users WHERE id = @UserId", new { UserId = evt.UserId }, transaction);
-            if (user?.Email != null)
+            try
             {
-                await emailService.SendEmailAsync(user.Email, "You have been accepted to the team!", $"<h1>Congratulations!</h1><p>Your request to join the team has been approved.</p>");
+                var emailService = (Core.Logic.IEmailService)serviceProvider.GetService(typeof(Core.Logic.IEmailService));
+                var user = await connection.QueryOneOrDefaultAsync<Persistence.DbModels.UserEntity>("SELECT * FROM users WHERE id = @UserId", new { UserId = evt.UserId }, transaction);
+                if (user?.Email != null)
+                {
+                    await emailService.SendEmailAsync(user.Email, "You have been accepted to the team!", $"<h1>Congratulations!</h1><p>Your request to join the team has been approved.</p>");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[EMAIL] Failed to send approval email (non-critical): {ex.Message}");
             }
         }
     }
@@ -75,15 +81,22 @@ public static class TeamEventHandler
 
         if (serviceProvider != null)
         {
-            var emailService = (Core.Logic.IEmailService)serviceProvider.GetService(typeof(Core.Logic.IEmailService));
-            // Get team admin email
-            var admin = await connection.QueryOneOrDefaultAsync<Persistence.DbModels.UserEntity>("SELECT u.* FROM users u JOIN teams t ON u.id = t.team_admin_id WHERE t.id = @TeamId", new { TeamId = evt.TeamId }, transaction);
-            if (admin?.Email != null)
+            try
             {
-                await emailService.SendEmailAsync(admin.Email, "New team join request", $"<h1>New join request</h1><p>A user has requested to join your team.</p>");
+                var emailService = (Core.Logic.IEmailService)serviceProvider.GetService(typeof(Core.Logic.IEmailService));
+                var admin = await connection.QueryOneOrDefaultAsync<Persistence.DbModels.UserEntity>("SELECT u.* FROM users u JOIN teams t ON u.id = t.team_admin_id WHERE t.id = @TeamId", new { TeamId = evt.TeamId }, transaction);
+                if (admin?.Email != null)
+                {
+                    await emailService.SendEmailAsync(admin.Email, "New team join request", $"<h1>New join request</h1><p>A user has requested to join your team.</p>");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[EMAIL] Failed to send join request email (non-critical): {ex.Message}");
             }
         }
     }
+
     private static async Task HandleEvent(TeamCreated evt, NpgsqlConnection connection, NpgsqlTransaction transaction)
     {
         await connection.ExecuteCommandAsync(TeamSql.CreateTeam,

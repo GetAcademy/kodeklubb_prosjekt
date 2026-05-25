@@ -49,13 +49,20 @@ router.beforeEach((to, from, next) =>
       authStore.setUser(user);
       authStore.setToken(token);
 
-    } catch (err) {console.error('Failed to parse user from query', err);}
+      // Redirect to main page after successful login
+      return next({ path: '/discover', query: {} });
+
+    } catch (err) {
+      console.error('Failed to parse user from query', err);
+    }
   }
+
+  // Redirect unauthenticated users away from protected routes
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    return next({ path: '/' });
+  }
+
   next();
 });
 
-router.afterEach((to) => {
-  if (Object.keys(to.query).length > 0) 
-    router.replace({ path: to.path, query: {}, hash: to.hash });
-});
 export default router;

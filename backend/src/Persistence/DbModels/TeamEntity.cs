@@ -17,6 +17,4 @@ public class TeamEntity
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public int Version { get; init; }
-    // Comma-separated tag names aggregated from predefined_tags via team_tags
-    public string? Tags { get; init; }
 }
