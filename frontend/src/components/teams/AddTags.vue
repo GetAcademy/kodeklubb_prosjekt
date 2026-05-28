@@ -61,7 +61,7 @@ const saveMessage = ref('');
 onMounted(async () => {
   try {
     const baseApi = import.meta.env.VITE_BASE_API || '';
-    const res = await axios.get(`${baseApi}/api/discover/tags/hierarchy`);
+   const res = await axios.get(`${baseApi}/api/tags/hierarchy`);
     tagHierarchy.value = res.data;
   } catch (err) {
     console.error('Failed to load tags', err);

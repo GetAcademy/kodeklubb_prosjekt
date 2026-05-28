@@ -79,7 +79,7 @@ const saveSuccess = ref(false);
 const fetchTagHierarchy = async () => {
     try {
         const baseApi = import.meta.env.VITE_BASE_API || '';
-        const res = await fetch(`${baseApi}/api/discover/tags/hierarchy`);
+        const res = await fetch(`${baseApi}/api/tags/hierarchy`);
         tagHierarchy.value = await res.json();
     } catch (err) {
         console.error('Failed to load tag hierarchy', err);
