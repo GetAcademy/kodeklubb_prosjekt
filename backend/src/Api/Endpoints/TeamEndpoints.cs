@@ -16,7 +16,7 @@ public static class TeamEndpoints
     {
         
         var group = app.MapGroup("/api/discover").WithName("Teams");
-        group.MapGet("/tags/hierarchy", async () =>
+      /*  group.MapGet("/tags/hierarchy", async () =>
             {
                 var jsonPath = Path.Combine("src", "Persistence", "tag_hierarchy.json");
                 if (!File.Exists(jsonPath))
@@ -24,7 +24,7 @@ public static class TeamEndpoints
                 var json = await File.ReadAllTextAsync(jsonPath);
                 return Results.Content(json, "application/json");
             }).WithName("GetTagHierarchy");
-        
+        */
         group.MapGet("/available", GetAvailableTeams).WithName("GetAvailableTeams");
         group.MapPost("/", (HttpContext context, IServiceProvider sp) => CreateTeam(context, sp)).WithName("CreateTeam");
         group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams");

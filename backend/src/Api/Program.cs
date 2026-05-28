@@ -102,6 +102,7 @@ catch (Exception ex)
 }
 
 // Map Endpoints
+app.MapTagEndpoints();
 app.MapUserEndpoints();
 app.MapTeamEndpoints();
 app.MapDiscordEndpoints();
