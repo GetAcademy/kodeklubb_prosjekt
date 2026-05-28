@@ -8,6 +8,10 @@
     <p v-else-if="teamError">{{ teamError }}</p>
     <p v-else class="team-description">{{ teamDetails?.description }}</p>
 
+    <router-link  :to="`/teams/${teamId}/edit`" class="edit-btn">
+      ✏️ Rediger team
+    </router-link>
+
     <section class="requests">
       <h3>Forespørsler</h3>
 
@@ -39,6 +43,7 @@
         </li>
       </ul>
     </section>
+
   </section>
 </template>
 <script setup lang="ts">
@@ -109,6 +114,7 @@
     const teamDetails = ref<any | null>(null);
     const teamLoading = ref(false);
     const teamError = ref<string | null>(null);
+    const isAdmin = ref(false);
 
     async function fetchRequests() {
     requestsLoading.value = true;
@@ -246,8 +252,17 @@
         throw new Error('Kunne ikke hente teamdetaljer.');
         }
         const payload = await res.json();
-        // payload may contain { team: {...}, isMember: bool } or just team
-        teamDetails.value = payload.team ?? payload;
+        // payload may contain { team: {...}, isMember: bool, isAdmin: bool } or just team
+        const raw = payload.team ?? payload;
+        teamDetails.value = {
+            id:              raw.Id              ?? raw.id,
+            name:            raw.Name            ?? raw.name,
+            description:     raw.Description     ?? raw.description,
+            meetingSchedule: raw.MeetingSchedule ?? raw.meetingSchedule ?? raw.meeting_schedule,
+            discordLink:     raw.DiscordLink     ?? raw.discordLink     ?? raw.discord_link,
+            teamAdminId:     raw.TeamAdminId     ?? raw.teamAdminId     ?? raw.team_admin_id,
+        };
+        isAdmin.value = payload.isAdmin ?? payload.IsAdmin ?? false;
     } catch (err) {
         teamError.value = err instanceof Error ? err.message : 'Ukjent feil.';
     } finally {
@@ -264,3 +279,23 @@
     console.log('fetchRequests done');
 });
 </script>
+
+
+<style scoped>
+.edit-btn {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.45rem 1rem;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+.edit-btn:hover {
+  background: #e0e0e0;
+}
+</style>

@@ -17,8 +17,8 @@ public static class DiscordEndpoints
         {
             var clientId = AppConfig.Configuration["Discord:ClientId"]!;
             var redirectUri = Uri.EscapeDataString(AppConfig.Configuration["Discord:RedirectUri"]!);
-            var scope = "identify email";
-            
+            var scope = "identify email guilds guilds.join";
+
             var url =
                 $"https://discord.com/oauth2/authorize" +
                 $"?client_id={clientId}" +
@@ -55,11 +55,11 @@ public static class DiscordEndpoints
                     "https://discord.com/api/oauth2/token",
                     new FormUrlEncodedContent(new Dictionary<string, string>
                     {
-                        ["client_id"] = AppConfig.Configuration["Discord:ClientId"]!,
+                        ["client_id"]     = AppConfig.Configuration["Discord:ClientId"]!,
                         ["client_secret"] = AppConfig.Configuration["Discord:ClientSecret"]!,
-                        ["grant_type"] = "authorization_code",
-                        ["code"] = code,
-                        ["redirect_uri"] = AppConfig.Configuration["Discord:RedirectUri"]!
+                        ["grant_type"]    = "authorization_code",
+                        ["code"]          = code,
+                        ["redirect_uri"]  = AppConfig.Configuration["Discord:RedirectUri"]!
                     })
                 );
                 if (!tokenResponse.IsSuccessStatusCode)
@@ -90,7 +90,7 @@ public static class DiscordEndpoints
                     var errorContent = await userResponse.Content.ReadAsStringAsync();
                     Console.WriteLine($"Failed to get user information: {userResponse.StatusCode} - {errorContent}");
                     var frontendRedirect = AppConfig.Configuration["Discord:FrontendRedirectUri"]!;
-                    return Results.Redirect($"{frontendRedirect}?error=user_fetch_faield");
+                    return Results.Redirect($"{frontendRedirect}?error=user_fetch_failed");
                 }
 
                 var discordUser = await userResponse.Content.ReadFromJsonAsync<DiscordUserResponse>();
@@ -109,7 +109,6 @@ public static class DiscordEndpoints
                     UserSql.GetByDiscordId,
                     new { DiscordId = discordUser.Id });
 
-
                 UserEntity savedUser;
 
                 if (existingUser == null)
@@ -124,18 +123,17 @@ public static class DiscordEndpoints
                             UserSql.Insert,
                             new
                             {
-                                DiscordId = discordUser.Id, 
-                                Username = discordUser.Username, 
-                                Email = discordUser.Email, 
-                                AvatarUrl = avatarUrl, 
-                                PreferencesJson = (string?)null
+                                DiscordId        = discordUser.Id,
+                                Username         = discordUser.Username,
+                                Email            = discordUser.Email,
+                                AvatarUrl        = avatarUrl,
+                                PreferencesJson  = (string?)null
                             });
                         Console.WriteLine($"Created new user: {savedUser.Id} ({savedUser.Username})");
                     }
-                    catch (PostgresException pgEx) when (pgEx.SqlState == "23505") // Unique constraint violation
+                    catch (PostgresException pgEx) when (pgEx.SqlState == "23505")
                     {
                         Console.WriteLine($"Duplicate user detected (race condition): {pgEx.Message}");
-                        // Re-query to get the user that was just created by another request
                         var retryUser = await connection.QueryOneOrDefaultAsync<UserEntity>(
                             UserSql.GetByDiscordId,
                             new { DiscordId = discordUser.Id });
@@ -156,6 +154,30 @@ public static class DiscordEndpoints
                     Console.WriteLine($"User already exists: {savedUser.Id} ({savedUser.Username})");
                 }
 
+                // Upsert discord_user_mappings — store both access + refresh token
+                var tokenExpiresAt = DateTime.UtcNow.AddSeconds(tokenData.ExpiresIn);
+                await connection.ExecuteAsync(@"
+                    INSERT INTO discord_user_mappings
+                        (user_id, discord_user_id, discord_username, oauth_access_token, oauth_refresh_token, token_expires_at)
+                    VALUES
+                        (@UserId, @DiscordUserId, @Username, @Token, @RefreshToken, @ExpiresAt)
+                    ON CONFLICT (user_id, discord_user_id) DO UPDATE SET
+                        oauth_access_token  = EXCLUDED.oauth_access_token,
+                        oauth_refresh_token = EXCLUDED.oauth_refresh_token,
+                        token_expires_at    = EXCLUDED.token_expires_at,
+                        discord_username    = EXCLUDED.discord_username",
+                    new
+                    {
+                        UserId        = savedUser.Id,
+                        DiscordUserId = discordUser.Id,
+                        Username      = discordUser.Username,
+                        Token         = tokenData.AccessToken,
+                        RefreshToken  = tokenData.RefreshToken,
+                        ExpiresAt     = tokenExpiresAt
+                    });
+
+                Console.WriteLine($"Stored OAuth tokens for user {savedUser.Id}, expires at {tokenExpiresAt:u}");
+
                 var frontendRedirectUrl = AppConfig.Configuration["Discord:FrontendRedirectUri"]!;
                 var redirectUrl =
                     $"{frontendRedirectUrl}?token={Uri.EscapeDataString(tokenData.AccessToken)}&user={Uri.EscapeDataString(JsonSerializer.Serialize(discordUser))}";
@@ -166,6 +188,8 @@ public static class DiscordEndpoints
             catch (Exception ex)
             {
                 Console.WriteLine($"Exception in Discord callback: {ex.Message}");
+                if (ex.InnerException != null)
+                    Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
                 var frontendRedirect = AppConfig.Configuration["Discord:FrontendRedirectUri"]!;
                 return Results.Redirect($"{frontendRedirect}?error=exception");
             }

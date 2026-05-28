@@ -38,3 +38,13 @@ export async function syncTeamWithDiscord(teamId: string) {
   const res = await api.post(`/${teamId}/discord/sync`);
   return res.data;
 }
+
+/**
+ * Sets only the Discord invite link for a team.
+ * This is the simple field shown on the team edit page.
+ * Does NOT require a Discord bot token on the server.
+ */
+export async function setTeamDiscordInviteLink(teamId: string, discordInviteLink: string | null) {
+  const res = await api.patch(`/${teamId}/discord/invite-link`, { discordInviteLink });
+  return res.data;
+}

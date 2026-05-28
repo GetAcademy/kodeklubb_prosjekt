@@ -62,6 +62,23 @@ builder.Services.AddTransient<Resend.IResend, Resend.ResendClient>();
 builder.Services.AddTransient<Core.Logic.IEmailService>(sp =>
     new Core.Logic.ResendEmailService(sp.GetRequiredService<Resend.IResend>(), resendFrom));
 
+// Discord bot service — sends DMs when users are accepted into a team
+var discordBotToken = Environment.GetEnvironmentVariable("DISCORD_BOT_TOKEN")
+    ?? builder.Configuration["Discord:BotToken"];
+
+if (!string.IsNullOrWhiteSpace(discordBotToken))
+{
+    builder.Services.AddSingleton<Core.Logic.IDiscordBotService>(
+        new Core.Logic.DiscordBotService(discordBotToken));
+    Console.WriteLine("[DISCORD BOT] Bot service registered.");
+}
+else
+{
+    builder.Services.AddSingleton<Core.Logic.IDiscordBotService>(
+        new Core.Logic.NoOpDiscordBotService());
+    Console.WriteLine("[DISCORD BOT] No bot token found — DMs disabled.");
+}
+
 // Configure port for Railway (but let launchSettings handle local development)
 var port = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrEmpty(port))

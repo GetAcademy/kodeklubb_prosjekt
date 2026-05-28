@@ -1,0 +1,23 @@
+-- Migration 005: Discord Bot DM on team acceptance
+-- 
+-- The discord_link column was added in migration 004_AddDiscordIntegration.sql.
+-- This migration documents the intent: discord_link on the teams table is used
+-- by the Discord bot (DiscordBotService) to send a DM to users when they are
+-- accepted into a team.
+--
+-- No schema changes are needed here. The column already exists:
+--   ALTER TABLE teams ADD COLUMN IF NOT EXISTS discord_link VARCHAR(500);
+--
+-- To enable bot DMs, set DISCORD_BOT_TOKEN in your environment.
+-- The bot must have the following permissions in the Discord Developer Portal:
+--   - Bot scope
+--   - Send Messages permission
+--   - (Optional) Server Members Intent if you want member management
+--
+-- The invite link can be set per-team via:
+--   PATCH /api/discover/{teamId}/discord/invite-link
+--   Body: { "discordInviteLink": "https://discord.gg/XXXX" }
+--
+-- This endpoint is exposed in the team dashboard for admins.
+
+SELECT 1; -- no-op statement so migrator doesn't complain about empty file

@@ -50,6 +50,9 @@ public static class TeamEndpoints
         group.MapPost("/{teamId:guid}/tags", AddTeamTags).WithName("AddTeamTags");
     
         group.MapPost("/{teamId:guid}/discord/sync", SyncTeamWithDiscord).WithName("SyncTeamWithDiscord");
+
+        // Simple endpoint: set only the Discord invite link (no bot token required)
+        group.MapPatch("/{teamId:guid}/discord/invite-link", SetTeamDiscordInviteLink).WithName("SetTeamDiscordInviteLink");
     }
 
     private static async Task<IResult> GetTeamTags(Guid teamId)
@@ -131,10 +134,8 @@ public static class TeamEndpoints
 
     private static async Task<IResult> SetTeamDiscordConfig(Guid teamId, SetDiscordConfigRequest body)
     {
-        if (string.IsNullOrWhiteSpace(body.DiscordServerId) || 
-            string.IsNullOrWhiteSpace(body.DiscordChannelId) || 
-            string.IsNullOrWhiteSpace(body.DiscordRoleId))
-            return Results.BadRequest(new { message = "discordServerId, discordChannelId, and discordRoleId are required" });
+        if (string.IsNullOrWhiteSpace(body.DiscordServerId))
+            return Results.BadRequest(new { message = "discordServerId is required" });
 
         await using var db = await DbSession.OpenAsync();
         try
@@ -292,6 +293,36 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
 
             await db.CommitAsync();
             return Results.Ok(new { message = "Discord access revoked" });
+        }
+        catch (Exception ex)
+        {
+            await db.Tx.RollbackAsync();
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Sets (or clears) only the Discord invite link for a team.
+    /// This is exposed as a simple field on the team editing page — no bot token needed.
+    /// </summary>
+    private static async Task<IResult> SetTeamDiscordInviteLink(Guid teamId, SetDiscordInviteLinkRequest body)
+    {
+        await using var db = await DbSession.OpenAsync();
+        try
+        {
+            var team = await db.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById(), new { TeamId = teamId });
+            if (team == null)
+                return Results.NotFound(new { message = "Team not found" });
+
+            await db.ExecuteAsync(
+                @"UPDATE teams
+                  SET discord_link = @DiscordLink,
+                      updated_at = NOW()
+                  WHERE id = @TeamId",
+                new { TeamId = teamId, DiscordLink = body.DiscordInviteLink });
+
+            await db.CommitAsync();
+            return Results.Ok(new { message = "Discord invite link updated." });
         }
         catch (Exception ex)
         {
@@ -619,14 +650,22 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
     private static async Task<IResult> GetTeamDetails(Guid teamId, string? discordId)
     {
         await using var connection = await AppConfig.OpenConnectionAsync();
-        var team = await connection.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById, new { TeamId = teamId });
+        var team = await connection.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById(), new { TeamId = teamId });
         if (team == null) return Results.NotFound(new { message = "Team not found" });
 
         if (string.IsNullOrWhiteSpace(discordId)) return Results.Ok(team);
 
         var isMember = await connection.QueryOneAsync<bool>(
-            TeamSql.IsUserMemberByDiscordId, new { TeamId = teamId, DiscordId = discordId });
-        return Results.Ok(new { team, isMember });
+            TeamSql.IsUserMemberByDiscordId(), new { TeamId = teamId, DiscordId = discordId });
+
+        var isAdmin = await connection.QueryOneAsync<bool>(
+            @"SELECT EXISTS(
+                SELECT 1 FROM users u
+                JOIN teams t ON t.team_admin_id = u.id
+                WHERE t.id = @TeamId AND u.discord_id = @DiscordId
+            )", new { TeamId = teamId, DiscordId = discordId });
+
+        return Results.Ok(new { team, isMember, isAdmin });
     }
 
     private static async Task<IResult> GetTeamMembers(Guid teamId)
@@ -646,3 +685,4 @@ public record JoinRequestDto(Guid Id, Guid TeamId, string TeamName, string Statu
 public record AddTeamTagsRequest(string[] TagPaths);
 public record SetDiscordConfigRequest(string DiscordServerId, string DiscordChannelId, string DiscordRoleId, string? DiscordLink);
 public record UpdateDiscordConfigRequest(string? DiscordServerId, string? DiscordChannelId, string? DiscordRoleId, string? DiscordLink);
+public record SetDiscordInviteLinkRequest(string? DiscordInviteLink);
