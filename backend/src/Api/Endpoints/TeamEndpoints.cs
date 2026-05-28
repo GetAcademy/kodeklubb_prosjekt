@@ -18,7 +18,7 @@ public static class TeamEndpoints
         var group = app.MapGroup("/api/discover").WithName("Teams");
       /*  group.MapGet("/tags/hierarchy", async () =>
             {
-                var jsonPath = Path.Combine("src", "Persistence", "tag_hierarchy.json");
+                var jsonPath = Path.Combine(AppContext.BaseDirectory, "src", "Persistence", "tag_hierarchy.json");
                 if (!File.Exists(jsonPath))
                     return Results.NotFound(new { message = "Tag hierarchy not found" });
                 var json = await File.ReadAllTextAsync(jsonPath);
