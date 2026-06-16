@@ -5,12 +5,30 @@ using Persistence;
 using Api.Endpoints;
 using Api.Contracts;
 using Persistence.DbModels;
+using System.IO;
 
 using Dapper;
 
-//DotNetEnv.Env.Load();
-// Try this instead:
-//DotNetEnv.Env.Load(new DotNetEnv.LoadOptions(setEnvVars: false));
+// Load local .env values from an ancestor directory into environment variables so Discord and database config are available.
+var envPath = Directory.GetCurrentDirectory();
+while (envPath != null)
+{
+    var candidate = Path.Combine(envPath, ".env");
+    if (File.Exists(candidate))
+    {
+        DotNetEnv.Env.Load(candidate);
+        Console.WriteLine($"Loaded .env from {candidate}");
+        break;
+    }
+
+    var parentDir = Directory.GetParent(envPath);
+    envPath = parentDir?.FullName;
+}
+
+if (envPath == null)
+{
+    Console.WriteLine($"WARNING: .env file not found in current or ancestor directories starting at {Directory.GetCurrentDirectory()}.");
+}
 
 var builder = WebApplication.CreateBuilder(args);
 

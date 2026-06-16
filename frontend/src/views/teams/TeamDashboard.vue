@@ -6,7 +6,16 @@
     <p class="muted">Team ID: {{ teamId }}</p>
     <p v-if="teamLoading">Laster teamdetaljer…</p>
     <p v-else-if="teamError">{{ teamError }}</p>
-    <p v-else class="team-description">{{ teamDetails?.description }}</p>
+   <p v-else class="team-description">{{ teamDetails?.description }}</p>
+
+    <!-- Discord Community Section -->
+    <section v-if="teamDetails?.discordLink" class="discord-section">
+      <h3>Discord Community</h3>
+      <p>Join our Discord server to chat and collaborate with team members</p>
+      <a :href="teamDetails.discordLink" target="_blank" rel="noopener noreferrer" class="btn-discord">
+        Open Discord Server
+      </a>
+    </section>
 
     <section class="requests">
       <h3>Forespørsler</h3>
@@ -264,3 +273,40 @@
     console.log('fetchRequests done');
 });
 </script>
+
+<style scoped>
+.discord-section {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  border: 1px solid #7289da;
+  border-radius: 8px;
+  background: #f6f6ff;
+}
+
+.discord-section h3 {
+  margin-top: 0;
+  color: #7289da;
+  font-size: 1.3rem;
+}
+
+.discord-section p {
+  color: #555;
+  margin: 0.5rem 0 1rem 0;
+}
+
+.btn-discord {
+  display: inline-block;
+  padding: 0.8rem 1.5rem;
+  background: #5865f2;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.btn-discord:hover {
+  background: #4752c4;
+}
+</style>

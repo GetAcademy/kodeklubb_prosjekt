@@ -1,3 +1,3 @@
-SELECT id, name, slug, description, category, created_at
+SELECT id, name, slug, description, category, parent_id AS parentTagId, open_for_child_suggestions AS openForChildSuggestions, created_at
 FROM predefined_tags
 ORDER BY category, name;

@@ -53,6 +53,9 @@ const props = defineProps<{ teamId?: string }>();
 const authStore = useAuthStore();
 const { user } = storeToRefs(authStore);
 
+const baseApi = import.meta.env.VITE_BASE_API || '';
+const apiUrl = `${baseApi}/api/discover/tags/hierarchy`;
+
 const tagHierarchy = ref<any>(null);
 const selectedTags = ref<string[]>([]);
 const saveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -60,8 +63,7 @@ const saveMessage = ref('');
 
 onMounted(async () => {
   try {
-    const baseApi = import.meta.env.VITE_BASE_API || '';
-    const res = await axios.get(`${baseApi}/api/discover/tags/hierarchy`);
+    const res = await axios.get(apiUrl);
     tagHierarchy.value = res.data;
   } catch (err) {
     console.error('Failed to load tags', err);

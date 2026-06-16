@@ -1,4 +1,4 @@
-SELECT pt.id, pt.name, pt.description, pt.category
+SELECT pt.id, pt.name, pt.description, pt.category, pt.parent_id AS parentTagId, pt.open_for_child_suggestions AS openForChildSuggestions
 FROM user_tags ut
 INNER JOIN users u ON u.id = ut.user_id
 INNER JOIN predefined_tags pt ON pt.id = ut.predefined_tag_id

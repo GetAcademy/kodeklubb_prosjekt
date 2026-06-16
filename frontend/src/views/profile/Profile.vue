@@ -60,6 +60,8 @@
         name: string;
         description?: string;
         category?: string;
+        parentTagId?: string;
+        openForChildSuggestions?: boolean;
     }
 
     const userTags = ref<UserTag[]>([]);

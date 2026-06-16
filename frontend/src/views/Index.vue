@@ -1,56 +1,23 @@
 
 
-
 <template>
-    <section v-if="!!isAuthenticated && user">
+    <section v-if="isAuthenticated && user">
         <p v-if="userTeamsLoading" class="loading">Laster teams...</p>
         <p v-else-if="userTeamsError" class="error">{{ userTeamsError }}</p>
         <UtilsDashboard v-else :data="user" :teams="userTeams" />
     </section>
 
+    <section v-else class="login-section">
+        <h1>Logg inn med Discord</h1>
+        <p>For å se dashbord og team, logg inn med Discord.</p>
+        <button class="discord-login-btn" @click="loginWithDiscord">
+            <img class="discord-icon" src="https://cdn.jsdelivr.net/gh/edent/SuperTinyIcons/images/svg/discord.svg" alt="Discord" />
+            Logg inn med Discord
+        </button>
+    </section>
 </template>
-// Discord login handler
-function loginWithDiscord() {
-    const loginApi = import.meta.env.VITE_LOGIN_API || '/auth/discord/login';
-    const baseApi = import.meta.env.VITE_BASE_API || '';
-    window.location.href = baseApi + loginApi;
-}
-    .login-section {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-height: 60vh;
-    }
-
-    .discord-login-btn {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: #5865f2;
-        color: #fff;
-        border: none;
-        border-radius: 6px;
-        padding: 0.7rem 1.5rem;
-        font-size: 1.1rem;
-        font-weight: 600;
-        cursor: pointer;
-        margin-top: 1.5rem;
-        transition: background 0.2s;
-    }
-
-    .discord-login-btn:hover {
-        background: #4752c4;
-    }
-
-    .discord-icon {
-        width: 1.5rem;
-        height: 1.5rem;
-    }
 
 <script lang="ts" setup>
-
-    // --- Importing Dependencies & Types
     import { storeToRefs } from 'pinia';
     import { onMounted, ref, watch } from 'vue';
     import { useAuthStore } from '@/stores/authStore';
@@ -63,6 +30,12 @@ function loginWithDiscord() {
     const userTeamsError = ref('');
     const lastFetchedDiscordId = ref<string | null>(null);
 
+    function loginWithDiscord() {
+        const loginApi = import.meta.env.VITE_LOGIN_API || '/auth/discord/login';
+        const baseApi = import.meta.env.VITE_BASE_API || '';
+        window.location.href = `${baseApi}${loginApi}`;
+    }
+
     const fetchUserTeams = async () => {
         userTeamsLoading.value = true;
         userTeamsError.value = '';
@@ -73,16 +46,16 @@ function loginWithDiscord() {
                 throw new Error('Failed to fetch user teams');
             }
             const payload = await response.json();
-           const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
-userTeams.value = rows.map((team: any) => ({
-    id: team.Id ?? team.id,
-    name: team.Name ?? team.name,
-    description: team.Description ?? team.description,
-    isOpenToJoinRequests: team.IsOpenToJoinRequests ?? team.isOpenToJoinRequests,
-    createdBy: team.CreatedBy ?? team.createdBy,
-    createdAt: team.CreatedAt ?? team.createdAt,
-    tags: team.Tags ?? team.tags ?? [],
-}));
+            const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
+            userTeams.value = rows.map((team: any) => ({
+                id: team.Id ?? team.id,
+                name: team.Name ?? team.name,
+                description: team.Description ?? team.description,
+                isOpenToJoinRequests: team.IsOpenToJoinRequests ?? team.isOpenToJoinRequests,
+                createdBy: team.CreatedBy ?? team.createdBy,
+                createdAt: team.CreatedAt ?? team.createdAt,
+                tags: team.Tags ?? team.tags ?? [],
+            }));
         } catch (error) {
             userTeamsError.value = error instanceof Error ? error.message : 'An error occurred';
         } finally {
@@ -107,6 +80,41 @@ userTeams.value = rows.map((team: any) => ({
 </script>
 
 <style scoped>
+    .login-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 60vh;
+        gap: 1rem;
+        text-align: center;
+    }
+
+    .discord-login-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: #5865f2;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 0.85rem 1.75rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 1rem;
+        transition: background 0.2s;
+    }
+
+    .discord-login-btn:hover {
+        background: #4752c4;
+    }
+
+    .discord-icon {
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+
     .teams-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));

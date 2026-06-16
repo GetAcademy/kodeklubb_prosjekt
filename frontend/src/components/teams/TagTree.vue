@@ -14,7 +14,8 @@
             </template>
             <template v-else>
               <button v-if="hasChildren(node)" class="btn btn-navigate" @click="navigate(key)">Gå inn ▶</button>
-              <button class="btn btn-add" @click="emitAddTag(fullPath(key))">+ Legg til</button>
+              <button v-if="canAdd(node)" class="btn btn-add" @click="emitAddTag(fullPath(key))">+ Legg til</button>
+              <button v-else class="btn btn-disabled" disabled>Kan ikke legge til</button>
             </template>
           </div>
         </div>
@@ -33,45 +34,32 @@ const navStack = ref<string[]>([]);
 
 const isRootLevel = computed(() => (props.path.length + navStack.value.length) === 0);
 
+interface TreeNode {
+  OpenForChildSuggestions?: boolean;
+  openForChildSuggestions?: boolean;
+  Children?: Record<string, TreeNode>;
+  children?: Record<string, TreeNode>;
+}
+
 const currentNodes = computed(() => {
-  let cur = props.nodes;
+  let cur: any = props.nodes;
   for (const key of navStack.value) {
-    if (!cur) break;
-    if (cur[key] && typeof cur[key] === 'object') {
-      if ('children' in cur[key]) {
-        if (Array.isArray(cur[key].children)) {
-          cur = Object.fromEntries(cur[key].children.map((v) => [v, {}]));
-        } else if (typeof cur[key].children === 'object') {
-          cur = cur[key].children;
-        } else {
-          cur = {};
-        }
-      } else if (Object.keys(cur[key]).length > 0) {
-        cur = cur[key];
-      } else {
-        cur = {};
-      }
-    } else {
-      cur = {};
-    }
-  }
-  if (Array.isArray(cur)) {
-    cur = Object.fromEntries(cur.map((v) => [v, {}]));
+    if (!cur || typeof cur !== 'object') return {};
+    const next = cur[key];
+    if (!next || typeof next !== 'object') return {};
+    cur = next.Children ?? next.children ?? {};
   }
   return cur && typeof cur === 'object' ? cur : {};
 });
 
 const canGoBack = computed(() => navStack.value.length > 0);
 
-function hasChildren(node: any) {
-  if (!node) return false;
-  if (node.children && typeof node.children === 'object') {
-    return Object.keys(node.children).length > 0;
-  }
-  if (!node.children && typeof node === 'object' && Object.keys(node).length > 0) {
-    return true;
-  }
-  return false;
+function hasChildren(node: TreeNode | undefined) {
+  return (node?.Children ?? node?.children) && Object.keys(node.Children ?? node?.children ?? {}).length > 0;
+}
+
+function canAdd(node: TreeNode | undefined) {
+  return node?.OpenForChildSuggestions === true || node?.openForChildSuggestions === true;
 }
 
 function navigate(key: string) {
@@ -184,5 +172,11 @@ function emitAddTag(tagPath: string) {
 
 .btn-add:hover {
   background: #005fa3;
+}
+
+.btn-disabled {
+  background: #f0f0f0;
+  color: #999;
+  cursor: not-allowed;
 }
 </style>

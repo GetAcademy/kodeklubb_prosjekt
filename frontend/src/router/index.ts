@@ -38,8 +38,8 @@ const router = createRouter({
 router.beforeEach((to, from, next) =>
 {
   const authStore = useAuthStore();
-  const token: string = (to.query as any).token;
-  const userEncoded: string = (to.query as any).user;
+  const token = (to.query as any).token as string | undefined;
+  const userEncoded = (to.query as any).user as string | undefined;
 
   if (token && userEncoded)
   {
@@ -48,14 +48,21 @@ router.beforeEach((to, from, next) =>
 
       authStore.setUser(user);
       authStore.setToken(token);
-
-    } catch (err) {console.error('Failed to parse user from query', err);}
+      const targetPath = to.path === '/' ? '/profile' : to.path;
+      return next({ path: targetPath, query: {}, hash: to.hash });
+    }
+    catch (err) {
+      console.error('Failed to parse user from query', err);
+    }
   }
+
   next();
 });
 
 router.afterEach((to) => {
-  if (Object.keys(to.query).length > 0) 
+  const hasAuthQuery = Boolean((to.query as any).token || (to.query as any).user);
+  if (hasAuthQuery) {
     router.replace({ path: to.path, query: {}, hash: to.hash });
+  }
 });
 export default router;

@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.Json.Serialization;
 using Persistence;
 using Core.Commands;
@@ -16,14 +17,7 @@ public static class TeamEndpoints
     {
         
         var group = app.MapGroup("/api/discover").WithName("Teams");
-        group.MapGet("/tags/hierarchy", async () =>
-            {
-                var jsonPath = Path.Combine("src", "Persistence", "tag_hierarchy.json");
-                if (!File.Exists(jsonPath))
-                    return Results.NotFound(new { message = "Tag hierarchy not found" });
-                var json = await File.ReadAllTextAsync(jsonPath);
-                return Results.Content(json, "application/json");
-            }).WithName("GetTagHierarchy");
+        group.MapGet("/tags/hierarchy", GetTagHierarchy).WithName("GetTagHierarchy");
         
         group.MapGet("/available", GetAvailableTeams).WithName("GetAvailableTeams");
         group.MapPost("/", (HttpContext context, IServiceProvider sp) => CreateTeam(context, sp)).WithName("CreateTeam");
@@ -51,12 +45,123 @@ public static class TeamEndpoints
     
         group.MapPost("/{teamId:guid}/discord/sync", SyncTeamWithDiscord).WithName("SyncTeamWithDiscord");
     }
+    private static async Task<IResult> GetTagHierarchy()
+    {
+        await using var connection = await AppConfig.OpenConnectionAsync();
+        var allTags = await connection.QueryAsync<TagHierarchyItem>(
+            @"SELECT id, name, parent_id AS ParentId, open_for_child_suggestions AS OpenForChildSuggestions
+              FROM predefined_tags
+              ORDER BY name");
+
+        var nodes = allTags.ToDictionary(tag => tag.Id);
+        foreach (var tag in nodes.Values)
+        {
+            if (tag.ParentId.HasValue && nodes.TryGetValue(tag.ParentId.Value, out var parent))
+            {
+                parent.Children.Add(tag);
+            }
+        }
+
+        var roots = nodes.Values.Where(tag => !tag.ParentId.HasValue).ToList();
+
+        var result = new Dictionary<string, TagHierarchyNode>();
+        foreach (var tag in roots)
+        {
+            result[tag.Name] = BuildHierarchyNode(tag);
+        }
+
+        return Results.Ok(result);
+    }
+
+    private static TagHierarchyNode BuildHierarchyNode(TagHierarchyItem tag)
+    {
+        var node = new TagHierarchyNode
+        {
+            OpenForChildSuggestions = tag.OpenForChildSuggestions
+        };
+
+        foreach (var child in tag.Children.OrderBy(c => c.Name))
+        {
+            node.Children.Add(child.Name, BuildHierarchyNode(child));
+        }
+
+        return node;
+    }
+
+    private sealed class TagHierarchyItem
+    {
+        public Guid Id { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public Guid? ParentId { get; init; }
+        public bool OpenForChildSuggestions { get; init; }
+        public List<TagHierarchyItem> Children { get; } = new();
+    }
+
+    private sealed class TagHierarchyNode
+    {
+        public bool OpenForChildSuggestions { get; set; }
+        public Dictionary<string, TagHierarchyNode> Children { get; init; } = new();
+    }
+
+    private static string NormalizeTagSlug(string tagPath)
+    {
+        return tagPath.ToLower().Replace("/", "-").Replace(" ", "-");
+    }
+
+    private static async Task<Guid> EnsureTagPathExistsAsync(DbSession db, string tagPath)
+    {
+        var segments = tagPath.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => s.Length > 0)
+            .ToArray();
+
+        Guid? parentId = null;
+        Guid tagId = Guid.Empty;
+
+        for (var i = 0; i < segments.Length; i++)
+        {
+            var segment = segments[i];
+            var currentPath = string.Join('/', segments.Take(i + 1));
+            var slug = NormalizeTagSlug(currentPath);
+
+            var existingTagId = await db.Conn.QuerySingleOrDefaultAsync<Guid?>(
+                "SELECT id FROM predefined_tags WHERE slug = @Slug",
+                new { Slug = slug }, db.Tx);
+
+            if (existingTagId.HasValue)
+            {
+                tagId = existingTagId.Value;
+                parentId = tagId;
+                continue;
+            }
+
+            if (parentId.HasValue)
+            {
+                var canAddChild = await db.Conn.QuerySingleAsync<bool>(
+                    "SELECT open_for_child_suggestions FROM predefined_tags WHERE id = @ParentId",
+                    new { ParentId = parentId }, db.Tx);
+
+                if (!canAddChild)
+                    throw new InvalidOperationException($"Cannot create child tag '{segment}' under parent tag '{segments[i - 1]}': child suggestions are not allowed.");
+            }
+
+            tagId = await db.Conn.QuerySingleAsync<Guid>(
+                @"INSERT INTO predefined_tags (id, name, slug, parent_id, open_for_child_suggestions, created_at)
+                  VALUES (uuid_generate_v4(), @Name, @Slug, @ParentId, false, NOW())
+                  RETURNING id",
+                new { Name = segment, Slug = slug, ParentId = parentId }, db.Tx);
+
+            parentId = tagId;
+        }
+
+        return tagId;
+    }
 
     private static async Task<IResult> GetTeamTags(Guid teamId)
     {
         await using var connection = await AppConfig.OpenConnectionAsync();
         var tags = await connection.QueryManyAsync<dynamic>(
-            @"SELECT pt.id, pt.name, pt.slug, pt.category
+            @"SELECT pt.id, pt.name, pt.slug, pt.category, pt.parent_id AS parentTagId, pt.open_for_child_suggestions AS openForChildSuggestions
               FROM team_tags tt
               JOIN predefined_tags pt ON pt.id = tt.predefined_tag_id
               WHERE tt.team_id = @TeamId
@@ -75,24 +180,14 @@ public static class TeamEndpoints
         {
             foreach (var tagPath in body.TagPaths)
             {
-                var parts = tagPath.Split('/');
-                var tagName = parts[^1];
-                var category = parts.Length > 1 ? parts[0] : null;
-
-                // Upsert into predefined_tags
-                var tag = await db.QueryOneOrDefaultAsync<dynamic>(
-                    @"INSERT INTO predefined_tags (id, name, slug, category)
-                      VALUES (uuid_generate_v4(), @Name, @Slug, @Category)
-                      ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
-                      RETURNING id",
-                    new { Name = tagName, Slug = tagPath.ToLower().Replace("/", "-").Replace(" ", "-"), Category = category });
+                var tagId = await EnsureTagPathExistsAsync(db, tagPath);
 
                 // Insert into team_tags
                 await db.ExecuteAsync(
                     @"INSERT INTO team_tags (id, team_id, predefined_tag_id)
                       VALUES (uuid_generate_v4(), @TeamId, @TagId)
                       ON CONFLICT (team_id, predefined_tag_id) DO NOTHING",
-                    new { TeamId = teamId, TagId = tag!.id });
+                    new { TeamId = teamId, TagId = tagId });
             }
 
             await db.CommitAsync();

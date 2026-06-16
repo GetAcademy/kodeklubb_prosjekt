@@ -57,6 +57,8 @@ interface PredefinedTag {
     name: string;
     description?: string;
     category?: string;
+    parentTagId?: string;
+    openForChildSuggestions?: boolean;
 }
 
 interface UserTag {
@@ -64,6 +66,8 @@ interface UserTag {
     name: string;
     description?: string;
     category?: string;
+    parentTagId?: string;
+    openForChildSuggestions?: boolean;
 }
 
 const predefinedTags = ref<PredefinedTag[]>([]);

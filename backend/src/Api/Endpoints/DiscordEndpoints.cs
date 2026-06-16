@@ -15,13 +15,15 @@ public static class DiscordEndpoints
         app.MapGet("/login", () => "It works!");
         app.MapGet("/auth/discord/login", () =>
         {
-            var clientId = AppConfig.Configuration["Discord:ClientId"]!;
-            var redirectUri = Uri.EscapeDataString(AppConfig.Configuration["Discord:RedirectUri"]!);
-            var scope = "identify email";
+            var clientId = GetDiscordConfig("ClientId");
+            var redirectUri = Uri.EscapeDataString(GetDiscordConfig("RedirectUri"));
+            var scope = Uri.EscapeDataString("identify email");
             
+            Console.WriteLine($"Discord login redirect: clientId={clientId}, redirectUri={redirectUri}, scope={scope}");
+
             var url =
                 $"https://discord.com/oauth2/authorize" +
-                $"?client_id={clientId}" +
+                $"?client_id={Uri.EscapeDataString(clientId)}" +
                 $"&response_type=code" +
                 $"&redirect_uri={redirectUri}" +
                 $"&scope={scope}";
@@ -39,12 +41,12 @@ public static class DiscordEndpoints
                 if (!string.IsNullOrWhiteSpace(error))
                 {
                     Console.WriteLine($"Discord OAuth error: {error} - {error_description}");
-                    var frontendRedirect = AppConfig.Configuration["Discord:FrontendRedirectUri"]!;
+                    var frontendRedirect = GetDiscordConfig("FrontendRedirectUri");
                     return Results.Redirect($"{frontendRedirect}?error={error}");
                 }
 
                 Console.WriteLine("Missing code parameter");
-                var frontendErrorUrl = AppConfig.Configuration["Discord:FrontendRedirectUri"]!;
+                var frontendErrorUrl = GetDiscordConfig("FrontendRedirectUri");
                 return Results.Redirect($"{frontendErrorUrl}?error=missing_code");
             }
 
@@ -55,18 +57,18 @@ public static class DiscordEndpoints
                     "https://discord.com/api/oauth2/token",
                     new FormUrlEncodedContent(new Dictionary<string, string>
                     {
-                        ["client_id"] = AppConfig.Configuration["Discord:ClientId"]!,
-                        ["client_secret"] = AppConfig.Configuration["Discord:ClientSecret"]!,
+                        ["client_id"] = GetDiscordConfig("ClientId"),
+                        ["client_secret"] = GetDiscordConfig("ClientSecret"),
                         ["grant_type"] = "authorization_code",
                         ["code"] = code,
-                        ["redirect_uri"] = AppConfig.Configuration["Discord:RedirectUri"]!
+                        ["redirect_uri"] = GetDiscordConfig("RedirectUri")
                     })
                 );
                 if (!tokenResponse.IsSuccessStatusCode)
                 {
                     var errorContent = await tokenResponse.Content.ReadAsStringAsync();
                     Console.WriteLine($"Token exchange failed: {tokenResponse.StatusCode} - {errorContent}");
-                    var frontendRedirect = AppConfig.Configuration["Discord:FrontendRedirectUri"]!;
+                    var frontendRedirect = GetDiscordConfig("FrontendRedirectUri");
                     return Results.Redirect($"{frontendRedirect}?error=token_exchange_failed");
                 }
 
@@ -75,7 +77,7 @@ public static class DiscordEndpoints
                 if (tokenData?.AccessToken == null)
                 {
                     Console.WriteLine("Failed to parse access token from response");
-                    var frontendRedirect = AppConfig.Configuration["Discord:FrontendRedirectUri"]!;
+                    var frontendRedirect = GetDiscordConfig("FrontendRedirectUri");
                     return Results.Redirect($"{frontendRedirect}?error=no_access_token");
                 }
 
@@ -89,8 +91,8 @@ public static class DiscordEndpoints
                 {
                     var errorContent = await userResponse.Content.ReadAsStringAsync();
                     Console.WriteLine($"Failed to get user information: {userResponse.StatusCode} - {errorContent}");
-                    var frontendRedirect = AppConfig.Configuration["Discord:FrontendRedirectUri"]!;
-                    return Results.Redirect($"{frontendRedirect}?error=user_fetch_faield");
+                    var frontendRedirect = GetDiscordConfig("FrontendRedirectUri");
+                    return Results.Redirect($"{frontendRedirect}?error=user_fetch_failed");
                 }
 
                 var discordUser = await userResponse.Content.ReadFromJsonAsync<DiscordUserResponse>();
@@ -98,8 +100,8 @@ public static class DiscordEndpoints
                 if (discordUser == null || string.IsNullOrWhiteSpace(discordUser.Id))
                 {
                     Console.WriteLine("Failed to parse Discord user data");
-                    var frontendRedirect = AppConfig.Configuration["Discord:FrontendRedirectUri"]!;
-                    return Results.Redirect($"{frontendRedirect}?error=invalid_user_data");
+                    var frontendRedirect = GetDiscordConfig("FrontendRedirectUri");
+                    return Results.Redirect($"{frontendRedirect}?error=user_data_failed");
                 }
 
                 await using var connection = await AppConfig.OpenConnectionAsync();
@@ -108,7 +110,6 @@ public static class DiscordEndpoints
                 var existingUser = await connection.QueryOneOrDefaultAsync<UserEntity>(
                     UserSql.GetByDiscordId,
                     new { DiscordId = discordUser.Id });
-
 
                 UserEntity savedUser;
 
@@ -124,10 +125,10 @@ public static class DiscordEndpoints
                             UserSql.Insert,
                             new
                             {
-                                DiscordId = discordUser.Id, 
-                                Username = discordUser.Username, 
-                                Email = discordUser.Email, 
-                                AvatarUrl = avatarUrl, 
+                                DiscordId = discordUser.Id,
+                                Username = discordUser.Username,
+                                Email = discordUser.Email,
+                                AvatarUrl = avatarUrl,
                                 PreferencesJson = (string?)null
                             });
                         Console.WriteLine($"Created new user: {savedUser.Id} ({savedUser.Username})");
@@ -156,7 +157,7 @@ public static class DiscordEndpoints
                     Console.WriteLine($"User already exists: {savedUser.Id} ({savedUser.Username})");
                 }
 
-                var frontendRedirectUrl = AppConfig.Configuration["Discord:FrontendRedirectUri"]!;
+                var frontendRedirectUrl = GetDiscordConfig("FrontendRedirectUri");
                 var redirectUrl =
                     $"{frontendRedirectUrl}?token={Uri.EscapeDataString(tokenData.AccessToken)}&user={Uri.EscapeDataString(JsonSerializer.Serialize(discordUser))}";
                 Console.WriteLine("Redirecting to frontend with token and user data");
@@ -166,9 +167,21 @@ public static class DiscordEndpoints
             catch (Exception ex)
             {
                 Console.WriteLine($"Exception in Discord callback: {ex.Message}");
-                var frontendRedirect = AppConfig.Configuration["Discord:FrontendRedirectUri"]!;
+                var frontendRedirect = GetDiscordConfig("FrontendRedirectUri");
                 return Results.Redirect($"{frontendRedirect}?error=exception");
             }
         });
+    }
+
+    private static string GetDiscordConfig(string key)
+    {
+        var envKey = $"Discord__{key}";
+        var envValue = Environment.GetEnvironmentVariable(envKey);
+        if (!string.IsNullOrWhiteSpace(envValue)) return envValue;
+
+        var configValue = AppConfig.Configuration[$"Discord:{key}"];
+        if (!string.IsNullOrWhiteSpace(configValue)) return configValue;
+
+        throw new InvalidOperationException($"Discord configuration '{key}' is missing. Set {envKey} or Discord:{key}.");
     }
 }
