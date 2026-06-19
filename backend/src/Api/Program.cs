@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 using Api;
 using DotNetEnv;
@@ -5,11 +6,11 @@ using Persistence;
 using Api.Endpoints;
 using Api.Contracts;
 using Persistence.DbModels;
+using Worker;
 using System.IO;
-
 using Dapper;
 
-// Load local .env values from an ancestor directory into environment variables so Discord and database config are available.
+// Load local .env values from an ancestor directory
 var envPath = Directory.GetCurrentDirectory();
 while (envPath != null)
 {
@@ -33,9 +34,7 @@ if (envPath == null)
 var builder = WebApplication.CreateBuilder(args);
 
 // --- 1. DATABASE CONFIGURATION ---
-// Priority 1: Railway Environment Variable
-// Priority 2: Local appsettings.json
-var rawUrl = Environment.GetEnvironmentVariable("DATABASE_URL") 
+var rawUrl = Environment.GetEnvironmentVariable("DATABASE_URL")
              ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
 if (string.IsNullOrWhiteSpace(rawUrl))
@@ -43,22 +42,15 @@ if (string.IsNullOrWhiteSpace(rawUrl))
     throw new InvalidOperationException("No database connection string found in Environment or Configuration.");
 }
 
-// Convert the URL (postgres://...) to Npgsql format (Host=...)
-var connectionString = rawUrl.Contains("://") 
-    ? ConvertConnectionString(rawUrl) 
+var connectionString = rawUrl.Contains("://")
+    ? ConvertConnectionString(rawUrl)
     : rawUrl;
 
-// Add this line temporarily:
 Console.WriteLine($"DEBUG ConnectionString: {connectionString}");
 
 AppConfig.Initialize(builder.Configuration);
 AppConfig.ConnectionString = connectionString;
 
-// Store for your existing AppConfig static class
-AppConfig.Initialize(builder.Configuration);
-AppConfig.ConnectionString = connectionString;
-
-// Register the Npgsql DataSource for Dapper
 builder.Services.AddNpgsqlDataSource(connectionString);
 
 // --- 2. OTHER SERVICES ---
@@ -69,9 +61,9 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNamingPolicy = null;
 });
 
-
+// --- 3. RESEND EMAIL ---
 var resendApiKey = Environment.GetEnvironmentVariable("RESEND_API_KEY");
-var resendFrom =  "updates@updates.getacademy.no";
+var resendFrom = "updates@updates.getacademy.no";
 
 builder.Services.AddOptions();
 builder.Services.AddHttpClient<Resend.ResendClient>();
@@ -80,7 +72,13 @@ builder.Services.AddTransient<Resend.IResend, Resend.ResendClient>();
 builder.Services.AddTransient<Core.Logic.IEmailService>(sp =>
     new Core.Logic.ResendEmailService(sp.GetRequiredService<Resend.IResend>(), resendFrom));
 
-// Configure port for Railway (but let launchSettings handle local development)
+// --- 4. OUTBOX WORKER ---
+builder.Services.AddSingleton<IHostedService>(sp =>
+    new OutboxWorker(connectionString, sp.GetRequiredService<IServiceScopeFactory>()));
+
+Console.WriteLine("Outbox worker registered as hosted service.");
+
+// --- 5. PORT CONFIGURATION ---
 var port = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrEmpty(port))
 {
@@ -89,20 +87,21 @@ if (!string.IsNullOrEmpty(port))
 
 var app = builder.Build();
 
-// --- 3. MIDDLEWARE & CORS ---
-var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(",") ?? new[] { "https://kodeklubbprosjekt-production-8ee8.up.railway.app/" };
+// --- 6. MIDDLEWARE & CORS ---
+var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(",")
+    ?? new[] { "https://kodeklubbprosjekt-production-8ee8.up.railway.app/" };
+
 app.UseCors(policy => policy
     .WithOrigins(allowedOrigins)
     .AllowAnyHeader()
     .AllowAnyMethod()
     .AllowCredentials());
 
-// --- 4. RUN MIGRATIONS ---
-try 
+// --- 7. RUN MIGRATIONS ---
+try
 {
     Console.WriteLine("Railway: Starting Database Migrations...");
-    // Wait 2 seconds to ensure Railway's internal network is fully resolved
-    await Task.Delay(2000); 
+    await Task.Delay(2000);
     var migrator = new DatabaseMigrator(connectionString);
     await migrator.MigrateAsync();
     Console.WriteLine("Railway: Migrations successful.");
@@ -112,7 +111,7 @@ catch (Exception ex)
     Console.WriteLine($"Migration Error: {ex.Message}");
 }
 
-// Map Endpoints
+// --- 8. MAP ENDPOINTS ---
 app.MapUserEndpoints();
 app.MapTeamEndpoints();
 app.MapDiscordEndpoints();
@@ -120,7 +119,7 @@ app.MapGet("/", () => "API is online!");
 
 app.Run();
 
-// --- HELPER FUNCTION (at the very bottom) ---
+// --- HELPER FUNCTION ---
 string ConvertConnectionString(string url)
 {
     if (string.IsNullOrEmpty(url)) return "";

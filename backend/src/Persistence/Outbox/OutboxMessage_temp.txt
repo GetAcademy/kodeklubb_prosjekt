@@ -1,0 +1,12 @@
+namespace Persistence.Outbox;
+
+public class OutboxMessage
+{
+    public Guid Id { get; set; }
+    public string EventType { get; set; } = default!;
+    public string EventData { get; set; } = default!;
+    public DateTime CreatedAt { get; set; }
+    public bool IsProcessed { get; set; }
+
+    public string Payload => EventData;
+}

@@ -25,8 +25,8 @@ public static class TeamEventHandler
         NpgsqlTransaction transaction)
     {
         await connection.ExecuteCommandAsync(
-            InvitationSql.DeletePendingInvitation, 
-            new { RequestId = evt.RequestId, TeamId = evt.TeamId }, 
+            InvitationSql.DeclineInvitation(),
+            new { RequestId = evt.RequestId, TeamId = evt.TeamId, RespondedAt = evt.OccurredAt },
             transaction);
         await InsertToEventLogAndOutbox(evt, connection, transaction);
     }
@@ -35,12 +35,12 @@ public static class TeamEventHandler
         NpgsqlTransaction transaction, IServiceProvider? serviceProvider)
     {
         await connection.ExecuteCommandAsync(
-            InvitationSql.DeletePendingInvitation, 
-            new { RequestId = evt.RequestId, TeamId = evt.TeamId }, 
+            InvitationSql.ApproveInvitation(),
+            new { RequestId = evt.RequestId, TeamId = evt.TeamId, RespondedAt = evt.OccurredAt },
             transaction);
         await connection.ExecuteCommandAsync(
-            TeamSql.InsertTeamMember, 
-            new { TeamId = evt.TeamId, UserId = evt.UserId, Role = "member" }, 
+            TeamSql.InsertTeamMember,
+            new { TeamId = evt.TeamId, UserId = evt.UserId, Role = "member" },
             transaction);
         await InsertToEventLogAndOutbox(evt, connection, transaction);
 
@@ -61,14 +61,14 @@ public static class TeamEventHandler
     {
         var invitationId = Guid.NewGuid();
         await connection.ExecuteCommandAsync(
-            InvitationSql.SendInvitation, 
+            InvitationSql.SendInvitation,
             new
             {
-                Id = invitationId, 
-                TeamId = evt.TeamId, 
-                InvitedUserId = evt.UserId, 
-                InvitedBy = evt.UserId, 
-                Status = "pending", 
+                Id = invitationId,
+                TeamId = evt.TeamId,
+                InvitedUserId = evt.UserId,
+                InvitedBy = evt.UserId,
+                Status = "pending",
                 InvitedAt = evt.OccurredAt
             }, transaction);
         await InsertToEventLogAndOutbox(evt, connection, transaction);
@@ -89,16 +89,16 @@ public static class TeamEventHandler
         await connection.ExecuteCommandAsync(TeamSql.CreateTeam,
             new
             {
-                Id = evt.TeamId, 
-                Name = evt.Name, 
-                Description = evt.Description, 
+                Id = evt.TeamId,
+                Name = evt.Name,
+                Description = evt.Description,
                 AdminUserId = evt.AdminUserId
             }, transaction);
         await connection.ExecuteCommandAsync(TeamSql.InsertTeamMember,
             new
             {
-                TeamId = evt.TeamId, 
-                UserId = evt.AdminUserId, 
+                TeamId = evt.TeamId,
+                UserId = evt.AdminUserId,
                 Role = "admin"
             }, transaction);
         await InsertToEventLogAndOutbox(evt, connection, transaction);
@@ -113,7 +113,7 @@ public static class TeamEventHandler
             new { EventType = nameof(evt), OccurredAt = evt.OccurredAt },
             transaction);
         await connection.ExecuteCommandAsync(
-            TeamSql.InsertOutbox, 
+            TeamSql.InsertOutbox,
             new { EventType = nameof(evt) }, transaction);
     }
 }

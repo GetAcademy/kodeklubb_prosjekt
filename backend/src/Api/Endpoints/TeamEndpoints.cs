@@ -23,6 +23,7 @@ public static class TeamEndpoints
         group.MapPost("/", (HttpContext context, IServiceProvider sp) => CreateTeam(context, sp)).WithName("CreateTeam");
         group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams");
         group.MapGet("/my-requests", GetMyRequests).WithName("GetMyRequests");
+        group.MapGet("/notifications", GetNotifications).WithName("GetNotifications");
         group.MapDelete("/{teamId:guid}/tags/{tagPath}", RemoveTeamTag).WithName("RemoveTeamTag");
         
         // Discord integration endpoints
@@ -472,6 +473,46 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
 
         return Results.Ok(requests);
     }
+
+  private static async Task<IResult> GetNotifications(string? discordId)
+{
+    if (string.IsNullOrWhiteSpace(discordId))
+        return Results.BadRequest(new { message = "Discord ID is required" });
+
+    await using var connection = await AppConfig.OpenConnectionAsync();
+
+    var user = await connection.QueryOneOrDefaultAsync<UserEntity>(
+        TeamSql.GetUserByDiscordId(), new { DiscordId = discordId });
+    if (user == null)
+        return Results.NotFound(new { message = "User not found" });
+
+    // Requests waiting for this user's approval (teams they admin)
+    var pendingApprovals = await connection.QueryManyAsync<dynamic>(
+        @"SELECT i.id AS Id, i.team_id AS TeamId, t.name AS TeamName,
+                 u.username AS FromUsername, i.invited_at AS CreatedAt,
+                 'join_request' AS Type
+          FROM invitations i
+          JOIN teams t ON t.id = i.team_id
+          JOIN users u ON u.id = i.invited_user_id
+          WHERE t.team_admin_id = @UserId
+          AND i.status = 'pending'
+          ORDER BY i.invited_at DESC",
+        new { UserId = user.Id });
+
+    // Recent status changes on this user's own requests (accepted/declined)
+    var myUpdates = await connection.QueryManyAsync<dynamic>(
+        @"SELECT i.id AS Id, i.team_id AS TeamId, t.name AS TeamName,
+                 i.status AS Type, i.responded_at AS CreatedAt
+          FROM invitations i
+          JOIN teams t ON t.id = i.team_id
+          WHERE i.invited_user_id = @UserId
+          AND i.status IN ('accepted', 'declined')
+          AND i.responded_at > NOW() - INTERVAL '7 days'
+          ORDER BY i.responded_at DESC",
+        new { UserId = user.Id });
+
+    return Results.Ok(new { pendingApprovals, myUpdates });
+}
 
     private static async Task<IResult> CancelJoinRequest(Guid teamId, Guid requestId, string discordId, IServiceProvider sp)
     {

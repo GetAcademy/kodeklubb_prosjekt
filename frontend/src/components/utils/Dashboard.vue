@@ -1,6 +1,9 @@
 <template>
     <section class="dashboard">
-        <h2>Dashboard</h2>
+        <header class="dashboard-header">
+            <h2>Dashboard</h2>
+            <NotificationBell />
+        </header>
         <section v-if="data">
             Velkommen, <b>{{ data.username }}</b>
         </section>
@@ -33,7 +36,8 @@
     // --- Importing Dependencies & Types
     import { computed } from 'vue';
     import type { DashboardProps} from '@/types/props';
-
+    import NotificationBell from '../NotificationBell.vue';
+    
     // --- Props Definition Logic
     const props = defineProps<DashboardProps>();
     const data = computed(() => props.data);
@@ -46,6 +50,13 @@
 </script>
 
 <style scoped>
+    .dashboard-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
     .teams-section {
         margin-top: 1.5rem;
     }

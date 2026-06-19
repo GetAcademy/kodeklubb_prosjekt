@@ -15,7 +15,6 @@
             <template v-else>
               <button v-if="hasChildren(node)" class="btn btn-navigate" @click="navigate(key)">Gå inn ▶</button>
               <button v-if="canAdd(node)" class="btn btn-add" @click="emitAddTag(fullPath(key))">+ Legg til</button>
-              <button v-else class="btn btn-disabled" disabled>Kan ikke legge til</button>
             </template>
           </div>
         </div>
@@ -55,11 +54,14 @@ const currentNodes = computed(() => {
 const canGoBack = computed(() => navStack.value.length > 0);
 
 function hasChildren(node: TreeNode | undefined) {
-  return (node?.Children ?? node?.children) && Object.keys(node.Children ?? node?.children ?? {}).length > 0;
+  const children = node?.Children ?? node?.children ?? {};
+  return Object.keys(children).length > 0;
 }
 
 function canAdd(node: TreeNode | undefined) {
-  return node?.OpenForChildSuggestions === true || node?.openForChildSuggestions === true;
+  const children = node?.Children ?? node?.children ?? {};
+  const hasNoChildren = Object.keys(children).length === 0;
+  return hasNoChildren || node?.OpenForChildSuggestions === true || node?.openForChildSuggestions === true;
 }
 
 function navigate(key: string) {
@@ -143,7 +145,7 @@ function emitAddTag(tagPath: string) {
   display: flex;
   gap: 8px;
   margin-left: auto;
-  padding-left: 16px;       /* space between label and buttons */
+  padding-left: 16px;
 }
 
 .btn {
