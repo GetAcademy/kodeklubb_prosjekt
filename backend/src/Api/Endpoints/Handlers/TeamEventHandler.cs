@@ -46,7 +46,7 @@ public static class TeamEventHandler
 
         if (serviceProvider != null)
         {
-            var emailService = (Core.Logic.IEmailService)serviceProvider.GetService(typeof(Core.Logic.IEmailService));
+            var emailService = serviceProvider.GetRequiredService<Core.Logic.IEmailService>();
             // Get user email
             var user = await connection.QueryOneOrDefaultAsync<Persistence.DbModels.UserEntity>("SELECT * FROM users WHERE id = @UserId", new { UserId = evt.UserId }, transaction);
             if (user?.Email != null)
@@ -75,8 +75,7 @@ public static class TeamEventHandler
 
         if (serviceProvider != null)
         {
-            var emailService = (Core.Logic.IEmailService)serviceProvider.GetService(typeof(Core.Logic.IEmailService));
-            // Get team admin email
+           var emailService = serviceProvider.GetRequiredService<Core.Logic.IEmailService>();            // Get team admin email
             var admin = await connection.QueryOneOrDefaultAsync<Persistence.DbModels.UserEntity>("SELECT u.* FROM users u JOIN teams t ON u.id = t.team_admin_id WHERE t.id = @TeamId", new { TeamId = evt.TeamId }, transaction);
             if (admin?.Email != null)
             {

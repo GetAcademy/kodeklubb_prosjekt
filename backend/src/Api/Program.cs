@@ -46,7 +46,7 @@ var connectionString = rawUrl.Contains("://")
     ? ConvertConnectionString(rawUrl)
     : rawUrl;
 
-Console.WriteLine($"DEBUG ConnectionString: {connectionString}");
+
 
 AppConfig.Initialize(builder.Configuration);
 AppConfig.ConnectionString = connectionString;
