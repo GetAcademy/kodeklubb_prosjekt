@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Persistence;
 using Core.Commands;
@@ -35,6 +36,10 @@ public static class TeamEndpoints
         group.MapDelete("/{teamId:guid}/discord/members/{userId:guid}", RevokeDiscordAccess).WithName("RevokeDiscordAccess");
         group.MapGet("/{teamId:guid}", GetTeamDetails).WithName("GetTeamDetails");
         group.MapGet("/{teamId:guid}/content", GetTeamContent).WithName("GetTeamContent");
+        group.MapGet("/{teamId:guid}/announcements", GetTeamAnnouncements).WithName("GetTeamAnnouncements");
+        group.MapPost("/{teamId:guid}/announcements", (Guid teamId, HttpContext context, IServiceProvider sp) => CreateTeamAnnouncement(teamId, context, sp)).WithName("CreateTeamAnnouncement");
+        group.MapPatch("/{teamId:guid}/announcements/{announcementId:guid}", (Guid teamId, Guid announcementId, HttpContext context, IServiceProvider sp) => UpdateTeamAnnouncement(teamId, announcementId, context, sp)).WithName("UpdateTeamAnnouncement");
+        group.MapDelete("/{teamId:guid}/announcements/{announcementId:guid}", DeleteTeamAnnouncement).WithName("DeleteTeamAnnouncement");
         group.MapPost("/{teamId:guid}/request", (Guid teamId, HttpContext context, IServiceProvider sp) => RequestToJoinTeam(teamId, context, sp)).WithName("RequestToJoinTeam");
         group.MapGet("/{teamId:guid}/requests", GetTeamRequests).WithName("GetTeamRequests");
         group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/approve", (Guid teamId, Guid requestId, HttpContext context, IServiceProvider sp) => ApproveTeamRequest(teamId, requestId, context, sp)).WithName("ApproveTeamRequest");
@@ -428,6 +433,126 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         return Task.FromResult(Results.StatusCode(501));
     }
 
+    private static async Task<IResult> GetTeamAnnouncements(Guid teamId)
+    {
+        await using var connection = await AppConfig.OpenConnectionAsync();
+        var announcements = await connection.QueryManyAsync<TeamAnnouncementDto>(
+            TeamSql.GetTeamAnnouncementsByTeamId(),
+            new { TeamId = teamId });
+        return Results.Ok(announcements);
+    }
+
+    private static async Task<IResult> CreateTeamAnnouncement(Guid teamId, HttpContext context, IServiceProvider sp)
+    {
+        try
+        {
+            context.Request.EnableBuffering();
+            context.Request.Body.Position = 0;
+
+            using var reader = new StreamReader(context.Request.Body, leaveOpen: true);
+            var rawBody = await reader.ReadToEndAsync();
+            context.Request.Body.Position = 0;
+
+            var body = JsonSerializer.Deserialize<CreateTeamAnnouncementRequest>(rawBody, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+            if (body == null || string.IsNullOrWhiteSpace(body.Title) || string.IsNullOrWhiteSpace(body.Body) || string.IsNullOrWhiteSpace(body.CreatedBy))
+                return Results.BadRequest(new { message = "Title, body, and createdBy are required" });
+
+            await using var db = await DbSession.OpenAsync();
+            try
+            {
+                var existingTeam = await db.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById(), new { TeamId = teamId });
+                if (existingTeam == null)
+                    return await db.RollbackAsync("Team not found");
+
+                var creatorUser = await db.QueryOneOrDefaultAsync<UserEntity>(UserSql.GetByDiscordId(), new { DiscordId = body.CreatedBy });
+                if (creatorUser == null)
+                    return await db.RollbackAsync("User not found");
+
+                if (existingTeam.TeamAdminId != creatorUser.Id)
+                    return await db.RollbackAsync("Only the team admin may create announcements");
+
+                var announcementId = Guid.NewGuid();
+                await db.ExecuteAsync(TeamSql.InsertTeamAnnouncement(), new
+                {
+                    Id = announcementId,
+                    TeamId = teamId,
+                    CreatedBy = creatorUser.Id,
+                    Title = body.Title,
+                    Body = body.Body
+                });
+
+                await db.CommitAsync();
+                return Results.Created($"/api/discover/{teamId}/announcements/{announcementId}", new { Id = announcementId, TeamId = teamId, Title = body.Title, Body = body.Body });
+            }
+            catch (Exception ex)
+            {
+                await db.Tx.RollbackAsync();
+                return Results.BadRequest(new { message = ex.Message });
+            }
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> UpdateTeamAnnouncement(Guid teamId, Guid announcementId, HttpContext context, IServiceProvider sp)
+    {
+        var body = await context.Request.ReadFromJsonAsync<UpdateTeamAnnouncementRequest>();
+        if (body == null || string.IsNullOrWhiteSpace(body.Title) || string.IsNullOrWhiteSpace(body.Body) || body.UpdatedBy == Guid.Empty)
+            return Results.BadRequest(new { message = "Title, body, and updatedBy are required" });
+
+        await using var db = await DbSession.OpenAsync();
+        try
+        {
+            var announcement = await db.QueryOneOrDefaultAsync<TeamAnnouncementDto>(TeamSql.GetTeamAnnouncementById(), new { AnnouncementId = announcementId, TeamId = teamId });
+            if (announcement == null)
+                return await db.RollbackAsync("Announcement not found");
+
+            if (announcement.CreatedBy != body.UpdatedBy)
+                return await db.RollbackAsync("Only the announcement creator may update it");
+
+            await db.ExecuteAsync(TeamSql.UpdateTeamAnnouncement(), new
+            {
+                AnnouncementId = announcementId,
+                TeamId = teamId,
+                Title = body.Title,
+                Body = body.Body
+            });
+
+            await db.CommitAsync();
+            return Results.Ok(new { message = "Announcement updated successfully" });
+        }
+        catch (Exception ex)
+        {
+            await db.Tx.RollbackAsync();
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> DeleteTeamAnnouncement(Guid teamId, Guid announcementId)
+    {
+        await using var db = await DbSession.OpenAsync();
+        try
+        {
+            var announcement = await db.QueryOneOrDefaultAsync<TeamAnnouncementDto>(TeamSql.GetTeamAnnouncementById(), new { AnnouncementId = announcementId, TeamId = teamId });
+            if (announcement == null)
+                return await db.RollbackAsync("Announcement not found");
+
+            await db.ExecuteAsync(TeamSql.DeleteTeamAnnouncement(), new { AnnouncementId = announcementId, TeamId = teamId });
+            await db.CommitAsync();
+            return Results.Ok(new { message = "Announcement deleted successfully" });
+        }
+        catch (Exception ex)
+        {
+            await db.Tx.RollbackAsync();
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
     private static async Task<IResult> GetMyRequests(string? discordId, bool history = false)
     {
         if (string.IsNullOrWhiteSpace(discordId))
@@ -782,3 +907,6 @@ public record JoinRequestDto(Guid Id, Guid TeamId, string TeamName, string Statu
 public record AddTeamTagsRequest(string[] TagPaths);
 public record SetDiscordConfigRequest(string DiscordServerId, string DiscordChannelId, string DiscordRoleId, string? DiscordLink);
 public record UpdateDiscordConfigRequest(string? DiscordServerId, string? DiscordChannelId, string? DiscordRoleId, string? DiscordLink);
+public record TeamAnnouncementDto(Guid Id, Guid TeamId, Guid CreatedBy, string Title, string Body, DateTime CreatedAt, DateTime UpdatedAt);
+public record CreateTeamAnnouncementRequest(string CreatedBy, string Title, string Body);
+public record UpdateTeamAnnouncementRequest(Guid UpdatedBy, string Title, string Body);

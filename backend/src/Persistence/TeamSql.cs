@@ -24,6 +24,16 @@ public static class TeamSql
 
     public static string InsertTeamMember() => SqlLoader.Load("Commands/TeamMembers_Insert.sql");
 
+    public static string GetTeamAnnouncementsByTeamId() => SqlLoader.Load("Queries/TeamAnnouncements_GetByTeamId.sql");
+
+    public static string GetTeamAnnouncementById() => SqlLoader.Load("Queries/TeamAnnouncements_GetById.sql");
+
+    public static string InsertTeamAnnouncement() => SqlLoader.Load("Commands/TeamAnnouncements_Insert.sql");
+
+    public static string UpdateTeamAnnouncement() => SqlLoader.Load("Commands/TeamAnnouncements_Update.sql");
+
+    public static string DeleteTeamAnnouncement() => SqlLoader.Load("Commands/TeamAnnouncements_Delete.sql");
+
     public static string InsertEventLog() => SqlLoader.Load("Outbox/EventLog_Insert.sql");
 
     public static string InsertOutbox() => SqlLoader.Load("Outbox/Outbox_Insert.sql");
