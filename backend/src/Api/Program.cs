@@ -89,8 +89,12 @@ var app = builder.Build();
 
 // --- 6. MIDDLEWARE & CORS ---
 var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(",")
-    ?? new[] { "https://kodeklubbprosjekt-production-8ee8.up.railway.app/" };
-
+    ?? new[]
+    {
+        "https://kodeklubbprosjekt-production-8ee8.up.railway.app",
+        "http://localhost:5173",
+        "http://localhost:3000"
+    };
 app.UseCors(policy => policy
     .WithOrigins(allowedOrigins)
     .AllowAnyHeader()

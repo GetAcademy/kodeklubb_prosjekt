@@ -883,11 +883,16 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         var team = await connection.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById, new { TeamId = teamId });
         if (team == null) return Results.NotFound(new { message = "Team not found" });
 
-        if (string.IsNullOrWhiteSpace(discordId)) return Results.Ok(team);
+        if (string.IsNullOrWhiteSpace(discordId))
+            return Results.Ok(team);
 
+        // Resolve the caller by discord id to determine membership and admin status
+        var user = await connection.QueryOneOrDefaultAsync<UserEntity>(UserSql.GetByDiscordId(), new { DiscordId = discordId });
         var isMember = await connection.QueryOneAsync<bool>(
             TeamSql.IsUserMemberByDiscordId, new { TeamId = teamId, DiscordId = discordId });
-        return Results.Ok(new { team, isMember });
+
+        var isAdmin = user != null && team.TeamAdminId == user.Id;
+        return Results.Ok(new { team, isMember, isAdmin });
     }
 
     private static async Task<IResult> GetTeamMembers(Guid teamId)

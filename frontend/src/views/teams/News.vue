@@ -30,6 +30,9 @@
         v-for="announcement in announcements"
         :key="announcement.id"
         :announcement="announcement"
+        :isAdmin="isAdmin"
+        @update="handleUpdate"
+        @delete="handleDelete"
       />
     </section>
   </div>
@@ -53,9 +56,36 @@ const title = ref('');
 const body = ref('');
 const isPosting = ref(false);
 
-const isAdmin = computed(() => {
-  return authStore.user?.id != null; // TODO: restrict further once admin info is available
-});
+import { ref } from 'vue';
+
+const isAdmin = ref(false);
+
+async function fetchTeamDetails() {
+  const currentTeamId = teamId.value;
+  if (!currentTeamId) return;
+
+  try {
+    const discordId = authStore.user?.id;
+    const url = discordId
+      ? `${baseApi}/api/discover/${currentTeamId}?discordId=${encodeURIComponent(discordId)}`
+      : `${baseApi}/api/discover/${currentTeamId}`;
+
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const payload = await res.json();
+    // prefer explicit isAdmin flag from the API
+    if (payload?.isAdmin !== undefined) {
+      isAdmin.value = Boolean(payload.isAdmin);
+    } else if (payload?.team && authStore.user?.id) {
+      // fallback: if API returned team object without isAdmin, assume not admin
+      isAdmin.value = false;
+    } else {
+      isAdmin.value = false;
+    }
+  } catch {
+    isAdmin.value = false;
+  }
+}
 
 const baseApi = import.meta.env.VITE_BASE_API || '';
 
@@ -133,8 +163,52 @@ async function createAnnouncement() {
   }
 }
 
+async function handleUpdate(payload: { id: string; title: string; body: string }) {
+  try {
+    const currentTeamId = teamId.value;
+    if (!currentTeamId) throw new Error('Ingen team valgt.');
+
+    // Find announcement to get its createdBy GUID
+    const announcement = announcements.value.find(a => a.id === payload.id);
+    if (!announcement) throw new Error('Announcement not found');
+
+    const res = await fetch(`${baseApi}/api/discover/${currentTeamId}/announcements/${payload.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updatedBy: announcement.createdBy, title: payload.title, body: payload.body })
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(txt || 'Kunne ikke oppdatere annonseringen.');
+    }
+
+    await fetchAnnouncements();
+  } catch (err: any) {
+    error.value = err.message || 'Ukjent feil.';
+  }
+}
+
+async function handleDelete(id: string) {
+  try {
+    const currentTeamId = teamId.value;
+    if (!currentTeamId) throw new Error('Ingen team valgt.');
+
+    const res = await fetch(`${baseApi}/api/discover/${currentTeamId}/announcements/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(txt || 'Kunne ikke slette annonseringen.');
+    }
+
+    await fetchAnnouncements();
+  } catch (err: any) {
+    error.value = err.message || 'Ukjent feil.';
+  }
+}
+
 watch(teamId, () => {
   void fetchAnnouncements();
+  void fetchTeamDetails();
 }, { immediate: true });
 </script>
 
