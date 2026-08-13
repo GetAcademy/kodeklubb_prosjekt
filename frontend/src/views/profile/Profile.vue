@@ -1,11 +1,6 @@
 <template>
     <article class="flex-column-justify-space-evenly-items-center profile-container" v-if="!!userInfo">
         <h2> Profile Informasjon </h2>
-        <div class="profile-links">
-            <a href="/profile/edit">Rediger min side</a>
-            <a href="/profile/my-requests">My Join Requests</a>
-            <a href="/profile/add-tags">+ Legg til interesser</a>
-        </div>
         <header class="flex-column-justify-space-evenly-items-center profile-content">
             <p>Bruker Navn : <a :href="userInfo?.id ? `https://discordapp.com/users/${userInfo.id}` : '#'" target="_blank">{{ userInfo?.username }}</a></p>
             <p v-if="userInfo?.email">Epost : <a :href="`mailto:${userInfo.email}`">{{ userInfo.email }}</a></p>
@@ -99,28 +94,6 @@
 </script>
 
 <style scoped>
-.profile-links {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-}
-
-.profile-links a {
-    padding: 0.4rem 0.75rem;
-    border-radius: 6px;
-    border: 1px solid #0f5ed8;
-    color: #0f5ed8;
-    text-decoration: none;
-    font-size: 0.9rem;
-    transition: background 0.2s;
-}
-
-.profile-links a:hover {
-    background: #0f5ed8;
-    color: #fff;
-}
-
 .tags-list {
     list-style: none;
     padding: 0;
