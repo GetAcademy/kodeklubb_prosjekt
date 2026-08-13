@@ -1,14 +1,7 @@
 <template>
-    <section class="flex-wrap-row-justify-space-evenly">
-        <FormSchema v-for = "data in schemas":data="data"/>
-    </section>
     <section class="tags-editor">
         <h2>Mine interesser</h2>
-        <AddTags
-          :user-mode="true"
-          :existing-tags="userTags"
-          @add-tag="addTagFromHierarchy"
-        />
+        <AddTags @add-tag="addTagFromHierarchy" />
         <p v-if="tagsError" class="error">{{ tagsError }}</p>
         <p v-else-if="tagsLoading" class="muted">Laster tags...</p>
         <ul v-else-if="userTags.length" class="tags-list">
@@ -21,45 +14,13 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import AddTags from '@/components/teams/AddTags.vue';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/stores/authStore';
 
-
-const personalData = {
-    method: "POST",
-    encrypted: true,
-    novalidate: true,
-    action: "/profile",
-    name: "profile-schema",
-    title: "Profile Information",
-    inputControl: 
-    [
-        { value: '', id: 'city', name: 'Kommune', placeholder: 'e.g Ålesund', cls: ['city-input'], autofocus: true },
-        { value: '', id: 'county', name: 'Fylke', placeholder: 'e.g Møre og Romsdal', cls: ['county-input'], autofocus: true},
-        { value: '', id: 'email', name: 'Email', placeholder: 'e.g ola.norman@outlook.com', cls: ['email-input'], autofocus: true },
-        { value: '', id: 'bio', name: 'Biografi', placeholder: 'e.g Møre og Romsdal', cls: ['county-input'], type: 'textarea', autofocus: true}
-    ]
-}
-
-const schemas = computed(() => {
-    return [
-        personalData
-    ]
-});
-
 const authStore = useAuthStore();
 const { user } = storeToRefs(authStore);
-
-interface PredefinedTag {
-    id: string;
-    name: string;
-    description?: string;
-    category?: string;
-    parentTagId?: string;
-    openForChildSuggestions?: boolean;
-}
 
 interface UserTag {
     id: string;
@@ -70,27 +31,10 @@ interface UserTag {
     openForChildSuggestions?: boolean;
 }
 
-const predefinedTags = ref<PredefinedTag[]>([]);
 const userTags = ref<UserTag[]>([]);
 const tagsLoading = ref(false);
-const tagsSaving = ref(false);
 const tagsError = ref('');
 const lastFetchedDiscordId = ref<string | null>(null);
-
-const groupedPredefinedTags = computed(() => {
-    const grouped: Record<string, PredefinedTag[]> = {};
-    predefinedTags.value.forEach(tag => {
-        const category = tag.category || 'Other';
-        if (!grouped[category]) {
-            grouped[category] = [];
-        }
-        grouped[category].push(tag);
-    });
-    return grouped;
-});
-
-
-// Remove fetchPredefinedTags, we now use the hierarchy system
 
 const fetchUserTags = async () => {
     if (!user.value?.id) return;
@@ -113,34 +57,9 @@ const fetchUserTags = async () => {
     }
 };
 
-
-async function addTagFromHierarchy(tagPath: string) {
-    if (!user.value?.id) {
-        tagsError.value = 'Du må være logget inn.';
-        return;
-    }
-    tagsSaving.value = true;
-    tagsError.value = '';
-    try {
-        const baseApi = import.meta.env.VITE_BASE_API || '';
-        const response = await fetch(`${baseApi}/api/users/${user.value.id}/tags`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ tagPaths: [tagPath] })
-        });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || 'Kunne ikke lagre interesse.');
-        }
-        tagsError.value = '';
-        tagsSaving.value = false;
-        await fetchUserTags();
-    } catch (error) {
-        tagsError.value = error instanceof Error ? error.message : 'Ukjent feil.';
-        tagsSaving.value = false;
-    }
+async function addTagFromHierarchy() {
+    // AddTags.vue now saves tags itself via TagTree; just refresh the list after.
+    await fetchUserTags();
 }
 
 watch(user, async () => {
@@ -156,3 +75,39 @@ onMounted(async () => {
     }
 });
 </script>
+
+<style scoped>
+.tags-editor {
+    padding: 24px;
+    max-width: 860px;
+    margin: 0 auto;
+}
+
+.tags-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.tag-item {
+    display: inline-block;
+    background: #f0f4ff;
+    border: 1px solid #c5d8fb;
+    border-radius: 20px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.85rem;
+    color: #1a73e8;
+}
+
+.muted {
+    color: #999;
+    font-size: 0.9rem;
+}
+
+.error {
+    color: #842029;
+}
+</style>

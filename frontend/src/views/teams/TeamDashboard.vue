@@ -1,54 +1,81 @@
 <template>
-    <NavigationMenu :data="menu" :cls="teamMenuCls" />
-    <section>
-    <h2>{{ teamDetails?.name ?? 'Team' }}</h2>
-    
-    <p class="muted">Team ID: {{ teamId }}</p>
-    <p v-if="teamLoading">Laster teamdetaljer…</p>
-    <p v-else-if="teamError">{{ teamError }}</p>
-   <p v-else class="team-description">{{ teamDetails?.description }}</p>
+    <div class="dashboard">
+        <NavigationMenu :data="menu" :cls="teamMenuCls" />
 
-    <!-- Discord Community Section -->
-    <section v-if="teamDetails?.discordLink" class="discord-section">
-      <h3>Discord Community</h3>
-      <p>Join our Discord server to chat and collaborate with team members</p>
-      <a :href="teamDetails.discordLink" target="_blank" rel="noopener noreferrer" class="btn-discord">
-        Open Discord Server
-      </a>
-    </section>
+        <section class="dashboard-body">
+            <header class="team-header">
+                <div class="team-header-top">
+                    <h2 class="team-name">{{ teamDetails?.name ?? 'Team' }}</h2>
+                    <span class="team-id-chip">
+                        <span class="team-id-hash">#</span>{{ teamId }}
+                    </span>
+                </div>
 
-    <section class="requests">
-      <h3>Forespørsler</h3>
+                <p v-if="teamLoading" class="status-line muted">
+                    <span class="dot pulse"></span>Laster teamdetaljer…
+                </p>
+                <p v-else-if="teamError" class="status-line error">
+                    <span class="dot error-dot"></span>{{ teamError }}
+                </p>
+                <p v-else class="team-description">{{ teamDetails?.description }}</p>
+            </header>
 
-    <p v-if="requestsLoading">Laster forespørsler…</p>
-    <p v-else-if="requestsError" class="error">{{ requestsError }}</p>
-    <p v-else-if="requestsSuccess" class="success">{{ requestsSuccess }}</p>
-      <p v-else-if="requests.length === 0">Ingen forespørsler.</p>
+            <section v-if="teamDetails?.discordLink" class="discord-section">
+                <div class="discord-icon">◆</div>
+                <div class="discord-copy">
+                    <h3>Discord Community</h3>
+                    <p>Bli med i vår Discord-server for å chatte og samarbeide med teamet</p>
+                </div>
+                <a :href="teamDetails.discordLink" target="_blank" rel="noopener noreferrer" class="btn-discord">
+                    Åpne Discord →
+                </a>
+            </section>
 
-      <ul v-else class="requests-list">
-        <li v-for="request in requests" :key="request.id" class="request-item">
-          <div class="request-info">
-            <strong>{{ request.invitedUser?.username ?? 'Ukjent bruker' }}</strong>
-            <span class="request-meta">Discord: {{ request.invitedUser?.discordId }}</span>
-          </div>
-          <div class="request-actions">
-            <button
-              @click="approveRequest(request.id)"
-              :disabled="actionRequestId === request.id"
-            >
-              {{ actionRequestId === request.id ? 'Godkjenner…' : 'Godkjenn' }}
-            </button>
-            <button
-              @click="declineRequest(request.id)"
-              :disabled="actionRequestId === request.id"
-            >
-              {{ actionRequestId === request.id ? 'Avslår…' : 'Avslå' }}
-            </button>
-          </div>
-        </li>
-      </ul>
-    </section>
-  </section>
+            <section class="requests">
+                <div class="requests-heading">
+                    <h3>Forespørsler</h3>
+                    <span v-if="requests.length" class="requests-count">{{ requests.length }}</span>
+                </div>
+
+                <p v-if="requestsLoading" class="status-line muted">
+                    <span class="dot pulse"></span>Laster forespørsler…
+                </p>
+                <p v-else-if="requestsError" class="status-line error">{{ requestsError }}</p>
+                <p v-else-if="requestsSuccess" class="status-line success">{{ requestsSuccess }}</p>
+                <p v-else-if="requests.length === 0" class="empty-state">
+                    Ingen ventende forespørsler akkurat nå.
+                </p>
+
+                <ul v-else class="requests-list">
+                    <li v-for="request in requests" :key="request.id" class="request-item">
+                        <div class="request-avatar">
+                            {{ (request.invitedUser?.username ?? '?').charAt(0).toUpperCase() }}
+                        </div>
+                        <div class="request-info">
+                            <strong>{{ request.invitedUser?.username ?? 'Ukjent bruker' }}</strong>
+                            <span class="request-meta">Discord ID · {{ request.invitedUser?.discordId }}</span>
+                        </div>
+                        <div class="request-actions">
+                            <button
+                                class="btn-approve"
+                                @click="approveRequest(request.id)"
+                                :disabled="actionRequestId === request.id"
+                            >
+                                {{ actionRequestId === request.id ? 'Godkjenner…' : 'Godkjenn' }}
+                            </button>
+                            <button
+                                class="btn-decline"
+                                @click="declineRequest(request.id)"
+                                :disabled="actionRequestId === request.id"
+                            >
+                                {{ actionRequestId === request.id ? 'Avslår…' : 'Avslå' }}
+                            </button>
+                        </div>
+                    </li>
+                </ul>
+            </section>
+        </section>
+    </div>
 </template>
 <script setup lang="ts">
 
@@ -127,24 +154,17 @@
     try {
         const baseApi = import.meta.env.VITE_BASE_API || '';
         const url = `${baseApi}/api/discover/${teamId.value}/requests`;
-        console.log('Fetching requests from:', url);
-        
+
         const response = await fetch(url);
-        console.log('Response status:', response.status);
-        console.log('Response ok:', response.ok);
-        
+
         if (!response.ok) {
-            const errorText = await response.text();
-            console.log('Error response:', errorText);
             throw new Error('Kunne ikke hente foresp├©rsler.');
         }
 
         const payload = await response.json();
-        console.log('Payload received:', payload);
-        
+
         const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
-        console.log('Rows to map:', rows);
-        
+
         requests.value = rows.map((row: any) => ({
             id: row.id,
             teamId: row.team_id ?? row.teamId,
@@ -157,11 +177,8 @@
                 discordId: row.discord_id ?? row.invitedUser?.discordId ?? null
             }
         }));
-        
-        console.log('Final requests:', requests.value);
     } catch (err) {
         requestsError.value = err instanceof Error ? err.message : 'Ukjent feil.';
-        console.error('Fetch error:', err);
     } finally {
         requestsLoading.value = false;
     }
@@ -244,9 +261,7 @@
         const baseApi = import.meta.env.VITE_BASE_API || '';
         const discordId = user.value?.id;
         const url = `${baseApi}/api/discover/${teamId.value}` + (discordId ? `?discordId=${discordId}` : '');
-        console.log(url)
         const res = await fetch(url);
-        console.log(res)
         if (!res.ok) {
         if (res.status === 404) {
             teamError.value = 'Team ikke funnet.';
@@ -265,48 +280,362 @@
     }
 
    onMounted(async () => {
-    console.log('onMounted called!');
-    console.log('teamId:', teamId.value);
     await fetchTeamDetails();
-    console.log('fetchTeamDetails done');
     await fetchRequests();
-    console.log('fetchRequests done');
 });
 </script>
 
 <style scoped>
-.discord-section {
-  margin: 2rem 0;
-  padding: 1.5rem;
-  border: 1px solid #7289da;
-  border-radius: 8px;
-  background: #f6f6ff;
+/* ---- Design tokens ---- */
+.dashboard {
+  --surface: #14161c;
+  --panel: #1b1e27;
+  --panel-border: #2a2e3a;
+  --text-primary: #e7e9ee;
+  --text-muted: #8b92a5;
+  --accent: #7c9eff;
+  --accent-soft: rgba(124, 158, 255, 0.12);
+  --amber: #f5b662;
+  --success: #34d399;
+  --success-soft: rgba(52, 211, 153, 0.12);
+  --danger: #f37272;
+  --danger-soft: rgba(243, 114, 114, 0.1);
+  --discord: #5865f2;
+
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  background: var(--surface);
+  color: var(--text-primary);
+  min-height: 100vh;
+  padding-bottom: 4rem;
 }
 
-.discord-section h3 {
-  margin-top: 0;
-  color: #7289da;
+/* ---- Nav (targets NavigationMenu's rendered markup) ---- */
+.dashboard :deep(.nav-bar) {
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-border);
+  padding: 0 2rem;
+}
+
+.dashboard :deep(.nav-list) {
+  list-style: none;
+  display: flex;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.75rem 0;
+}
+
+.dashboard :deep(.nav-item) {
+  list-style: none;
+}
+
+.dashboard :deep(.nav-link) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dashboard :deep(.nav-link:hover) {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+.dashboard :deep(.router-link-active) {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---- Body ---- */
+.dashboard-body {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 0;
+}
+
+.team-header {
+  margin-bottom: 2rem;
+}
+
+.team-header-top {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.team-name {
+  font-family: 'IBM Plex Mono', 'Consolas', monospace;
+  font-size: 1.9rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.team-id-chip {
+  font-family: 'IBM Plex Mono', 'Consolas', monospace;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+}
+
+.team-id-hash {
+  color: var(--accent);
+  margin-right: 0.15rem;
+}
+
+.team-description {
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.status-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.status-line.muted { color: var(--text-muted); }
+.status-line.error { color: var(--danger); }
+.status-line.success { color: var(--success); }
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.dot.pulse {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.dot.error-dot {
+  background: var(--danger);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot.pulse { animation: none; opacity: 1; }
+}
+
+/* ---- Discord panel ---- */
+.discord-section {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin: 0 0 2rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.discord-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(88, 101, 242, 0.15);
+  color: var(--discord);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1.3rem;
 }
 
-.discord-section p {
-  color: #555;
-  margin: 0.5rem 0 1rem 0;
+.discord-copy {
+  flex: 1;
+  min-width: 180px;
+}
+
+.discord-copy h3 {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.discord-copy p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
 }
 
 .btn-discord {
-  display: inline-block;
-  padding: 0.8rem 1.5rem;
-  background: #5865f2;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.6rem 1.1rem;
+  background: var(--discord);
   color: white;
   text-decoration: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-weight: 600;
-  transition: background 0.2s;
-  cursor: pointer;
+  font-size: 0.88rem;
+  transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .btn-discord:hover {
   background: #4752c4;
+  transform: translateY(-1px);
+}
+
+/* ---- Requests ---- */
+.requests {
+  border-top: 1px solid var(--panel-border);
+  padding-top: 1.75rem;
+}
+
+.requests-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.1rem;
+}
+
+.requests-heading h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.requests-count {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+}
+
+.empty-state {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  padding: 1.5rem;
+  text-align: center;
+  border: 1px dashed var(--panel-border);
+  border-radius: 10px;
+}
+
+.requests-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.request-item {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.85rem 1rem;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+}
+
+.request-avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.request-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.request-info strong {
+  font-size: 0.94rem;
+  font-weight: 600;
+}
+
+.request-meta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.request-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-approve, .btn-decline {
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.btn-approve {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+.btn-approve:hover:not(:disabled) {
+  background: rgba(52, 211, 153, 0.22);
+}
+
+.btn-decline {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: rgba(243, 114, 114, 0.25);
+}
+
+.btn-decline:hover:not(:disabled) {
+  background: rgba(243, 114, 114, 0.18);
+}
+
+.btn-approve:disabled, .btn-decline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 560px) {
+  .request-item {
+    flex-wrap: wrap;
+  }
+  .request-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 </style>
