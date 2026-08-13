@@ -6,7 +6,7 @@ INSERT INTO outbox (
 )
 VALUES (
     @EventType, 
-    '{}'::jsonb, 
+    @EventData::jsonb, 
     'Pending', 
-    NOW()
+    COALESCE(@CreatedAt, NOW())
 );

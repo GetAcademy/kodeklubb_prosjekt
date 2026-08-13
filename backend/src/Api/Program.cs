@@ -118,6 +118,7 @@ catch (Exception ex)
 // --- 8. MAP ENDPOINTS ---
 app.MapUserEndpoints();
 app.MapTeamEndpoints();
+app.MapTagsEndpoints();
 app.MapDiscordEndpoints();
 app.MapGet("/", () => "API is online!");
 

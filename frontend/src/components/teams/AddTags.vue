@@ -4,32 +4,23 @@
 
     <div class="tag-container">
       <div class="tree-section">
-        <TagTree
-          v-if="tagHierarchy"
-          :nodes="tagHierarchy"
-          :path="[]"
-          @add-tag="addTag"
-        />
-        <div v-else class="loading">
-          ⏳ Laster tagger...
-        </div>
+        <TagTree @add-tag="addTag" />
       </div>
 
-      <div v-if="selectedTags.length" class="selected-section">
+      <div v-if="selectedTagIds.length" class="selected-section">
         <h3 class="selected-title">✅ Valgte tags</h3>
         <ul class="selected-list">
-          <li v-for="tag in selectedTags" :key="tag" class="selected-item">
-            <span class="tag-badge">🏷️ {{ formatTag(tag) }}</span>
-            <button class="remove-btn" @click="removeTag(tag)">✕</button>
+          <li v-for="tagId in selectedTagIds" :key="tagId" class="selected-item">
+            <span class="tag-badge">🏷️ {{ tagName(tagId) }}</span>
+            <button class="remove-btn" @click="removeTag(tagId)">✕</button>
           </li>
         </ul>
         <button class="save-btn" @click="saveTags" :disabled="saveStatus === 'saving'">
           {{ saveStatus === 'saving' ? 'Lagrer...' : '💾 Lagre tags' }}
         </button>
-        
       </div>
 
-     <div v-else class="no-tags">
+      <div v-else class="no-tags">
         Ingen tags valgt ennå. Velg fra treet til venstre.
       </div>
     </div>
@@ -38,55 +29,45 @@
     <p v-if="saveMessage" :class="saveStatus === 'error' ? 'error-msg' : 'success-msg'" class="status-msg">
       {{ saveMessage }}
     </p>
-
   </div>
 </template>
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import axios from 'axios';
 import TagTree from './TagTree.vue';
 import { useAuthStore } from '@/stores/authStore';
+import { useTagsStore } from '@/stores/tagsStore';
 import { storeToRefs } from 'pinia';
 
+// Optional: when set, tags are saved against this team instead of the
+// logged-in user. AddTagsPage.vue supplies this from the route param
+// when managing a team's tags.
 const props = defineProps<{ teamId?: string }>();
 
 const authStore = useAuthStore();
 const { user } = storeToRefs(authStore);
+const tagsStore = useTagsStore();
 
-const baseApi = import.meta.env.VITE_BASE_API || '';
-const apiUrl = `${baseApi}/api/discover/tags/hierarchy`;
-
-const tagHierarchy = ref<any>(null);
-const selectedTags = ref<string[]>([]);
+const selectedTagIds = ref<string[]>([]);
 const saveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
 const saveMessage = ref('');
 
-onMounted(async () => {
-  try {
-    const res = await axios.get(apiUrl);
-    tagHierarchy.value = res.data;
-  } catch (err) {
-    console.error('Failed to load tags', err);
-  }
-});
+function tagName(tagId: string): string {
+  return tagsStore.getById(tagId)?.name ?? tagId;
+}
 
-function addTag(tagPath: string) {
-  if (!selectedTags.value.includes(tagPath)) {
-    selectedTags.value.push(tagPath);
+function addTag(tagId: string) {
+  if (!selectedTagIds.value.includes(tagId)) {
+    selectedTagIds.value.push(tagId);
   }
 }
 
-function removeTag(tagPath: string) {
-  selectedTags.value = selectedTags.value.filter(t => t !== tagPath);
-}
-
-function formatTag(tagPath: string) {
-  const parts = tagPath.split('/');
-  return parts[parts.length - 1];
+function removeTag(tagId: string) {
+  selectedTagIds.value = selectedTagIds.value.filter(id => id !== tagId);
 }
 
 async function saveTags() {
-  if (!selectedTags.value.length) return;
+  if (!selectedTagIds.value.length) return;
   saveStatus.value = 'saving';
   saveMessage.value = '';
 
@@ -96,21 +77,20 @@ async function saveTags() {
     if (props.teamId) {
       // Save tags for a team
       await axios.post(`${baseApi}/api/discover/${props.teamId}/tags`, {
-        tagPaths: selectedTags.value
+        tagIds: selectedTagIds.value
       });
     } else {
-      // Save tags for a user
+      // Save tags for the logged-in user
       const discordId = user.value?.id;
       if (!discordId) throw new Error('Not logged in');
       await axios.post(`${baseApi}/api/users/${discordId}/tags`, {
-        tagIds: [],
-        tagPaths: selectedTags.value
+        tagIds: selectedTagIds.value
       });
     }
 
     saveStatus.value = 'saved';
     saveMessage.value = 'Tags lagret!';
-    selectedTags.value = [];
+    selectedTagIds.value = [];
   } catch (err) {
     console.error('Failed to save tags', err);
     saveStatus.value = 'error';
@@ -147,12 +127,6 @@ async function saveTags() {
   border-radius: 10px;
   padding: 16px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-}
-
-.loading {
-  color: #888;
-  font-size: 14px;
-  padding: 12px;
 }
 
 .selected-section {

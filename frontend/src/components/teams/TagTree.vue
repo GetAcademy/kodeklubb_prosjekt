@@ -2,19 +2,24 @@
   <div class="tag-tree">
     <button v-if="canGoBack" class="back-btn" @click="goBack">⬅ Tilbake</button>
 
-    <ul class="tree-list">
-      <li v-for="(node, key) in currentNodes" :key="key" class="tree-item">
-        <div class="tree-row" :style="{ paddingLeft: `${(props.path.length + navStack.length) * 16}px` }">
-          <span class="tree-icon">{{ hasChildren(node) ? '📁' : '🏷️' }}</span>
-          <span class="tree-label">{{ key }}</span>
+    <p v-if="tagsStore.loading && !tagsStore.tags.length" class="loading">
+      ⏳ Laster tagger...
+    </p>
+    <p v-else-if="tagsStore.error" class="error">{{ tagsStore.error }}</p>
+
+    <ul v-else class="tree-list">
+      <li v-for="node in currentNodes" :key="node.id" class="tree-item">
+        <div class="tree-row" :style="{ paddingLeft: `${parentStack.length * 16}px` }">
+          <span class="tree-icon">{{ hasChildren(node.id) ? '📁' : '🏷️' }}</span>
+          <span class="tree-label">{{ node.name }}</span>
 
           <div class="tree-actions">
             <template v-if="isRootLevel">
-              <button class="btn btn-navigate" @click="navigate(key)">Åpne ▶</button>
+              <button class="btn btn-navigate" @click="navigate(node.id)">Åpne ▶</button>
             </template>
             <template v-else>
-              <button v-if="hasChildren(node)" class="btn btn-navigate" @click="navigate(key)">Gå inn ▶</button>
-              <button v-if="canAdd(node)" class="btn btn-add" @click="emitAddTag(fullPath(key))">+ Legg til</button>
+              <button v-if="hasChildren(node.id)" class="btn btn-navigate" @click="navigate(node.id)">Gå inn ▶</button>
+              <button v-if="canAdd(node)" class="btn btn-add" @click="emitAddTag(node.id)">+ Legg til</button>
             </template>
           </div>
         </div>
@@ -25,59 +30,43 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useTagsStore } from '@/stores/tagsStore';
+import type { Tag } from '@/stores/tagsStore';
 
-const props = defineProps<{ nodes: any, path: string[] }>();
-const emit = defineEmits(['add-tag']);
+const emit = defineEmits<{ (e: 'add-tag', tagId: string): void }>();
 
-const navStack = ref<string[]>([]);
+const tagsStore = useTagsStore();
 
-const isRootLevel = computed(() => (props.path.length + navStack.value.length) === 0);
+// Stack of parent ids navigated into so far. Empty = root level.
+const parentStack = ref<string[]>([]);
 
-interface TreeNode {
-  OpenForChildSuggestions?: boolean;
-  openForChildSuggestions?: boolean;
-  Children?: Record<string, TreeNode>;
-  children?: Record<string, TreeNode>;
+const currentParentId = computed<string | null>(() =>
+  parentStack.value.length ? parentStack.value[parentStack.value.length - 1] : null
+);
+
+const isRootLevel = computed(() => parentStack.value.length === 0);
+const canGoBack = computed(() => parentStack.value.length > 0);
+
+const currentNodes = computed<Tag[]>(() => tagsStore.getChildren(currentParentId.value));
+
+function hasChildren(tagId: string): boolean {
+  return tagsStore.getChildren(tagId).length > 0;
 }
 
-const currentNodes = computed(() => {
-  let cur: any = props.nodes;
-  for (const key of navStack.value) {
-    if (!cur || typeof cur !== 'object') return {};
-    const next = cur[key];
-    if (!next || typeof next !== 'object') return {};
-    cur = next.Children ?? next.children ?? {};
-  }
-  return cur && typeof cur === 'object' ? cur : {};
-});
-
-const canGoBack = computed(() => navStack.value.length > 0);
-
-function hasChildren(node: TreeNode | undefined) {
-  const children = node?.Children ?? node?.children ?? {};
-  return Object.keys(children).length > 0;
+function canAdd(node: Tag): boolean {
+  return !hasChildren(node.id) || node.openForChildSuggestions === true;
 }
 
-function canAdd(node: TreeNode | undefined) {
-  const children = node?.Children ?? node?.children ?? {};
-  const hasNoChildren = Object.keys(children).length === 0;
-  return hasNoChildren || node?.OpenForChildSuggestions === true || node?.openForChildSuggestions === true;
-}
-
-function navigate(key: string) {
-  navStack.value.push(key);
+function navigate(tagId: string) {
+  parentStack.value.push(tagId);
 }
 
 function goBack() {
-  navStack.value.pop();
+  parentStack.value.pop();
 }
 
-function fullPath(key: string) {
-  return [...props.path, ...navStack.value, key].join('/');
-}
-
-function emitAddTag(tagPath: string) {
-  emit('add-tag', tagPath);
+function emitAddTag(tagId: string) {
+  emit('add-tag', tagId);
 }
 </script>
 
@@ -100,6 +89,15 @@ function emitAddTag(tagPath: string) {
 
 .back-btn:hover {
   background: #ccc;
+}
+
+.loading, .error {
+  padding: 12px;
+  font-size: 14px;
+}
+
+.error {
+  color: #842029;
 }
 
 .tree-list {
@@ -174,11 +172,5 @@ function emitAddTag(tagPath: string) {
 
 .btn-add:hover {
   background: #005fa3;
-}
-
-.btn-disabled {
-  background: #f0f0f0;
-  color: #999;
-  cursor: not-allowed;
 }
 </style>
