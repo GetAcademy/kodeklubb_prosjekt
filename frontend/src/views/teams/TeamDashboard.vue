@@ -288,18 +288,18 @@
 <style scoped>
 /* ---- Design tokens ---- */
 .dashboard {
-  --surface: #14161c;
-  --panel: #1b1e27;
-  --panel-border: #2a2e3a;
-  --text-primary: #e7e9ee;
-  --text-muted: #8b92a5;
-  --accent: #7c9eff;
-  --accent-soft: rgba(124, 158, 255, 0.12);
-  --amber: #f5b662;
-  --success: #34d399;
-  --success-soft: rgba(52, 211, 153, 0.12);
-  --danger: #f37272;
-  --danger-soft: rgba(243, 114, 114, 0.1);
+  --surface: #ffffff;
+  --panel: #f7f8fa;
+  --panel-border: #e2e5eb;
+  --text-primary: #1a1d24;
+  --text-muted: #6b7280;
+  --accent: #3b5fd9;
+  --accent-soft: rgba(59, 95, 217, 0.08);
+  --amber: #d9862f;
+  --success: #1d9a6c;
+  --success-soft: rgba(29, 154, 108, 0.1);
+  --danger: #d9433d;
+  --danger-soft: rgba(217, 67, 61, 0.08);
   --discord: #5865f2;
 
   font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
@@ -319,9 +319,9 @@
 .dashboard :deep(.nav-list) {
   list-style: none;
   display: flex;
-  gap: 0.25rem;
+  gap: 0.75rem;
   margin: 0;
-  padding: 0.75rem 0;
+  padding: 1rem 0;
 }
 
 .dashboard :deep(.nav-item) {
@@ -332,12 +332,12 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.5rem 1rem;
+  padding: 0.55rem 1.15rem;
   border-radius: 8px;
   color: var(--text-muted);
   text-decoration: none;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.92rem;
+  font-weight: 700;
   letter-spacing: 0.01em;
   transition: background 0.15s ease, color 0.15s ease;
 }
