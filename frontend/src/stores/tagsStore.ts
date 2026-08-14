@@ -8,21 +8,22 @@ export interface Tag {
     openForChildSuggestions: boolean;
 }
 
-// Raw shape as returned by the API (PascalCase, since the backend's
-// JSON serializer is configured with PropertyNamingPolicy = null).
+// Raw shape as returned by the API. /api/tags specifically returns
+// camelCase (opted out of the app's global PascalCase JSON config),
+// unlike most other endpoints in this app.
 interface RawTag {
-    Id: string;
-    Name: string;
-    ParentId: string | null;
-    OpenForChildSuggestions: boolean;
+    id: string;
+    name: string;
+    parentId: string | null;
+    openForChildSuggestions: boolean;
 }
 
 function normalize(raw: RawTag): Tag {
     return {
-        id: raw.Id,
-        name: raw.Name,
-        parentId: raw.ParentId,
-        openForChildSuggestions: raw.OpenForChildSuggestions,
+        id: raw.id,
+        name: raw.name,
+        parentId: raw.parentId,
+        openForChildSuggestions: raw.openForChildSuggestions,
     };
 }
 

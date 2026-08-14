@@ -24,7 +24,7 @@ public static class TeamEndpoints
         group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams");
         group.MapGet("/my-requests", GetMyRequests).WithName("GetMyRequests");
         group.MapGet("/notifications", GetNotifications).WithName("GetNotifications");
-        group.MapDelete("/{teamId:guid}/tags/{tagPath}", RemoveTeamTag).WithName("RemoveTeamTag");
+        group.MapDelete("/{teamId:guid}/tags/{tagId:guid}", RemoveTeamTag).WithName("RemoveTeamTag");
         
         // Discord integration endpoints
         group.MapPost("/{teamId:guid}/discord", SetTeamDiscordConfig).WithName("SetTeamDiscordConfig");
@@ -98,17 +98,16 @@ public static class TeamEndpoints
         }
     }
 
-    private static async Task<IResult> RemoveTeamTag(Guid teamId, string tagPath)
+    private static async Task<IResult> RemoveTeamTag(Guid teamId, Guid tagId)
     {
         await using var db = await DbSession.OpenAsync();
         try
         {
-            var slug = tagPath.ToLower().Replace("/", "-").Replace(" ", "-");
             await db.ExecuteAsync(
                 @"DELETE FROM team_tags
                   WHERE team_id = @TeamId
-                  AND predefined_tag_id = (SELECT id FROM predefined_tags WHERE slug = @Slug)",
-                new { TeamId = teamId, Slug = slug });
+                  AND predefined_tag_id = @TagId",
+                new { TeamId = teamId, TagId = tagId });
 
             await db.CommitAsync();
             return Results.Ok(new { message = "Tag removed successfully" });
