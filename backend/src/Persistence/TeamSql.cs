@@ -39,4 +39,36 @@ public static class TeamSql
     public static string InsertOutbox() => SqlLoader.Load("Outbox/Outbox_Insert.sql");
 
     public static string GetAllTeamTagsGrouped() => SqlLoader.Load("Queries/TeamTags_GetAllGrouped.sql");
+
+    // --- Tags ---
+    public static string GetTeamTagsByTeamId() => SqlLoader.Load("Queries/TeamTags_GetByTeamId.sql");
+
+    public static string InsertTeamTag() => SqlLoader.Load("Commands/TeamTags_Insert.sql");
+
+    public static string DeleteTeamTag() => SqlLoader.Load("Commands/TeamTags_Delete.sql");
+
+    // Note: predefined-tag existence check lives in TagsSql.CheckExists()
+    // rather than here, since it's about the tag catalog, not teams.
+
+    // --- Discord integration ---
+    public static string SetTeamDiscordConfig() => SqlLoader.Load("Commands/Teams_SetDiscordConfig.sql");
+
+    public static string GetTeamDiscordInfo() => SqlLoader.Load("Queries/Teams_GetDiscordInfo.sql");
+
+    public static string ClearTeamDiscordConfig() => SqlLoader.Load("Commands/Teams_ClearDiscordConfig.sql");
+
+    public static string InsertDiscordRoleAssignment() => SqlLoader.Load("Commands/DiscordRoleAssignments_Insert.sql");
+
+    public static string RemoveDiscordRoleAssignment() => SqlLoader.Load("Commands/DiscordRoleAssignments_Remove.sql");
+
+    public static string GetActiveTeamMembersWithDiscordId() => SqlLoader.Load("Queries/TeamMembers_GetActiveWithDiscordId.sql");
+
+    // --- Notifications & join requests ---
+    public static string GetPendingApprovalsForAdmin() => SqlLoader.Load("Queries/Invitations_GetPendingApprovalsForAdmin.sql");
+
+    public static string GetRecentUpdatesForUser() => SqlLoader.Load("Queries/Invitations_GetRecentUpdatesForUser.sql");
+
+    public static string GetAllRequestsForUser() => SqlLoader.Load("Queries/Invitations_GetAllForUser.sql");
+
+    public static string GetPendingRequestsForUser() => SqlLoader.Load("Queries/Invitations_GetPendingForUser.sql");
 }
