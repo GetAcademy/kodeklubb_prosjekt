@@ -15,7 +15,6 @@ public static class UserEndpoints
         group.MapGet("/", () => GetAllUsers()).WithName("GetAllUsers");
         group.MapGet("/{id}", (Guid id) => GetUserById(id)).WithName("GetUserById");
         group.MapPost("/", (CreateUserRequest request) => CreateUser(request)).WithName("CreateUser");
-        group.MapGet("/tags/predefined", () => GetPredefinedTags()).WithName("GetPredefinedTags");
         group.MapGet("/{discordId}/tags", (string discordId) => GetUserTags(discordId)).WithName("GetUserTags");
         group.MapPost("/{discordId}/tags", (string discordId, UpdateUserTagsRequest request) => AddUserTags(discordId, request)).WithName("AddUserTags");
         
@@ -59,13 +58,6 @@ public static class UserEndpoints
     }
 
 
-    private static async Task<IResult> GetPredefinedTags()
-    {
-        await using var db = await Handlers.DbSession.OpenAsync();
-        return Results.Ok(await db.QueryAsync<dynamic>(UserSql.GetPredefinedTags()));
-    }
-
-
     private static async Task<IResult> GetUserTags(string discordId)
     {
         if (string.IsNullOrWhiteSpace(discordId)) return Results.BadRequest(new { message = "Discord ID is required" });
@@ -77,26 +69,34 @@ public static class UserEndpoints
     private static async Task<IResult> AddUserTags(string discordId, UpdateUserTagsRequest request)
     {
         if (string.IsNullOrWhiteSpace(discordId)) return Results.BadRequest(new { message = "Discord ID is required" });
-        if ((request.TagIds == null || request.TagIds.Length == 0) && (request.TagPaths == null || request.TagPaths.Length == 0))
-            return Results.BadRequest(new { message = "At least one tag ID or tag path is required" });
+        if (request.TagIds == null || request.TagIds.Length == 0)
+            return Results.BadRequest(new { message = "At least one tag ID is required" });
 
         await using var db = await Handlers.DbSession.OpenAsync();
         try
         {
             var user = await db.QueryOneOrDefaultAsync<UserEntity>(UserSql.GetByDiscordId(), new { DiscordId = discordId });
             if (user == null) { await db.Tx.RollbackAsync(); return Results.NotFound(new { message = "User not found" }); }
-            if (request.TagIds != null)
+
+            foreach (var tagId in request.TagIds)
             {
-                foreach (var tagId in request.TagIds)
-                    await db.ExecuteAsync(UserSql.InsertUserPredefinedTag(), new { UserId = user.Id, PredefinedTagId = tagId });
+                var tagExists = await db.Conn.QuerySingleAsync<bool>(
+                    "SELECT EXISTS(SELECT 1 FROM predefined_tags WHERE id = @TagId)",
+                    new { TagId = tagId }, db.Tx);
+
+                if (!tagExists)
+                    throw new InvalidOperationException($"Tag '{tagId}' does not exist.");
+
+                // user_tags has a UNIQUE(user_id, predefined_tag_id) constraint —
+                // ON CONFLICT DO NOTHING lets re-adding an already-saved tag be a
+                // harmless no-op instead of throwing a constraint violation.
+                await db.ExecuteAsync(
+                    @"INSERT INTO user_tags (id, user_id, predefined_tag_id)
+                      VALUES (uuid_generate_v4(), @UserId, @TagId)
+                      ON CONFLICT (user_id, predefined_tag_id) DO NOTHING",
+                    new { UserId = user.Id, TagId = tagId });
             }
-            if (request.TagPaths != null)
-            {
-                foreach (var tagPath in request.TagPaths)
-                {
-                    await db.ExecuteAsync("INSERT INTO usertags_hierarchical (userid, tagpath) VALUES (@UserId, @TagPath)", new { UserId = user.Id, TagPath = tagPath });
-                }
-            }
+
             await db.CommitAsync();
             return Results.Ok(new { message = "Tags added successfully" });
         }
@@ -142,7 +142,6 @@ public static class UserEndpoints
         }
 
         // Delete user record - they must log in again to create new account
-        await db.ExecuteAsync("DELETE FROM usertags_hierarchical WHERE userid = @UserId", new { UserId = user.Id });
         await db.ExecuteAsync("DELETE FROM user_tags WHERE user_id = @UserId", new { UserId = user.Id });
         await db.ExecuteAsync("DELETE FROM users WHERE id = @UserId", new { UserId = user.Id });
         
@@ -212,4 +211,4 @@ public static class UserEndpoints
 }
 
 public record CreateUserRequest(string? DiscordId, string? Email, string? Username, string? AvatarUrl, string? PreferencesJson);
-public record UpdateUserTagsRequest(Guid[] TagIds, string[]? TagPaths);
+public record UpdateUserTagsRequest(Guid[] TagIds);
