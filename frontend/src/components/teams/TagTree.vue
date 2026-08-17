@@ -19,7 +19,8 @@
             </template>
             <template v-else>
               <button v-if="hasChildren(node.id)" class="btn btn-navigate" @click="navigate(node.id)">Gå inn ▶</button>
-              <button v-if="canAdd(node)" class="btn btn-add" @click="emitAddTag(node.id)">+ Legg til</button>
+              <span v-else-if="isDisabled(node.id)" class="already-added">✓ Lagt til</span>
+              <button v-if="canAdd(node) && !isDisabled(node.id)" class="btn btn-add" @click="emitAddTag(node.id)">+ Legg til</button>
             </template>
           </div>
         </div>
@@ -34,6 +35,11 @@ import { useTagsStore } from '@/stores/tagsStore';
 import type { Tag } from '@/stores/tagsStore';
 
 const emit = defineEmits<{ (e: 'add-tag', tagId: string): void }>();
+
+// Tag ids that are already added (either previously saved, or selected but
+// not yet saved in this session) — these render as locked instead of addable,
+// so the same tag can never be added twice.
+const props = defineProps<{ disabledTagIds?: string[] }>();
 
 const tagsStore = useTagsStore();
 
@@ -55,6 +61,10 @@ function hasChildren(tagId: string): boolean {
 
 function canAdd(node: Tag): boolean {
   return !hasChildren(node.id) || node.openForChildSuggestions === true;
+}
+
+function isDisabled(tagId: string): boolean {
+  return props.disabledTagIds?.includes(tagId) ?? false;
 }
 
 function navigate(tagId: string) {
@@ -172,5 +182,12 @@ function emitAddTag(tagId: string) {
 
 .btn-add:hover {
   background: #005fa3;
+}
+
+.already-added {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d9a6c;
+  white-space: nowrap;
 }
 </style>

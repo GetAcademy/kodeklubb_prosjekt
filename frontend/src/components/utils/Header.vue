@@ -1,30 +1,24 @@
 <template>
-    <p> Logo</p>
+    <router-link to="/" class="brand-logo">GET Academy</router-link>
     <NavigationMenu v-if="isAuthenticated" :data="authMenu"/>
     <NavigationMenu v-else :data="menu"/>
     <h1> GET - Kode Klubb</h1>
-
 </template>
 <script setup lang="ts">
-
     // --- Importing Dependencies & Types
     import { computed } from 'vue';
     import { storeToRefs } from 'pinia'; 
     import { useRouter } from 'vue-router';  
     import { useAuthStore } from '@/stores/authStore';
-
     //  --- Endpoint Logic
     const meta = import.meta.env;
     const BASE_API = meta.VITE_BASE_API;
     const discordAPI = `${BASE_API}${meta.VITE_LOGIN_API}`;
-
     // ---  State Logic
     const authStore = useAuthStore();
     const { isAuthenticated } = storeToRefs(authStore);
-
     // --- Router Logic
     const router = useRouter()
-
     const authMenu = computed(() =>
     {
         return router.getRoutes().filter(route => {
@@ -45,7 +39,6 @@
             }
         });
     });
-
     const menu = computed(() =>
     {
         return router.getRoutes().filter(route => !route.meta?.requiresAuth).map(route => {
@@ -61,7 +54,20 @@
             return { type: 'router', path: route.path, cls: "router-btn", label: toTitleCase(routeName)};
         });
     });
-
     function toTitleCase(str: string) { return str.replace(/\w\S*/g, (txt) => { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(); } );}
-
 </script>
+
+<style scoped>
+.brand-logo {
+    display: inline-block;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #0f5ed8;
+    text-decoration: none;
+    padding: 0.5rem 0;
+}
+
+.brand-logo:hover {
+    text-decoration: underline;
+}
+</style>

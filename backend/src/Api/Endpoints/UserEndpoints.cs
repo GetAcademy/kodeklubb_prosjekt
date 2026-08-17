@@ -12,19 +12,22 @@ public static class UserEndpoints
     {
         var group = app.MapGroup("/api/users").WithName("Users");
 
+        // --- User CRUD ---
         group.MapGet("/", () => GetAllUsers()).WithName("GetAllUsers");
         group.MapGet("/{id}", (Guid id) => GetUserById(id)).WithName("GetUserById");
         group.MapPost("/", (CreateUserRequest request) => CreateUser(request)).WithName("CreateUser");
-        group.MapGet("/tags/predefined", () => GetPredefinedTags()).WithName("GetPredefinedTags");
+        group.MapGet("/me", (HttpContext context) => GetCurrentUser(context)).WithName("GetCurrentUser");
+
+        // --- Tags ---
         group.MapGet("/{discordId}/tags", (string discordId) => GetUserTags(discordId)).WithName("GetUserTags");
         group.MapPost("/{discordId}/tags", (string discordId, UpdateUserTagsRequest request) => AddUserTags(discordId, request)).WithName("AddUserTags");
-        
-        // Discord account linking endpoints
+
+        // --- Discord account linking ---
         group.MapPost("/{discordId}/discord/link", (string discordId, HttpContext context) => LinkDiscordAccount(discordId, context)).WithName("LinkDiscordAccount");
         group.MapDelete("/{discordId}/discord/unlink", (string discordId, IServiceProvider sp) => UnlinkDiscordAccount(discordId, sp)).WithName("UnlinkDiscordAccount");
         group.MapGet("/{discordId}/discord/status", (string discordId) => GetDiscordAccountStatus(discordId)).WithName("GetDiscordAccountStatus");
-        group.MapGet("/me", (HttpContext context) => GetCurrentUser(context)).WithName("GetCurrentUser");
 
+        // --- Misc / dev utilities ---
         group.MapPost("/send-test-email", async (IServiceProvider sp, string toEmail) =>
         {
             var emailService = sp.GetRequiredService<Core.Logic.IEmailService>();
@@ -34,6 +37,8 @@ public static class UserEndpoints
         
     }
 
+
+    // ========== User CRUD ==========
 
     private static async Task<IResult> GetAllUsers()
     {
@@ -59,12 +64,8 @@ public static class UserEndpoints
     }
 
 
-    private static async Task<IResult> GetPredefinedTags()
-    {
-        await using var db = await Handlers.DbSession.OpenAsync();
-        return Results.Ok(await db.QueryAsync<dynamic>(UserSql.GetPredefinedTags()));
-    }
-
+    // ========== Tags ==========
+    // SQL lives in Persistence (UserSql, TagsSql) rather than inline here.
 
     private static async Task<IResult> GetUserTags(string discordId)
     {
@@ -77,31 +78,39 @@ public static class UserEndpoints
     private static async Task<IResult> AddUserTags(string discordId, UpdateUserTagsRequest request)
     {
         if (string.IsNullOrWhiteSpace(discordId)) return Results.BadRequest(new { message = "Discord ID is required" });
-        if ((request.TagIds == null || request.TagIds.Length == 0) && (request.TagPaths == null || request.TagPaths.Length == 0))
-            return Results.BadRequest(new { message = "At least one tag ID or tag path is required" });
+        if (request.TagIds == null || request.TagIds.Length == 0)
+            return Results.BadRequest(new { message = "At least one tag ID is required" });
 
         await using var db = await Handlers.DbSession.OpenAsync();
         try
         {
             var user = await db.QueryOneOrDefaultAsync<UserEntity>(UserSql.GetByDiscordId(), new { DiscordId = discordId });
             if (user == null) { await db.Tx.RollbackAsync(); return Results.NotFound(new { message = "User not found" }); }
-            if (request.TagIds != null)
+
+            foreach (var tagId in request.TagIds)
             {
-                foreach (var tagId in request.TagIds)
-                    await db.ExecuteAsync(UserSql.InsertUserPredefinedTag(), new { UserId = user.Id, PredefinedTagId = tagId });
+                var tagExists = await db.Conn.QuerySingleAsync<bool>(
+                    TagsSql.CheckExists(),
+                    new { TagId = tagId }, db.Tx);
+
+                if (!tagExists)
+                    throw new InvalidOperationException($"Tag '{tagId}' does not exist.");
+
+                // UserTags_InsertPredefined.sql uses ON CONFLICT DO NOTHING
+                // (user_tags has a UNIQUE(user_id, predefined_tag_id) constraint),
+                // so re-adding an already-saved tag is a harmless no-op.
+                await db.ExecuteAsync(
+                    UserSql.InsertUserPredefinedTag(),
+                    new { UserId = user.Id, PredefinedTagId = tagId });
             }
-            if (request.TagPaths != null)
-            {
-                foreach (var tagPath in request.TagPaths)
-                {
-                    await db.ExecuteAsync("INSERT INTO usertags_hierarchical (userid, tagpath) VALUES (@UserId, @TagPath)", new { UserId = user.Id, TagPath = tagPath });
-                }
-            }
+
             await db.CommitAsync();
             return Results.Ok(new { message = "Tags added successfully" });
         }
         catch (Exception) { await db.Tx.RollbackAsync(); throw; }
     }
+
+    // ========== Discord Account Linking ==========
 
     private static async Task<IResult> LinkDiscordAccount(string discordId, HttpContext context)
     {
@@ -142,9 +151,8 @@ public static class UserEndpoints
         }
 
         // Delete user record - they must log in again to create new account
-        await db.ExecuteAsync("DELETE FROM usertags_hierarchical WHERE userid = @UserId", new { UserId = user.Id });
-        await db.ExecuteAsync("DELETE FROM user_tags WHERE user_id = @UserId", new { UserId = user.Id });
-        await db.ExecuteAsync("DELETE FROM users WHERE id = @UserId", new { UserId = user.Id });
+        await db.ExecuteAsync(UserSql.DeleteAllUserTagsForUser(), new { UserId = user.Id });
+        await db.ExecuteAsync(UserSql.DeleteUser(), new { UserId = user.Id });
         
         await db.CommitAsync();
 
@@ -157,32 +165,32 @@ public static class UserEndpoints
     }
 }
     private static async Task<IResult> GetCurrentUser(HttpContext context)
-{
-    // Get the Discord ID from claims or headers
-    var discordId = context.User.FindFirst("sub")?.Value 
-                   ?? context.Request.Headers["X-Discord-ID"].FirstOrDefault();
-    
-    if (string.IsNullOrWhiteSpace(discordId))
-        return Results.BadRequest(new { message = "Discord ID not found in request" });
+    {
+        // Get the Discord ID from claims or headers
+        var discordId = context.User.FindFirst("sub")?.Value
+                       ?? context.Request.Headers["X-Discord-ID"].FirstOrDefault();
 
-    await using var connection = await AppConfig.OpenConnectionAsync();
-    
-    // Search by username or email instead of discord_id
-    var user = await connection.QueryOneOrDefaultAsync<UserEntity>(
-        "SELECT * FROM users WHERE discord_id = @DiscordId OR username LIKE @DiscordId",
-        new { DiscordId = discordId });
-    
-    if (user == null)
-        return Results.NotFound(new { message = "User not found" });
+        if (string.IsNullOrWhiteSpace(discordId))
+            return Results.BadRequest(new { message = "Discord ID not found in request" });
 
-    return Results.Ok(new {
-        userId = user.Id,
-        username = user.Username,
-        email = user.Email,
-        discordId = user.DiscordId,
-        isLinked = !string.IsNullOrWhiteSpace(user.DiscordId)
-    });
-}
+        await using var connection = await AppConfig.OpenConnectionAsync();
+
+        // Falls back to matching by username if not found by Discord ID
+        var user = await connection.QueryOneOrDefaultAsync<UserEntity>(
+            UserSql.GetByDiscordIdOrUsername(),
+            new { DiscordId = discordId });
+
+        if (user == null)
+            return Results.NotFound(new { message = "User not found" });
+
+        return Results.Ok(new {
+            userId = user.Id,
+            username = user.Username,
+            email = user.Email,
+            discordId = user.DiscordId,
+            isLinked = !string.IsNullOrWhiteSpace(user.DiscordId)
+        });
+    }
     private static async Task<IResult> GetDiscordAccountStatus(string discordId)
     {
         if (string.IsNullOrWhiteSpace(discordId))
@@ -212,4 +220,4 @@ public static class UserEndpoints
 }
 
 public record CreateUserRequest(string? DiscordId, string? Email, string? Username, string? AvatarUrl, string? PreferencesJson);
-public record UpdateUserTagsRequest(Guid[] TagIds, string[]? TagPaths);
+public record UpdateUserTagsRequest(Guid[] TagIds);
