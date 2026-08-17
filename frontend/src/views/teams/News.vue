@@ -56,8 +56,6 @@ const title = ref('');
 const body = ref('');
 const isPosting = ref(false);
 
-import { ref } from 'vue';
-
 const isAdmin = ref(false);
 
 async function fetchTeamDetails() {
@@ -73,11 +71,9 @@ async function fetchTeamDetails() {
     const res = await fetch(url);
     if (!res.ok) return;
     const payload = await res.json();
-    // prefer explicit isAdmin flag from the API
     if (payload?.isAdmin !== undefined) {
       isAdmin.value = Boolean(payload.isAdmin);
     } else if (payload?.team && authStore.user?.id) {
-      // fallback: if API returned team object without isAdmin, assume not admin
       isAdmin.value = false;
     } else {
       isAdmin.value = false;
@@ -168,7 +164,6 @@ async function handleUpdate(payload: { id: string; title: string; body: string }
     const currentTeamId = teamId.value;
     if (!currentTeamId) throw new Error('Ingen team valgt.');
 
-    // Find announcement to get its createdBy GUID
     const announcement = announcements.value.find(a => a.id === payload.id);
     if (!announcement) throw new Error('Announcement not found');
 

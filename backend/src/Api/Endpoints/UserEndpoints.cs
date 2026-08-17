@@ -78,8 +78,8 @@ public static class UserEndpoints
     private static async Task<IResult> AddUserTags(string discordId, UpdateUserTagsRequest request)
     {
         if (string.IsNullOrWhiteSpace(discordId)) return Results.BadRequest(new { message = "Discord ID is required" });
-        if (request.TagIds == null || request.TagIds.Length == 0)
-            return Results.BadRequest(new { message = "At least one tag ID is required" });
+        if (request.Selections == null || request.Selections.Length == 0)
+            return Results.BadRequest(new { message = "At least one tag selection is required" });
 
         await using var db = await Handlers.DbSession.OpenAsync();
         try
@@ -87,21 +87,21 @@ public static class UserEndpoints
             var user = await db.QueryOneOrDefaultAsync<UserEntity>(UserSql.GetByDiscordId(), new { DiscordId = discordId });
             if (user == null) { await db.Tx.RollbackAsync(); return Results.NotFound(new { message = "User not found" }); }
 
-            foreach (var tagId in request.TagIds)
+            foreach (var selection in request.Selections)
             {
                 var tagExists = await db.Conn.QuerySingleAsync<bool>(
                     TagsSql.CheckExists(),
-                    new { TagId = tagId }, db.Tx);
+                    new { TagId = selection.TagId }, db.Tx);
 
                 if (!tagExists)
-                    throw new InvalidOperationException($"Tag '{tagId}' does not exist.");
+                    throw new InvalidOperationException($"Tag '{selection.TagId}' does not exist.");
 
-                // UserTags_InsertPredefined.sql uses ON CONFLICT DO NOTHING
-                // (user_tags has a UNIQUE(user_id, predefined_tag_id) constraint),
-                // so re-adding an already-saved tag is a harmless no-op.
+                // UserTags_InsertPredefined.sql upserts level_tag_id on
+                // conflict, so re-adding an already-saved tag with a new
+                // level updates it instead of being a no-op.
                 await db.ExecuteAsync(
                     UserSql.InsertUserPredefinedTag(),
-                    new { UserId = user.Id, PredefinedTagId = tagId });
+                    new { UserId = user.Id, PredefinedTagId = selection.TagId, LevelTagId = selection.LevelTagId });
             }
 
             await db.CommitAsync();
@@ -220,4 +220,4 @@ public static class UserEndpoints
 }
 
 public record CreateUserRequest(string? DiscordId, string? Email, string? Username, string? AvatarUrl, string? PreferencesJson);
-public record UpdateUserTagsRequest(Guid[] TagIds);
+public record UpdateUserTagsRequest(TagSelection[] Selections);

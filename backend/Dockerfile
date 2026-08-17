@@ -1,5 +1,3 @@
-
-
 # Base runtime
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 RUN apt-get update && apt-get install -y libkrb5-3 && rm -rf /var/lib/apt/lists/*
@@ -16,6 +14,7 @@ COPY kodeklubb_prosjekt.sln .
 COPY src/Api ./src/Api
 COPY src/Core ./src/Core
 COPY src/Persistence ./src/Persistence
+RUN echo "=== Persistence/Sql contents ===" && find /src/src/Persistence/Sql -type f
 COPY src/Worker ./src/Worker
 
 # Restore dependencies for the whole solution

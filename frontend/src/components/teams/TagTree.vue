@@ -1,70 +1,98 @@
-<template>
-  <div class="tag-tree">
-    <div class="tree-header">
-      <button v-if="canGoBack" class="back-btn" @click="goBack">
-        <span class="back-arrow">←</span> Tilbake
-      </button>
-      <span v-if="canGoBack" class="crumb">{{ currentParentName }}</span>
-    </div>
-
-    <p v-if="tagsStore.loading && !tagsStore.tags.length" class="loading">
-      Laster tagger...
-    </p>
-    <p v-else-if="tagsStore.error" class="error">{{ tagsStore.error }}</p>
-
-    <div v-else class="tag-grid">
+﻿<template>
+  <ul class="tag-tree" :class="{ 'is-root': depth === 0 }">
+    <li v-for="node in nodes" :key="node.id" class="tree-node">
       <div
-        v-for="node in currentNodes"
-        :key="node.id"
-        class="tag-card"
-        :class="{ 'is-folder': hasChildren(node.id), 'is-added': isDisabled(node.id) && !hasChildren(node.id) }"
-        @click="hasChildren(node.id) ? navigate(node.id) : (canAdd(node) && !isDisabled(node.id) ? emitAddTag(node.id) : null)"
+        class="tree-row"
+        :style="{ paddingLeft: `${depth * 18 + 8}px` }"
+        @click="hasChildren(node.id) ? toggle(node.id) : null"
       >
-        <div class="card-icon">
-          <span v-if="hasChildren(node.id)" class="icon-folder"></span>
-          <span v-else class="icon-tag"></span>
-        </div>
-        <span class="card-label">{{ node.name }}</span>
+        <span class="toggle" :class="{ expanded: isExpanded(node.id) }">
+          <svg v-if="hasChildren(node.id)" viewBox="0 0 16 16" width="10" height="10">
+            <path d="M4 2 L12 8 L4 14 Z" fill="currentColor" />
+          </svg>
+        </span>
 
-        <span v-if="hasChildren(node.id)" class="card-hint">Åpne →</span>
-        <span v-else-if="isDisabled(node.id)" class="card-hint added">✓ Lagt til</span>
-        <span v-else-if="canAdd(node)" class="card-hint add">+ Legg til</span>
+        <span class="node-icon">
+          <svg v-if="hasChildren(node.id)" viewBox="0 0 20 16" width="15" height="12">
+            <path d="M1 2h6l2 2h10v10a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" fill="currentColor" />
+          </svg>
+          <svg v-else viewBox="0 0 16 16" width="12" height="12">
+            <circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.6" />
+          </svg>
+        </span>
+
+        <span class="node-label">{{ node.name }}</span>
+
+        <span v-if="!hasChildren(node.id) && isDisabled(node.id)" class="node-status added">✓</span>
+        <button
+          v-else-if="!hasChildren(node.id) && canAdd(node)"
+          class="add-btn"
+          @click.stop="emitAddTag(node.id)"
+        >+ Legg til</button>
       </div>
-    </div>
-  </div>
+
+      <TagTree
+        v-if="hasChildren(node.id) && isExpanded(node.id)"
+        :parent-id="node.id"
+        :depth="depth + 1"
+        :disabled-tag-ids="disabledTagIds"
+        @add-tag="emitAddTag"
+      />
+    </li>
+  </ul>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useTagsStore } from '@/stores/tagsStore';
 import type { Tag } from '@/stores/tagsStore';
+// No self-import needed: Vue's <script setup> compiler automatically lets
+// a component reference itself by its own filename (TagTree.vue → <TagTree>
+// in its own template), with no import statement required. Adding an
+// explicit self-import was confusing the TypeScript language server.
+//
+// This recursion is SAFE, unlike the earlier AddTags.vue bug that caused a
+// blank-page crash: that component rendered itself unconditionally with no
+// stopping point. Here, the recursive <TagTree> below is guarded by
+// v-if="hasChildren(node.id) && isExpanded(node.id)" — it only renders for
+// a node that (a) actually has children and (b) the user has explicitly
+// expanded, and each recursive call is scoped to a different, deeper
+// parentId. A leaf node (no children) never recurses, so the chain always
+// terminates.
+
+const props = defineProps<{
+  parentId?: string | null;
+  depth?: number;
+  disabledTagIds?: string[];
+  // Tag ids to hide from this specific list (used to pull a category like
+  // "Geografi" out of the main tree so it can be shown in its own box).
+  excludeIds?: string[];
+}>();
 
 const emit = defineEmits<{ (e: 'add-tag', tagId: string): void }>();
 
-// Tag ids that are already added (either previously saved, or selected but
-// not yet saved in this session) — these render as locked instead of addable,
-// so the same tag can never be added twice.
-const props = defineProps<{ disabledTagIds?: string[] }>();
-
 const tagsStore = useTagsStore();
+const depth = computed(() => props.depth ?? 0);
+const nodes = computed<Tag[]>(() => {
+  const all = tagsStore.getChildren(props.parentId ?? null);
+  if (!props.excludeIds?.length) return all;
+  return all.filter(tag => !props.excludeIds!.includes(tag.id));
+});
 
-// Stack of parent ids navigated into so far. Empty = root level.
-const parentStack = ref<string[]>([]);
-
-const currentParentId = computed<string | null>(() =>
-  parentStack.value.length ? parentStack.value[parentStack.value.length - 1] : null
-);
-
-const currentParentName = computed<string>(() =>
-  currentParentId.value ? (tagsStore.getById(currentParentId.value)?.name ?? '') : ''
-);
-
-const canGoBack = computed(() => parentStack.value.length > 0);
-
-const currentNodes = computed<Tag[]>(() => tagsStore.getChildren(currentParentId.value));
+const expandedIds = ref<Set<string>>(new Set());
 
 function hasChildren(tagId: string): boolean {
   return tagsStore.getChildren(tagId).length > 0;
+}
+
+function isExpanded(tagId: string): boolean {
+  return expandedIds.value.has(tagId);
+}
+
+function toggle(tagId: string) {
+  const next = new Set(expandedIds.value);
+  next.has(tagId) ? next.delete(tagId) : next.add(tagId);
+  expandedIds.value = next;
 }
 
 function canAdd(node: Tag): boolean {
@@ -75,14 +103,6 @@ function isDisabled(tagId: string): boolean {
   return props.disabledTagIds?.includes(tagId) ?? false;
 }
 
-function navigate(tagId: string) {
-  parentStack.value.push(tagId);
-}
-
-function goBack() {
-  parentStack.value.pop();
-}
-
 function emitAddTag(tagId: string) {
   emit('add-tag', tagId);
 }
@@ -90,156 +110,96 @@ function emitAddTag(tagId: string) {
 
 <style scoped>
 .tag-tree {
-  --tt-border: #e4e6eb;
-  --tt-accent: #1a73e8;
-  --tt-accent-soft: #eaf2fe;
-  --tt-success: #1d9a6c;
-  --tt-success-soft: #e8f8f0;
-  --tt-text: #1a1d24;
-  --tt-muted: #6b7280;
-
+  list-style: none;
+  margin: 0;
+  padding: 0;
   font-family: sans-serif;
+  --tree-accent: #1a73e8;
+  --tree-success: #1d9a6c;
+  --tree-muted: #6b7280;
+  --tree-hover: #f2f6fc;
 }
 
-.tree-header {
+.tag-tree.is-root {
+  border: 1px solid #e4e6eb;
+  border-radius: 10px;
+  padding: 6px 0;
+  background: #fff;
+}
+
+.tree-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-  min-height: 32px;
-}
-
-.back-btn {
-  display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  background: #fff;
-  border: 1px solid var(--tt-border);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--tt-text);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.back-btn:hover {
-  background: #f7f8fa;
-  border-color: #c7cad1;
-}
-
-.back-arrow {
-  font-size: 14px;
-}
-
-.crumb {
-  font-size: 13px;
-  color: var(--tt-muted);
-  font-weight: 600;
-}
-
-.loading, .error {
-  padding: 12px 0;
-  font-size: 14px;
-}
-
-.error {
-  color: #842029;
-}
-
-.tag-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 14px;
-}
-
-.tag-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 10px;
-  padding: 20px 14px 16px;
-  background: #fff;
-  border: 1px solid var(--tt-border);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
-}
-
-.tag-card:hover {
-  border-color: var(--tt-accent);
-  box-shadow: 0 4px 14px rgba(26, 115, 232, 0.1);
-  transform: translateY(-2px);
-}
-
-.tag-card.is-added {
-  border-color: var(--tt-success);
-  background: var(--tt-success-soft);
+  padding: 6px 10px 6px 0;
   cursor: default;
+  border-radius: 6px;
+  transition: background 0.12s ease;
 }
 
-.tag-card.is-added:hover {
-  transform: none;
-  box-shadow: none;
+.tree-row:hover {
+  background: var(--tree-hover);
 }
 
-.card-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+.toggle {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--tt-accent-soft);
+  color: var(--tree-muted);
+  cursor: pointer;
+  transition: transform 0.12s ease;
 }
 
-.tag-card.is-added .card-icon {
-  background: var(--tt-success-soft);
+.toggle.expanded {
+  transform: rotate(90deg);
 }
 
-.icon-folder, .icon-tag {
-  width: 18px;
-  height: 18px;
-  display: inline-block;
+.node-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--tree-accent);
 }
 
-.icon-folder {
-  background: var(--tt-accent);
-  clip-path: polygon(0% 15%, 40% 15%, 50% 30%, 100% 30%, 100% 85%, 0% 85%);
-  border-radius: 2px;
+.node-label {
+  flex: 1;
+  font-size: 13.5px;
+  color: #1a1d24;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.icon-tag {
-  background: var(--tt-muted);
-  clip-path: polygon(0% 40%, 40% 0%, 100% 0%, 100% 60%, 60% 100%, 0% 60%);
-  border-radius: 2px;
+.node-status.added {
+  color: var(--tree-success);
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
 }
 
-.tag-card.is-added .icon-tag {
-  background: var(--tt-success);
-}
-
-.card-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--tt-text);
-  line-height: 1.3;
-}
-
-.card-hint {
+.add-btn {
+  flex-shrink: 0;
   font-size: 12px;
   font-weight: 600;
-  color: var(--tt-accent);
+  color: var(--tree-accent);
+  background: #eaf2fe;
+  border: none;
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease;
 }
 
-.card-hint.added {
-  color: var(--tt-success);
+.tree-row:hover .add-btn {
+  opacity: 1;
 }
 
-.card-hint.add {
-  color: var(--tt-accent);
+.add-btn:hover {
+  background: #d5e6fc;
 }
 </style>

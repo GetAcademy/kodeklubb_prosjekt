@@ -43,12 +43,13 @@ public static class TeamSql
     // --- Tags ---
     public static string GetTeamTagsByTeamId() => SqlLoader.Load("Queries/TeamTags_GetByTeamId.sql");
 
-    public static string InsertTeamTag() => SqlLoader.Load("Commands/TeamTags_Insert.sql");
+    public static string CheckAndInsertTeamTag() => SqlLoader.Load("Commands/TeamTags_CheckAndInsert.sql");
 
     public static string DeleteTeamTag() => SqlLoader.Load("Commands/TeamTags_Delete.sql");
 
-    // Note: predefined-tag existence check lives in TagsSql.CheckExists()
-    // rather than here, since it's about the tag catalog, not teams.
+    // Note: predefined-tag existence check for user_tags lives in
+    // TagsSql.CheckExists(); for team_tags it's now combined into
+    // CheckAndInsertTeamTag() above (one round trip instead of two).
 
     // --- Discord integration ---
     public static string SetTeamDiscordConfig() => SqlLoader.Load("Commands/Teams_SetDiscordConfig.sql");

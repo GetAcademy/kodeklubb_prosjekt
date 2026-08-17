@@ -72,22 +72,24 @@ public static class TeamEndpoints
 
     private static async Task<IResult> AddTeamTags(Guid teamId, AddTeamTagsRequest body)
     {
-        if (body.TagIds == null || body.TagIds.Length == 0)
-            return Results.BadRequest(new { message = "At least one tag id is required" });
+        if (body.Selections == null || body.Selections.Length == 0)
+            return Results.BadRequest(new { message = "At least one tag selection is required" });
 
         await using var db = await DbSession.OpenAsync();
         try
         {
-            foreach (var tagId in body.TagIds)
+            foreach (var selection in body.Selections)
             {
-                var tagExists = await db.Conn.QuerySingleAsync<bool>(
-                    TagsSql.CheckExists(),
-                    new { TagId = tagId }, db.Tx);
+                // Combined check-and-insert: one round trip instead of a
+                // separate "does it exist" query followed by an insert.
+                // If the tag was already added, its level is updated to
+                // whatever was just selected (upsert), rather than a no-op.
+                var result = await db.Conn.QuerySingleAsync<TeamTagInsertResult>(
+                    TeamSql.CheckAndInsertTeamTag(),
+                    new { TeamId = teamId, TagId = selection.TagId, LevelTagId = selection.LevelTagId }, db.Tx);
 
-                if (!tagExists)
-                    throw new InvalidOperationException($"Tag '{tagId}' does not exist.");
-
-                await db.ExecuteAsync(TeamSql.InsertTeamTag(), new { TeamId = teamId, TagId = tagId });
+                if (!result.TagExists)
+                    throw new InvalidOperationException($"Tag '{selection.TagId}' does not exist.");
             }
 
             await db.CommitAsync();
@@ -791,11 +793,13 @@ public static class TeamEndpoints
 // ── Records ──────────────────────────────────────────────────────────────────
 public record TeamListItem(Guid Id, string Name, string? Description, bool IsOpenToJoinRequests, Guid CreatedBy, DateTime CreatedAt, string[] Tags);
 public record TeamTagRow(Guid TeamId, string TagName);
+public record TeamTagInsertResult(bool TagExists, bool WasInserted);
 public record CreateTeamRequest(string Name, string? Description, Guid AdminUserId);
 public record AdminActionRequest(string DiscordId);
 public record TeamJoinRequest([property: JsonPropertyName("discordId")] string DiscordId);
 public record JoinRequestDto(Guid Id, Guid TeamId, string TeamName, string Status, DateTime? InvitedAt);
-public record AddTeamTagsRequest(Guid[] TagIds);
+public record AddTeamTagsRequest(TagSelection[] Selections);
+public record TagSelection(Guid TagId, Guid? LevelTagId);
 public record SetDiscordConfigRequest(string DiscordServerId, string DiscordChannelId, string DiscordRoleId, string? DiscordLink);
 public record UpdateDiscordConfigRequest(string? DiscordServerId, string? DiscordChannelId, string? DiscordRoleId, string? DiscordLink);
 public record TeamAnnouncementDto(Guid Id, Guid TeamId, Guid CreatedBy, string Title, string Body, DateTime CreatedAt, DateTime UpdatedAt);
