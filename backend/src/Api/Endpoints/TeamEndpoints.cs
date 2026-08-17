@@ -20,48 +20,53 @@ public static class TeamEndpoints
         
         var group = app.MapGroup("/api/discover").WithName("Teams");
 
+        // --- Team discovery & management ---
         group.MapGet("/available", GetAvailableTeams).WithName("GetAvailableTeams");
         group.MapPost("/", (HttpContext context, IServiceProvider sp) => CreateTeam(context, sp)).WithName("CreateTeam");
         group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams");
+        group.MapGet("/{teamId:guid}", GetTeamDetails).WithName("GetTeamDetails");
+        group.MapGet("/{teamId:guid}/members", GetTeamMembers).WithName("GetTeamMembers");
+        group.MapGet("/{teamId:guid}/content", GetTeamContent).WithName("GetTeamContent");
+
+        // --- Tags ---
+        group.MapGet("/{teamId:guid}/tags", GetTeamTags).WithName("GetTeamTags");
+        group.MapPost("/{teamId:guid}/tags", AddTeamTags).WithName("AddTeamTags");
+        group.MapDelete("/{teamId:guid}/tags/{tagId:guid}", RemoveTeamTag).WithName("RemoveTeamTag");
+
+        // --- Join requests & invitations ---
+        group.MapPost("/{teamId:guid}/request", (Guid teamId, HttpContext context, IServiceProvider sp) => RequestToJoinTeam(teamId, context, sp)).WithName("RequestToJoinTeam");
+        group.MapGet("/{teamId:guid}/requests", GetTeamRequests).WithName("GetTeamRequests");
+        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/approve", (Guid teamId, Guid requestId, HttpContext context, IServiceProvider sp) => ApproveTeamRequest(teamId, requestId, context, sp)).WithName("ApproveTeamRequest");
+        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/decline", DeclineTeamRequest).WithName("DeclineTeamRequest");
+        group.MapDelete("/{teamId:guid}/requests/{requestId:guid}", (Guid teamId, Guid requestId, string discordId, IServiceProvider sp) => CancelJoinRequest(teamId, requestId, discordId, sp)).WithName("CancelJoinRequest");
         group.MapGet("/my-requests", GetMyRequests).WithName("GetMyRequests");
         group.MapGet("/notifications", GetNotifications).WithName("GetNotifications");
-        group.MapDelete("/{teamId:guid}/tags/{tagId:guid}", RemoveTeamTag).WithName("RemoveTeamTag");
-        
-        // Discord integration endpoints
+
+        // --- Announcements ---
+        group.MapGet("/{teamId:guid}/announcements", GetTeamAnnouncements).WithName("GetTeamAnnouncements");
+        group.MapPost("/{teamId:guid}/announcements", (Guid teamId, HttpContext context, IServiceProvider sp) => CreateTeamAnnouncement(teamId, context, sp)).WithName("CreateTeamAnnouncement");
+        group.MapPatch("/{teamId:guid}/announcements/{announcementId:guid}", (Guid teamId, Guid announcementId, HttpContext context, IServiceProvider sp) => UpdateTeamAnnouncement(teamId, announcementId, context, sp)).WithName("UpdateTeamAnnouncement");
+        group.MapDelete("/{teamId:guid}/announcements/{announcementId:guid}", DeleteTeamAnnouncement).WithName("DeleteTeamAnnouncement");
+
+        // --- Discord integration ---
         group.MapPost("/{teamId:guid}/discord", SetTeamDiscordConfig).WithName("SetTeamDiscordConfig");
         group.MapPatch("/{teamId:guid}/discord", UpdateTeamDiscordConfig).WithName("UpdateTeamDiscordConfig");
         group.MapGet("/{teamId:guid}/discord/info", GetTeamDiscordInfo).WithName("GetTeamDiscordInfo");
         group.MapDelete("/{teamId:guid}/discord", RemoveTeamDiscordConfig).WithName("RemoveTeamDiscordConfig");
         group.MapPost("/{teamId:guid}/discord/members/{userId:guid}", GrantDiscordAccess).WithName("GrantDiscordAccess");
         group.MapDelete("/{teamId:guid}/discord/members/{userId:guid}", RevokeDiscordAccess).WithName("RevokeDiscordAccess");
-        group.MapGet("/{teamId:guid}", GetTeamDetails).WithName("GetTeamDetails");
-        group.MapGet("/{teamId:guid}/content", GetTeamContent).WithName("GetTeamContent");
-        group.MapGet("/{teamId:guid}/announcements", GetTeamAnnouncements).WithName("GetTeamAnnouncements");
-        group.MapPost("/{teamId:guid}/announcements", (Guid teamId, HttpContext context, IServiceProvider sp) => CreateTeamAnnouncement(teamId, context, sp)).WithName("CreateTeamAnnouncement");
-        group.MapPatch("/{teamId:guid}/announcements/{announcementId:guid}", (Guid teamId, Guid announcementId, HttpContext context, IServiceProvider sp) => UpdateTeamAnnouncement(teamId, announcementId, context, sp)).WithName("UpdateTeamAnnouncement");
-        group.MapDelete("/{teamId:guid}/announcements/{announcementId:guid}", DeleteTeamAnnouncement).WithName("DeleteTeamAnnouncement");
-        group.MapPost("/{teamId:guid}/request", (Guid teamId, HttpContext context, IServiceProvider sp) => RequestToJoinTeam(teamId, context, sp)).WithName("RequestToJoinTeam");
-        group.MapGet("/{teamId:guid}/requests", GetTeamRequests).WithName("GetTeamRequests");
-        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/approve", (Guid teamId, Guid requestId, HttpContext context, IServiceProvider sp) => ApproveTeamRequest(teamId, requestId, context, sp)).WithName("ApproveTeamRequest");
-        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/decline", DeclineTeamRequest).WithName("DeclineTeamRequest");
-        group.MapDelete("/{teamId:guid}/requests/{requestId:guid}", (Guid teamId, Guid requestId, string discordId, IServiceProvider sp) => CancelJoinRequest(teamId, requestId, discordId, sp)).WithName("CancelJoinRequest");
-        group.MapGet("/{teamId:guid}/members", GetTeamMembers).WithName("GetTeamMembers");
-        group.MapGet("/{teamId:guid}/tags", GetTeamTags).WithName("GetTeamTags");
-        group.MapPost("/{teamId:guid}/tags", AddTeamTags).WithName("AddTeamTags");
-    
         group.MapPost("/{teamId:guid}/discord/sync", SyncTeamWithDiscord).WithName("SyncTeamWithDiscord");
     }
+
+    // ========== Tags ==========
+    // Reads a team's tags, adds tags to a team, and removes a tag from a team.
+    // All SQL lives in Persistence (see TeamSql: GetTeamTagsByTeamId, InsertTeamTag,
+    // DeleteTeamTag, CheckPredefinedTagExists) rather than inline here.
 
     private static async Task<IResult> GetTeamTags(Guid teamId)
     {
         await using var connection = await AppConfig.OpenConnectionAsync();
-        var tags = await connection.QueryManyAsync<dynamic>(
-            @"SELECT pt.id, pt.name, pt.slug, pt.category, pt.parent_id AS parentTagId, pt.open_for_child_suggestions AS openForChildSuggestions
-              FROM team_tags tt
-              JOIN predefined_tags pt ON pt.id = tt.predefined_tag_id
-              WHERE tt.team_id = @TeamId
-              ORDER BY pt.name",
-            new { TeamId = teamId });
+        var tags = await connection.QueryManyAsync<dynamic>(TeamSql.GetTeamTagsByTeamId(), new { TeamId = teamId });
         return Results.Ok(tags);
     }
 
@@ -76,17 +81,13 @@ public static class TeamEndpoints
             foreach (var tagId in body.TagIds)
             {
                 var tagExists = await db.Conn.QuerySingleAsync<bool>(
-                    "SELECT EXISTS(SELECT 1 FROM predefined_tags WHERE id = @TagId)",
+                    TagsSql.CheckExists(),
                     new { TagId = tagId }, db.Tx);
 
                 if (!tagExists)
                     throw new InvalidOperationException($"Tag '{tagId}' does not exist.");
 
-                await db.ExecuteAsync(
-                    @"INSERT INTO team_tags (id, team_id, predefined_tag_id)
-                      VALUES (uuid_generate_v4(), @TeamId, @TagId)
-                      ON CONFLICT (team_id, predefined_tag_id) DO NOTHING",
-                    new { TeamId = teamId, TagId = tagId });
+                await db.ExecuteAsync(TeamSql.InsertTeamTag(), new { TeamId = teamId, TagId = tagId });
             }
 
             await db.CommitAsync();
@@ -104,11 +105,7 @@ public static class TeamEndpoints
         await using var db = await DbSession.OpenAsync();
         try
         {
-            await db.ExecuteAsync(
-                @"DELETE FROM team_tags
-                  WHERE team_id = @TeamId
-                  AND predefined_tag_id = @TagId",
-                new { TeamId = teamId, TagId = tagId });
+            await db.ExecuteAsync(TeamSql.DeleteTeamTag(), new { TeamId = teamId, TagId = tagId });
 
             await db.CommitAsync();
             return Results.Ok(new { message = "Tag removed successfully" });
@@ -121,6 +118,10 @@ public static class TeamEndpoints
     }
 
     // ========== Discord Integration Endpoints ==========
+    // Connecting a team to a Discord server/channel/role, and syncing member
+    // access to that role. SQL lives in Persistence (TeamSql), except
+    // UpdateTeamDiscordConfig which builds its SET clause dynamically based
+    // on which fields were actually supplied — see the comment there.
 
     private static async Task<IResult> SetTeamDiscordConfig(Guid teamId, SetDiscordConfigRequest body)
     {
@@ -136,21 +137,14 @@ public static class TeamEndpoints
             if (team == null)
                 return Results.NotFound(new { message = "Team not found" });
 
-            await db.ExecuteAsync(
-                @"UPDATE teams 
-                  SET discord_server_id = @DiscordServerId,
-                      discord_channel_id = @DiscordChannelId,
-                      discord_role_id = @DiscordRoleId,
-                      discord_link = @DiscordLink,
-                      updated_at = NOW()
-                  WHERE id = @TeamId",
-                new { 
-                    TeamId = teamId,
-                    DiscordServerId = body.DiscordServerId,
-                    DiscordChannelId = body.DiscordChannelId,
-                    DiscordRoleId = body.DiscordRoleId,
-                    DiscordLink = body.DiscordLink
-                });
+            await db.ExecuteAsync(TeamSql.SetTeamDiscordConfig(), new
+            {
+                TeamId = teamId,
+                DiscordServerId = body.DiscordServerId,
+                DiscordChannelId = body.DiscordChannelId,
+                DiscordRoleId = body.DiscordRoleId,
+                DiscordLink = body.DiscordLink
+            });
 
             await db.CommitAsync();
             return Results.Ok(new { message = "Discord info configured successfully" });
@@ -162,6 +156,12 @@ public static class TeamEndpoints
         }
     }
 
+    // Kept as dynamic inline SQL rather than a static .sql file: unlike every
+    // other command here, the SET clause genuinely varies per call (only the
+    // fields the caller actually supplied are updated). A static file can't
+    // express that; a fixed set of nullable-COALESCE columns was considered
+    // but would silently no-op on intentional-null updates, which isn't what
+    // "partial update" callers expect either.
     private static async Task<IResult> UpdateTeamDiscordConfig(Guid teamId, UpdateDiscordConfigRequest body)
     {
         await using var db = await DbSession.OpenAsync();
@@ -207,19 +207,18 @@ public static class TeamEndpoints
         }
     }
 
-private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
-{
-    await using var connection = await AppConfig.OpenConnectionAsync();
-    
-    var sql = @"SELECT id, name, discord_link, discord_server_id, discord_channel_id FROM teams WHERE id = @TeamId";
-    var results = await connection.QueryAsync<dynamic>(sql, new { TeamId = teamId });
-    var team = results.FirstOrDefault();
+    private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
+    {
+        await using var connection = await AppConfig.OpenConnectionAsync();
 
-    if (team == null)
-        return Results.NotFound(new { message = "Team not found" });
+        var results = await connection.QueryAsync<dynamic>(TeamSql.GetTeamDiscordInfo(), new { TeamId = teamId });
+        var team = results.FirstOrDefault();
 
-    return Results.Ok(team);
-}
+        if (team == null)
+            return Results.NotFound(new { message = "Team not found" });
+
+        return Results.Ok(team);
+    }
 
     private static async Task<IResult> RemoveTeamDiscordConfig(Guid teamId)
     {
@@ -230,15 +229,7 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
             if (team == null)
                 return Results.NotFound(new { message = "Team not found" });
 
-            await db.ExecuteAsync(
-                @"UPDATE teams 
-                  SET discord_server_id = NULL,
-                      discord_channel_id = NULL,
-                      discord_role_id = NULL,
-                      discord_link = NULL,
-                      updated_at = NOW()
-                  WHERE id = @TeamId",
-                new { TeamId = teamId });
+            await db.ExecuteAsync(TeamSql.ClearTeamDiscordConfig(), new { TeamId = teamId });
 
             await db.CommitAsync();
             return Results.Ok(new { message = "Discord config removed" });
@@ -255,12 +246,7 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         await using var db = await DbSession.OpenAsync();
         try
         {
-            await db.ExecuteAsync(
-                @"INSERT INTO discord_role_assignments (id, team_id, user_id, discord_role_id, assigned_at)
-                  SELECT uuid_generate_v4(), @TeamId, @UserId, discord_role_id, NOW()
-                  FROM teams WHERE id = @TeamId
-                  ON CONFLICT (team_id, user_id) DO NOTHING",
-                new { TeamId = teamId, UserId = userId });
+            await db.ExecuteAsync(TeamSql.InsertDiscordRoleAssignment(), new { TeamId = teamId, UserId = userId });
 
             await db.CommitAsync();
             return Results.Ok(new { message = "Discord access granted" });
@@ -277,11 +263,7 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         await using var db = await DbSession.OpenAsync();
         try
         {
-            await db.ExecuteAsync(
-                @"UPDATE discord_role_assignments 
-                  SET removed_at = NOW()
-                  WHERE team_id = @TeamId AND user_id = @UserId AND removed_at IS NULL",
-                new { TeamId = teamId, UserId = userId });
+            await db.ExecuteAsync(TeamSql.RemoveDiscordRoleAssignment(), new { TeamId = teamId, UserId = userId });
 
             await db.CommitAsync();
             return Results.Ok(new { message = "Discord access revoked" });
@@ -296,11 +278,7 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
     private static async Task<IResult> SyncTeamWithDiscord(Guid teamId)
     {
         await using var connection = await AppConfig.OpenConnectionAsync();
-        var teamMembers = await connection.QueryManyAsync<dynamic>(
-            @"SELECT u.id, u.discord_id FROM team_members tm
-              JOIN users u ON u.id = tm.user_id
-              WHERE tm.team_id = @TeamId AND tm.status = 'active'",
-            new { TeamId = teamId });
+        var teamMembers = await connection.QueryManyAsync<dynamic>(TeamSql.GetActiveTeamMembersWithDiscordId(), new { TeamId = teamId });
 
         var synced = 0;
         var failed = 0;
@@ -320,10 +298,14 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         return Results.Ok(new { message = "Sync completed", synced, failed });
     }
 
+    // Not yet implemented — placeholder for general team content (separate from
+    // announcements/tags/members below).
     private static Task<IResult> GetTeamContent(Guid teamId)
     {
         return Task.FromResult(Results.StatusCode(501));
     }
+
+    // ========== Announcements ==========
 
     private static async Task<IResult> GetTeamAnnouncements(Guid teamId)
     {
@@ -445,6 +427,12 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         }
     }
 
+    // ========== Join Requests & Invitations ==========
+
+    // Returns either all of a user's requests (history=true) or just the
+    // pending ones — two separate queries rather than one with a runtime
+    // WHERE toggle, since the "all" version intentionally drops the status
+    // filter entirely rather than filtering by every possible status.
     private static async Task<IResult> GetMyRequests(string? discordId, bool history = false)
     {
         if (string.IsNullOrWhiteSpace(discordId))
@@ -457,79 +445,34 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         if (user == null)
             return Results.NotFound(new { message = "User not found" });
 
-        string query;
-        if (history)
-        {
-            // Show all invitations (both pending and historical)
-            query = @"SELECT i.id         AS Id,
-                             i.team_id    AS TeamId,
-                             t.name       AS TeamName,
-                             i.status     AS Status,
-                             i.invited_at AS InvitedAt
-                      FROM invitations i
-                      JOIN teams t ON i.team_id = t.id
-                      WHERE i.invited_user_id = @UserId
-                      ORDER BY i.invited_at DESC";
-        }
-        else
-        {
-            // Show only pending invitations
-            query = @"SELECT i.id         AS Id,
-                             i.team_id    AS TeamId,
-                             t.name       AS TeamName,
-                             i.status     AS Status,
-                             i.invited_at AS InvitedAt
-                      FROM invitations i
-                      JOIN teams t ON i.team_id = t.id
-                      WHERE i.invited_user_id = @UserId
-                      AND i.status = 'pending'
-                      ORDER BY i.invited_at DESC";
-        }
-
+        var query = history ? TeamSql.GetAllRequestsForUser() : TeamSql.GetPendingRequestsForUser();
         var requests = await db.Conn.QueryManyAsync<JoinRequestDto>(query, new { UserId = user.Id });
 
         return Results.Ok(requests);
     }
 
-  private static async Task<IResult> GetNotifications(string? discordId)
-{
-    if (string.IsNullOrWhiteSpace(discordId))
-        return Results.BadRequest(new { message = "Discord ID is required" });
+    private static async Task<IResult> GetNotifications(string? discordId)
+    {
+        if (string.IsNullOrWhiteSpace(discordId))
+            return Results.BadRequest(new { message = "Discord ID is required" });
 
-    await using var connection = await AppConfig.OpenConnectionAsync();
+        await using var connection = await AppConfig.OpenConnectionAsync();
 
-    var user = await connection.QueryOneOrDefaultAsync<UserEntity>(
-        TeamSql.GetUserByDiscordId(), new { DiscordId = discordId });
-    if (user == null)
-        return Results.NotFound(new { message = "User not found" });
+        var user = await connection.QueryOneOrDefaultAsync<UserEntity>(
+            TeamSql.GetUserByDiscordId(), new { DiscordId = discordId });
+        if (user == null)
+            return Results.NotFound(new { message = "User not found" });
 
-    // Requests waiting for this user's approval (teams they admin)
-    var pendingApprovals = await connection.QueryManyAsync<dynamic>(
-        @"SELECT i.id AS Id, i.team_id AS TeamId, t.name AS TeamName,
-                 u.username AS FromUsername, i.invited_at AS CreatedAt,
-                 'join_request' AS Type
-          FROM invitations i
-          JOIN teams t ON t.id = i.team_id
-          JOIN users u ON u.id = i.invited_user_id
-          WHERE t.team_admin_id = @UserId
-          AND i.status = 'pending'
-          ORDER BY i.invited_at DESC",
-        new { UserId = user.Id });
+        // Requests waiting for this user's approval (teams they admin)
+        var pendingApprovals = await connection.QueryManyAsync<dynamic>(
+            TeamSql.GetPendingApprovalsForAdmin(), new { UserId = user.Id });
 
-    // Recent status changes on this user's own requests (accepted/declined)
-    var myUpdates = await connection.QueryManyAsync<dynamic>(
-        @"SELECT i.id AS Id, i.team_id AS TeamId, t.name AS TeamName,
-                 i.status AS Type, i.responded_at AS CreatedAt
-          FROM invitations i
-          JOIN teams t ON t.id = i.team_id
-          WHERE i.invited_user_id = @UserId
-          AND i.status IN ('accepted', 'declined')
-          AND i.responded_at > NOW() - INTERVAL '7 days'
-          ORDER BY i.responded_at DESC",
-        new { UserId = user.Id });
+        // Recent status changes on this user's own requests (accepted/declined)
+        var myUpdates = await connection.QueryManyAsync<dynamic>(
+            TeamSql.GetRecentUpdatesForUser(), new { UserId = user.Id });
 
-    return Results.Ok(new { pendingApprovals, myUpdates });
-}
+        return Results.Ok(new { pendingApprovals, myUpdates });
+    }
 
     private static async Task<IResult> CancelJoinRequest(Guid teamId, Guid requestId, string discordId, IServiceProvider sp)
     {
@@ -568,6 +511,8 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
             return Results.BadRequest(new { message = ex.Message });
         }
     }
+
+    // ========== Team Discovery & Management ==========
 
     private static async Task<IResult> CreateTeam(HttpContext context, IServiceProvider sp)
     {
