@@ -1,31 +1,36 @@
 <template>
   <div class="tag-tree">
-    <button v-if="canGoBack" class="back-btn" @click="goBack">⬅ Tilbake</button>
+    <div class="tree-header">
+      <button v-if="canGoBack" class="back-btn" @click="goBack">
+        <span class="back-arrow">←</span> Tilbake
+      </button>
+      <span v-if="canGoBack" class="crumb">{{ currentParentName }}</span>
+    </div>
 
     <p v-if="tagsStore.loading && !tagsStore.tags.length" class="loading">
-      ⏳ Laster tagger...
+      Laster tagger...
     </p>
     <p v-else-if="tagsStore.error" class="error">{{ tagsStore.error }}</p>
 
-    <ul v-else class="tree-list">
-      <li v-for="node in currentNodes" :key="node.id" class="tree-item">
-        <div class="tree-row" :style="{ paddingLeft: `${parentStack.length * 16}px` }">
-          <span class="tree-icon">{{ hasChildren(node.id) ? '📁' : '🏷️' }}</span>
-          <span class="tree-label">{{ node.name }}</span>
-
-          <div class="tree-actions">
-            <template v-if="isRootLevel">
-              <button class="btn btn-navigate" @click="navigate(node.id)">Åpne ▶</button>
-            </template>
-            <template v-else>
-              <button v-if="hasChildren(node.id)" class="btn btn-navigate" @click="navigate(node.id)">Gå inn ▶</button>
-              <span v-else-if="isDisabled(node.id)" class="already-added">✓ Lagt til</span>
-              <button v-if="canAdd(node) && !isDisabled(node.id)" class="btn btn-add" @click="emitAddTag(node.id)">+ Legg til</button>
-            </template>
-          </div>
+    <div v-else class="tag-grid">
+      <div
+        v-for="node in currentNodes"
+        :key="node.id"
+        class="tag-card"
+        :class="{ 'is-folder': hasChildren(node.id), 'is-added': isDisabled(node.id) && !hasChildren(node.id) }"
+        @click="hasChildren(node.id) ? navigate(node.id) : (canAdd(node) && !isDisabled(node.id) ? emitAddTag(node.id) : null)"
+      >
+        <div class="card-icon">
+          <span v-if="hasChildren(node.id)" class="icon-folder"></span>
+          <span v-else class="icon-tag"></span>
         </div>
-      </li>
-    </ul>
+        <span class="card-label">{{ node.name }}</span>
+
+        <span v-if="hasChildren(node.id)" class="card-hint">Åpne →</span>
+        <span v-else-if="isDisabled(node.id)" class="card-hint added">✓ Lagt til</span>
+        <span v-else-if="canAdd(node)" class="card-hint add">+ Legg til</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -50,7 +55,10 @@ const currentParentId = computed<string | null>(() =>
   parentStack.value.length ? parentStack.value[parentStack.value.length - 1] : null
 );
 
-const isRootLevel = computed(() => parentStack.value.length === 0);
+const currentParentName = computed<string>(() =>
+  currentParentId.value ? (tagsStore.getById(currentParentId.value)?.name ?? '') : ''
+);
+
 const canGoBack = computed(() => parentStack.value.length > 0);
 
 const currentNodes = computed<Tag[]>(() => tagsStore.getChildren(currentParentId.value));
@@ -82,27 +90,57 @@ function emitAddTag(tagId: string) {
 
 <style scoped>
 .tag-tree {
+  --tt-border: #e4e6eb;
+  --tt-accent: #1a73e8;
+  --tt-accent-soft: #eaf2fe;
+  --tt-success: #1d9a6c;
+  --tt-success-soft: #e8f8f0;
+  --tt-text: #1a1d24;
+  --tt-muted: #6b7280;
+
   font-family: sans-serif;
-  padding: 8px;
+}
+
+.tree-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  min-height: 32px;
 }
 
 .back-btn {
-  margin-bottom: 12px;
-  padding: 6px 16px;
-  background: #e0e0e0;
-  border: none;
-  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #fff;
+  border: 1px solid var(--tt-border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tt-text);
   cursor: pointer;
-  font-size: 14px;
-  color: #333;
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .back-btn:hover {
-  background: #ccc;
+  background: #f7f8fa;
+  border-color: #c7cad1;
+}
+
+.back-arrow {
+  font-size: 14px;
+}
+
+.crumb {
+  font-size: 13px;
+  color: var(--tt-muted);
+  font-weight: 600;
 }
 
 .loading, .error {
-  padding: 12px;
+  padding: 12px 0;
   font-size: 14px;
 }
 
@@ -110,84 +148,98 @@ function emitAddTag(tagId: string) {
   color: #842029;
 }
 
-.tree-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.tag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
 }
 
-.tree-item {
-  border-bottom: 1px solid #f0f0f0;
+.tag-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 20px 14px 16px;
+  background: #fff;
+  border: 1px solid var(--tt-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
 }
 
-.tree-item:last-child {
-  border-bottom: none;
+.tag-card:hover {
+  border-color: var(--tt-accent);
+  box-shadow: 0 4px 14px rgba(26, 115, 232, 0.1);
+  transform: translateY(-2px);
 }
 
-.tree-row {
+.tag-card.is-added {
+  border-color: var(--tt-success);
+  background: var(--tt-success-soft);
+  cursor: default;
+}
+
+.tag-card.is-added:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 8px;
-  border-radius: 6px;
-  transition: background 0.15s;
+  justify-content: center;
+  background: var(--tt-accent-soft);
 }
 
-.tree-row:hover {
-  background: #eef4ff;
+.tag-card.is-added .card-icon {
+  background: var(--tt-success-soft);
 }
 
-.tree-icon {
-  font-size: 16px;
-  flex-shrink: 0;
+.icon-folder, .icon-tag {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
 }
 
-.tree-label {
-  flex: 1;
-  font-size: 15px;
-  font-weight: 500;
-  color: #222;
+.icon-folder {
+  background: var(--tt-accent);
+  clip-path: polygon(0% 15%, 40% 15%, 50% 30%, 100% 30%, 100% 85%, 0% 85%);
+  border-radius: 2px;
 }
 
-.tree-actions {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
-  padding-left: 16px;
+.icon-tag {
+  background: var(--tt-muted);
+  clip-path: polygon(0% 40%, 40% 0%, 100% 0%, 100% 60%, 60% 100%, 0% 60%);
+  border-radius: 2px;
 }
 
-.btn {
-  padding: 5px 14px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 13px;
-  white-space: nowrap;
-  font-weight: 500;
+.tag-card.is-added .icon-tag {
+  background: var(--tt-success);
 }
 
-.btn-navigate {
-  background: #e8f0fe;
-  color: #1a73e8;
-}
-
-.btn-navigate:hover {
-  background: #c5d8fb;
-}
-
-.btn-add {
-  background: #0077cc;
-  color: white;
-}
-
-.btn-add:hover {
-  background: #005fa3;
-}
-
-.already-added {
-  font-size: 13px;
+.card-label {
+  font-size: 14px;
   font-weight: 600;
-  color: #1d9a6c;
-  white-space: nowrap;
+  color: var(--tt-text);
+  line-height: 1.3;
+}
+
+.card-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tt-accent);
+}
+
+.card-hint.added {
+  color: var(--tt-success);
+}
+
+.card-hint.add {
+  color: var(--tt-accent);
 }
 </style>
