@@ -37,4 +37,6 @@ public static class TeamSql
     public static string InsertEventLog() => SqlLoader.Load("Outbox/EventLog_Insert.sql");
 
     public static string InsertOutbox() => SqlLoader.Load("Outbox/Outbox_Insert.sql");
+
+    public static string GetAllTeamTagsGrouped() => SqlLoader.Load("Queries/TeamTags_GetAllGrouped.sql");
 }

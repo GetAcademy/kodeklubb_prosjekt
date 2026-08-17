@@ -1,3 +1,4 @@
+
 SELECT
     id,
     team_id AS TeamId,

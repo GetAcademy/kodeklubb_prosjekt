@@ -1,6 +1,7 @@
 using System.Data;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Npgsql;
 using Persistence;
 using Core.Commands;
 using Core.Logic;
@@ -609,13 +610,23 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         });
     }
 
+    private static async Task<Dictionary<Guid, string[]>> LoadTeamTagsLookupAsync(NpgsqlConnection connection)
+    {
+        var rows = await connection.QueryManyAsync<TeamTagRow>(TeamSql.GetAllTeamTagsGrouped());
+        return rows
+            .GroupBy(row => row.TeamId)
+            .ToDictionary(g => g.Key, g => g.Select(row => row.TagName).ToArray());
+    }
+
     private static async Task<IResult> GetAvailableTeams(string? discordId)
     {
         await using var connection = await AppConfig.OpenConnectionAsync();
         var teams = await connection.QueryManyAsync<TeamEntity>(TeamSql.GetAvailable, new { DiscordId = discordId });
+        var tagsByTeam = await LoadTeamTagsLookupAsync(connection);
         var results = teams.Select(team => new TeamListItem(
             team.Id, team.Name, team.Description,
-            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt, new string[0]));
+            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt,
+            tagsByTeam.GetValueOrDefault(team.Id, Array.Empty<string>())));
         return Results.Ok(results);
     }
 
@@ -626,17 +637,26 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
 
         await using var connection = await AppConfig.OpenConnectionAsync();
         var teams = await connection.QueryManyAsync<TeamEntity>(TeamSql.GetUserTeams, new { DiscordId = discordId });
+        var tagsByTeam = await LoadTeamTagsLookupAsync(connection);
         var results = teams.Select(team => new TeamListItem(
             team.Id, team.Name, team.Description,
-            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt, new string[0]));
+            team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt,
+            tagsByTeam.GetValueOrDefault(team.Id, Array.Empty<string>())));
         return Results.Ok(results);
     }
 
     private static async Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context, IServiceProvider sp)
     {
+        Console.WriteLine($"[JoinTeam] Incoming request for teamId={teamId}");
+
         var body = await context.Request.ReadFromJsonAsync<TeamJoinRequest>();
         if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
+        {
+            Console.WriteLine("[JoinTeam] Rejected: missing or invalid body / DiscordId");
             return Results.BadRequest(new { message = "Discord ID is required" });
+        }
+
+        Console.WriteLine($"[JoinTeam] Body parsed OK, DiscordId={body.DiscordId}");
 
         await using var db = await DbSession.OpenAsync();
         try
@@ -645,6 +665,8 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[JoinTeam] EXCEPTION: {ex.GetType().Name}: {ex.Message}");
+            Console.WriteLine($"[JoinTeam] StackTrace: {ex.StackTrace}");
             await db.Tx.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
@@ -653,24 +675,51 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
     private static async Task<IResult> RequestToJoinTeamCore(Guid teamId, TeamJoinRequest body, DbSession db, IServiceProvider sp)
     {
         var user = await db.QueryOneOrDefaultAsync<UserEntity>(TeamSql.GetUserByDiscordId(), new { body.DiscordId });
-        if (user == null) { await db.Tx.RollbackAsync(); return Results.BadRequest(new { message = "User not found" }); }
+        if (user == null)
+        {
+            Console.WriteLine($"[JoinTeam] User not found for DiscordId={body.DiscordId}");
+            await db.Tx.RollbackAsync();
+            return Results.BadRequest(new { message = "User not found" });
+        }
+        Console.WriteLine($"[JoinTeam] Resolved user: {user.Id} ({user.Username})");
 
         var team = await db.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById(), new { TeamId = teamId });
-        if (team == null) { await db.Tx.RollbackAsync(); return Results.BadRequest(new { message = "Team not found" }); }
+        if (team == null)
+        {
+            Console.WriteLine($"[JoinTeam] Team not found for teamId={teamId}");
+            await db.Tx.RollbackAsync();
+            return Results.BadRequest(new { message = "Team not found" });
+        }
+        Console.WriteLine($"[JoinTeam] Resolved team: {team.Id} ({team.Name})");
 
         var userIds = await db.QueryListAsync<Guid>(TeamSql.GetMemberIdsByTeamId(), new { TeamId = teamId });
         var teamInvitations = await db.QueryListAsync<Guid>(InvitationSql.GetIdsByTeamId(), new { TeamId = teamId });
+        Console.WriteLine($"[JoinTeam] Existing members: {userIds.Count}, existing invitations: {teamInvitations.Count}");
 
         var state = new TeamState(teamId, userIds, teamInvitations);
         var command = new RequestToJoinTeamCommand(teamId, user.Id);
         var result = TeamService.HandleRequestToJoinTeam(state, command, DateTime.UtcNow);
 
+        Console.WriteLine($"[JoinTeam] Outcome status: {result.Outcome.Status}, message: {result.Outcome.Message}");
+
         if (result.Outcome.Status == OutcomeStatus.Rejected)
             return await db.RollbackAsync(result.Outcome.Message);
 
-        await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx, sp);
-        await db.CommitAsync();
+        try
+        {
+            await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx, sp);
+            await db.CommitAsync();
+            Console.WriteLine("[JoinTeam] Committed successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[JoinTeam] EXCEPTION during event handling/commit: {ex.GetType().Name}: {ex.Message}");
+            Console.WriteLine($"[JoinTeam] StackTrace: {ex.StackTrace}");
+            throw;
+        }
+
         return Results.Ok(new { teamId, status = "pending", message = "Join request submitted successfully" });
+
     }
 
     private static async Task<IResult> GetTeamRequests(Guid teamId)
@@ -796,6 +845,7 @@ private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
 
 // ── Records ──────────────────────────────────────────────────────────────────
 public record TeamListItem(Guid Id, string Name, string? Description, bool IsOpenToJoinRequests, Guid CreatedBy, DateTime CreatedAt, string[] Tags);
+public record TeamTagRow(Guid TeamId, string TagName);
 public record CreateTeamRequest(string Name, string? Description, Guid AdminUserId);
 public record AdminActionRequest(string DiscordId);
 public record TeamJoinRequest([property: JsonPropertyName("discordId")] string DiscordId);

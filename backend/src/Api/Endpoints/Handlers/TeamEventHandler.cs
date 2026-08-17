@@ -51,7 +51,17 @@ public static class TeamEventHandler
             var user = await connection.QueryOneOrDefaultAsync<Persistence.DbModels.UserEntity>("SELECT * FROM users WHERE id = @UserId", new { UserId = evt.UserId }, transaction);
             if (user?.Email != null)
             {
-                await emailService.SendEmailAsync(user.Email, "You have been accepted to the team!", $"<h1>Congratulations!</h1><p>Your request to join the team has been approved.</p>");
+                try
+                {
+                    await emailService.SendEmailAsync(user.Email, "You have been accepted to the team!", $"<h1>Congratulations!</h1><p>Your request to join the team has been approved.</p>");
+                }
+                catch (Exception ex)
+                {
+                    // A failed notification email should never undo a successful
+                    // approval. Log and move on — the outbox row already recorded
+                    // this event for later inspection/retry if needed.
+                    Console.WriteLine($"[TeamEventHandler] Failed to send approval email to {user.Email}: {ex.Message}");
+                }
             }
         }
     }
@@ -79,7 +89,14 @@ public static class TeamEventHandler
             var admin = await connection.QueryOneOrDefaultAsync<Persistence.DbModels.UserEntity>("SELECT u.* FROM users u JOIN teams t ON u.id = t.team_admin_id WHERE t.id = @TeamId", new { TeamId = evt.TeamId }, transaction);
             if (admin?.Email != null)
             {
-                await emailService.SendEmailAsync(admin.Email, "New team join request", $"<h1>New join request</h1><p>A user has requested to join your team.</p>");
+                try
+                {
+                    await emailService.SendEmailAsync(admin.Email, "New team join request", $"<h1>New join request</h1><p>A user has requested to join your team.</p>");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[TeamEventHandler] Failed to send join-request notification to {admin.Email}: {ex.Message}");
+                }
             }
         }
     }
@@ -108,11 +125,21 @@ public static class TeamEventHandler
         NpgsqlConnection connection,
         NpgsqlTransaction transaction)
     {
+        // evt.GetType().Name gives the real event type (e.g. "UserRequestedToJoinTeam").
+        // nameof(evt) would only ever return the literal string "evt" — the parameter's
+        // own name, not the runtime type — which was silently recording useless data.
+        var eventType = evt.GetType().Name;
+
+        // Outbox_Insert.sql requires @EventData; it was previously never supplied,
+        // which is what caused the "column eventdata does not exist" failure.
+        var eventDataJson = System.Text.Json.JsonSerializer.Serialize(evt, evt.GetType());
+
         await connection.ExecuteCommandAsync(TeamSql.InsertEventLog,
-            new { EventType = nameof(evt), OccurredAt = evt.OccurredAt },
+            new { EventType = eventType, OccurredAt = evt.OccurredAt },
             transaction);
         await connection.ExecuteCommandAsync(
             TeamSql.InsertOutbox,
-            new { EventType = nameof(evt) }, transaction);
+            new { EventType = eventType, EventData = eventDataJson, CreatedAt = (DateTime?)null },
+            transaction);
     }
 }

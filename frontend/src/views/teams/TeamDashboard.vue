@@ -131,7 +131,18 @@
         discordId?: string | null;
     } | null;
     };
-  
+
+    // Extracts a human-readable error message from a failed fetch Response.
+    // Falls back to the provided default if the body isn't JSON or has no message field.
+    async function extractErrorMessage(response: Response, fallback: string): Promise<string> {
+        try {
+            const errorPayload = await response.json();
+            return errorPayload?.Message ?? errorPayload?.message ?? fallback;
+        } catch {
+            return fallback;
+        }
+    }
+
     // console.log(route)
     const authStore = useAuthStore();
     const { user } = storeToRefs(authStore);
@@ -158,7 +169,8 @@
         const response = await fetch(url);
 
         if (!response.ok) {
-            throw new Error('Kunne ikke hente foresp├©rsler.');
+            const message = await extractErrorMessage(response, 'Kunne ikke hente forespørsler.');
+            throw new Error(message);
         }
 
         const payload = await response.json();
@@ -207,7 +219,8 @@
         );
 
         if (!response.ok) {
-        throw new Error('Kunne ikke godkjenne forespørsel.');
+            const message = await extractErrorMessage(response, 'Kunne ikke godkjenne forespørsel.');
+            throw new Error(message);
         }
 
         await fetchRequests();
@@ -242,7 +255,8 @@
         );
 
         if (!response.ok) {
-        throw new Error('Kunne ikke avslå forespørsel.');
+            const message = await extractErrorMessage(response, 'Kunne ikke avslå forespørsel.');
+            throw new Error(message);
         }
 
         await fetchRequests();

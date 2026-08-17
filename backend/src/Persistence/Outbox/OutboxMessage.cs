@@ -7,4 +7,6 @@ public class OutboxMessage
     public string Payload { get; set; } = default!;
     public DateTime OccuredOn { get; set; }
     public bool IsProcessed { get; set; }
+    public int RetryCount { get; set; }
+    public int MaxRetries { get; set; }
 }

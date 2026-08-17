@@ -4,15 +4,15 @@
     <p v-if="loading">Laster medlemmer…</p>
     <p v-else-if="error" class="error">{{ error }}</p>
     <ul v-else>
-      <li v-for="member in members" :key="member.user_id" class="member-item">
-        <img v-if="member.avatar_url" :src="member.avatar_url" alt="Profilbilde" class="avatar" />
-        <div class="member-info">
-          <strong>{{ member.username || member.user_id }}</strong>
-          <span v-if="member.email" class="email">{{ member.email }}</span>
-          <span v-if="member.role">({{ member.role }})</span>
-          <span v-if="member.status">- {{ member.status }}</span>
-        </div>
-      </li>
+      <li v-for="member in members" :key="member.UserId" class="member-item">
+  <img v-if="member.AvatarUrl" :src="member.AvatarUrl" alt="Profilbilde" class="avatar" />
+  <div class="member-info">
+    <strong>{{ member.Username || member.UserId }}</strong>
+    <span v-if="member.Email" class="email">{{ member.Email }}</span>
+    <span v-if="member.Role">({{ member.Role }})</span>
+    <span v-if="member.Status">- {{ member.Status }}</span>
+  </div>
+</li>
     </ul>
   </div>
 </template>

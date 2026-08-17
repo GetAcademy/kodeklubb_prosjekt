@@ -45,11 +45,11 @@
     import { useAuthStore } from '@/stores/authStore';
 
     interface TeamListItem {
-        id: number;
+        id: string;
         name: string;
         description?: string | null;
         isOpenToJoinRequests: boolean;
-        createdBy: number;
+        createdBy: string;
         createdAt: string;
         tags: string[];
     };
@@ -60,7 +60,7 @@
     const teams = ref<TeamListItem[]>([]);
     const loading = ref<boolean>(true);
     const error = ref<string | null>(null);
-    const joiningTeamId = ref<number | null>(null);
+    const joiningTeamId = ref<string | null>(null);
 
     async function fetchTeams() {
     loading.value = true;
@@ -82,18 +82,8 @@
             isOpenToJoinRequests: team.IsOpenToJoinRequests ?? team.isOpenToJoinRequests,
             createdBy: team.CreatedBy ?? team.createdBy,
             createdAt: team.CreatedAt ?? team.createdAt,
-            tags: [],
-        }));
-
-        // Fetch tags for each team
-        await Promise.all(rows.map(async (team: any) => {
-            try {
-                const tagRes = await fetch(`${baseApi}/api/discover/${team.id}/tags`);
-                if (tagRes.ok) {
-                    const tagData = await tagRes.json();
-                    team.tags = tagData.map((t: any) => t.Name ?? t.name ?? t);
-                }
-            } catch { /* ignore */ }
+            // Backend now returns real tags directly on the team object (Tags/tags) — no more per-team fetch needed.
+            tags: team.Tags ?? team.tags ?? [],
         }));
 
         teams.value = rows;
@@ -104,13 +94,14 @@
     }
 }
 
-    async function joinTeam(teamId: number) {
+    async function joinTeam(teamId: string) {
         if (!user.value?.id) {
             error.value = 'Du må være logget inn for å bli med i et team.';
             return;
         }
 
         joiningTeamId.value = teamId;
+        error.value = null;
 
         try {
             const baseApi = import.meta.env.VITE_BASE_API;
@@ -123,7 +114,15 @@
             });
 
             if (!response.ok) {
-                throw new Error('Kunne ikke send request til team.');
+                // Surface the backend's actual rejection reason (e.g. "already a member",
+                // "already has a pending request") instead of a generic message, so
+                // failures are self-explanatory without digging through server logs.
+                let message = 'Kunne ikke sende forespørsel til team.';
+                try {
+                    const errorBody = await response.json();
+                    if (errorBody?.message) message = errorBody.message;
+                } catch { /* response wasn't JSON, keep generic message */ }
+                throw new Error(message);
             }
 
             // Refresh teams list after requesting
