@@ -1,6 +1,7 @@
 using System.Data;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Persistence;
 using Core.Commands;
@@ -30,7 +31,7 @@ public static class TeamEndpoints
 
         // --- Tags ---
         group.MapGet("/{teamId:guid}/tags", GetTeamTags).WithName("GetTeamTags");
-        group.MapPost("/{teamId:guid}/tags", AddTeamTags).WithName("AddTeamTags");
+        group.MapPost("/{teamId:guid}/tags", (Guid teamId, AddTeamTagsRequest body, IServiceProvider sp) => AddTeamTags(teamId, body, sp)).WithName("AddTeamTags");
         group.MapDelete("/{teamId:guid}/tags/{tagId:guid}", RemoveTeamTag).WithName("RemoveTeamTag");
 
         // --- Join requests & invitations ---
@@ -70,7 +71,7 @@ public static class TeamEndpoints
         return Results.Ok(tags);
     }
 
-    private static async Task<IResult> AddTeamTags(Guid teamId, AddTeamTagsRequest body)
+    private static async Task<IResult> AddTeamTags(Guid teamId, AddTeamTagsRequest body, IServiceProvider sp)
     {
         if (body.Selections == null || body.Selections.Length == 0)
             return Results.BadRequest(new { message = "At least one tag selection is required" });
@@ -93,12 +94,70 @@ public static class TeamEndpoints
             }
 
             await db.CommitAsync();
+
+            // Notify via Discord: confirm to the person who added the tags,
+            // and separately let the team admin know (skipped if they're the
+            // same person). Best-effort only — a notification failure should
+            // never make the tag save itself look like it failed.
+            await NotifyTeamTagsAdded(teamId, body.DiscordId, body.Selections.Length, db.Conn, sp);
+
             return Results.Ok(new { message = "Tags added successfully" });
         }
         catch (Exception ex)
         {
             await db.Tx.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task NotifyTeamTagsAdded(Guid teamId, string? actingDiscordId, int tagCount, NpgsqlConnection connection, IServiceProvider sp)
+    {
+        try
+        {
+            var discordService = sp.GetRequiredService<Core.Logic.IDiscordNotificationService>();
+
+            var team = await connection.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById(), new { TeamId = teamId });
+            if (team == null) return;
+
+            var admin = await connection.QueryOneOrDefaultAsync<UserEntity>(
+                "SELECT * FROM users WHERE id = @AdminId", new { AdminId = team.TeamAdminId });
+
+            var actingUsername = "Noen";
+            if (!string.IsNullOrWhiteSpace(actingDiscordId))
+            {
+                var actingUser = await connection.QueryOneOrDefaultAsync<UserEntity>(TeamSql.GetUserByDiscordId(), new { DiscordId = actingDiscordId });
+                if (actingUser != null) actingUsername = actingUser.Username;
+
+                // Confirmation to the person who added the tags.
+                try
+                {
+                    await discordService.SendDirectMessageAsync(actingDiscordId,
+                        $"✅ {tagCount} tag(s) saved for {team.Name}!");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[AddTeamTags] Failed to send confirmation DM to {actingDiscordId}: {ex.Message}");
+                }
+            }
+
+            // Notify the admin, unless they're the one who just added the tags.
+            if (admin?.DiscordId != null && admin.DiscordId != actingDiscordId)
+            {
+                try
+                {
+                    await discordService.SendDirectMessageAsync(admin.DiscordId,
+                        $"🏷️ {actingUsername} added {tagCount} tag(s) to {team.Name}.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[AddTeamTags] Failed to send admin notification to {admin.DiscordId}: {ex.Message}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Never let a notification problem affect the tag-save response.
+            Console.WriteLine($"[AddTeamTags] Notification step failed: {ex.Message}");
         }
     }
 
@@ -798,7 +857,7 @@ public record CreateTeamRequest(string Name, string? Description, Guid AdminUser
 public record AdminActionRequest(string DiscordId);
 public record TeamJoinRequest([property: JsonPropertyName("discordId")] string DiscordId);
 public record JoinRequestDto(Guid Id, Guid TeamId, string TeamName, string Status, DateTime? InvitedAt);
-public record AddTeamTagsRequest(TagSelection[] Selections);
+public record AddTeamTagsRequest(TagSelection[] Selections, string? DiscordId);
 public record TagSelection(Guid TagId, Guid? LevelTagId);
 public record SetDiscordConfigRequest(string DiscordServerId, string DiscordChannelId, string DiscordRoleId, string? DiscordLink);
 public record UpdateDiscordConfigRequest(string? DiscordServerId, string? DiscordChannelId, string? DiscordRoleId, string? DiscordLink);
