@@ -33,7 +33,7 @@
 
             <section class="requests">
                 <div class="requests-heading">
-                    <h3>Forespørsler</h3>
+                    <h3>Forespørsler for {{ teamDetails?.name ?? 'teamet' }}</h3>
                     <span v-if="requests.length" class="requests-count">{{ requests.length }}</span>
                 </div>
 
@@ -131,18 +131,7 @@
         discordId?: string | null;
     } | null;
     };
-
-    // Extracts a human-readable error message from a failed fetch Response.
-    // Falls back to the provided default if the body isn't JSON or has no message field.
-    async function extractErrorMessage(response: Response, fallback: string): Promise<string> {
-        try {
-            const errorPayload = await response.json();
-            return errorPayload?.Message ?? errorPayload?.message ?? fallback;
-        } catch {
-            return fallback;
-        }
-    }
-
+  
     // console.log(route)
     const authStore = useAuthStore();
     const { user } = storeToRefs(authStore);
@@ -169,8 +158,7 @@
         const response = await fetch(url);
 
         if (!response.ok) {
-            const message = await extractErrorMessage(response, 'Kunne ikke hente forespørsler.');
-            throw new Error(message);
+            throw new Error('Kunne ikke hente foresp├©rsler.');
         }
 
         const payload = await response.json();
@@ -219,8 +207,12 @@
         );
 
         if (!response.ok) {
-            const message = await extractErrorMessage(response, 'Kunne ikke godkjenne forespørsel.');
-            throw new Error(message);
+        let message = 'Kunne ikke godkjenne forespørsel.';
+        try {
+            const errorBody = await response.json();
+            if (errorBody?.message) message = errorBody.message;
+        } catch { /* response wasn't JSON, keep generic message */ }
+        throw new Error(message);
         }
 
         await fetchRequests();
@@ -255,8 +247,12 @@
         );
 
         if (!response.ok) {
-            const message = await extractErrorMessage(response, 'Kunne ikke avslå forespørsel.');
-            throw new Error(message);
+        let message = 'Kunne ikke avslå forespørsel.';
+        try {
+            const errorBody = await response.json();
+            if (errorBody?.message) message = errorBody.message;
+        } catch { /* response wasn't JSON, keep generic message */ }
+        throw new Error(message);
         }
 
         await fetchRequests();
