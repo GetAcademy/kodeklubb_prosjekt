@@ -226,7 +226,10 @@ async function saveTags() {
     };
 
     if (props.teamId) {
-      await axios.post(`${baseApi}/api/discover/${props.teamId}/tags`, payload);
+      await axios.post(`${baseApi}/api/discover/${props.teamId}/tags`, {
+        ...payload,
+        discordId: user.value?.id ?? null,
+      });
     } else {
       const discordId = user.value?.id;
       if (!discordId) throw new Error('Not logged in');
