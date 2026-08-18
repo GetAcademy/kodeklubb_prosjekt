@@ -31,6 +31,7 @@ public class OutboxWorker : BackgroundService
             {
                 using var scope = _scopeFactory.CreateScope();
                 var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+                var discordService = scope.ServiceProvider.GetRequiredService<IDiscordNotificationService>();
 
                 await using var db = new NpgsqlConnection(_connectionString);
                 await db.OpenAsync(stoppingToken);
@@ -50,7 +51,7 @@ public class OutboxWorker : BackgroundService
 
                 foreach (var msg in messages)
                 {
-                    await HandleMessage(msg, db, emailService);
+                    await HandleMessage(msg, db, emailService, discordService);
                 }
             }
             catch (Exception ex)
@@ -62,7 +63,7 @@ public class OutboxWorker : BackgroundService
         }
     }
 
-    private async Task HandleMessage(OutboxMessage msg, IDbConnection db, IEmailService emailService)
+    private async Task HandleMessage(OutboxMessage msg, IDbConnection db, IEmailService emailService, IDiscordNotificationService discordService)
     {
         string? errorMessage = null;
 
@@ -73,25 +74,25 @@ public class OutboxWorker : BackgroundService
                 case "UserRequestedToJoinTeam":
                 {
                     var evt = JsonSerializer.Deserialize<UserRequestedToJoinTeam>(msg.Payload)!;
-                    await SendJoinRequestNotification(evt, db, emailService);
+                    await SendJoinRequestNotification(evt, db, emailService, discordService);
                     break;
                 }
                 case "JoinRequestApproved":
                 {
                     var evt = JsonSerializer.Deserialize<JoinRequestApproved>(msg.Payload)!;
-                    await SendApprovalNotification(evt, db, emailService);
+                    await SendApprovalNotification(evt, db, emailService, discordService);
                     break;
                 }
                 case "JoinRequestDeclined":
                 {
                     var evt = JsonSerializer.Deserialize<JoinRequestDeclined>(msg.Payload)!;
-                    await SendDeclineNotification(evt, db, emailService);
+                    await SendDeclineNotification(evt, db, emailService, discordService);
                     break;
                 }
                 case "UserInvitedToTeam":
                 {
                     var evt = JsonSerializer.Deserialize<UserInvitedToTeam>(msg.Payload)!;
-                    await SendInviteNotification(evt, db, emailService);
+                    await SendInviteNotification(evt, db, emailService, discordService);
                     break;
                 }
                 default:
@@ -145,61 +146,117 @@ public class OutboxWorker : BackgroundService
             });
     }
 
-    private Task SendInviteNotification(UserInvitedToTeam evt, IDbConnection db, IEmailService emailService)
+    private Task SendInviteNotification(UserInvitedToTeam evt, IDbConnection db, IEmailService emailService, IDiscordNotificationService discordService)
     {
-        return SendEmailToUser(evt.UserId,
+        return NotifyUser(evt.UserId,
             "You have been invited to a team",
             "<h1>Team invitation</h1><p>You have been invited to join a team.</p>",
-            db, emailService);
+            "You have been invited to join a team on KodeKlubb! 🎉",
+            db, emailService, discordService);
     }
 
-    private Task SendApprovalNotification(JoinRequestApproved evt, IDbConnection db, IEmailService emailService)
+    private Task SendApprovalNotification(JoinRequestApproved evt, IDbConnection db, IEmailService emailService, IDiscordNotificationService discordService)
     {
-        return SendEmailToUser(evt.UserId,
+        return NotifyUser(evt.UserId,
             "Your team request was approved",
             "<h1>Congratulations!</h1><p>Your request to join the team has been approved.</p>",
-            db, emailService);
+            "🎉 Your request to join the team has been approved!",
+            db, emailService, discordService);
     }
 
-    private Task SendDeclineNotification(JoinRequestDeclined evt, IDbConnection db, IEmailService emailService)
+    private Task SendDeclineNotification(JoinRequestDeclined evt, IDbConnection db, IEmailService emailService, IDiscordNotificationService discordService)
     {
-        return SendEmailToUser(evt.UserId,
+        return NotifyUser(evt.UserId,
             "Your team request was declined",
             "<h1>Request declined</h1><p>Your request to join the team was declined.</p>",
-            db, emailService);
+            "Your request to join the team was declined.",
+            db, emailService, discordService);
     }
 
-    private async Task SendJoinRequestNotification(UserRequestedToJoinTeam evt, IDbConnection db, IEmailService emailService)
+    private async Task SendJoinRequestNotification(UserRequestedToJoinTeam evt, IDbConnection db, IEmailService emailService, IDiscordNotificationService discordService)
     {
-        var adminEmail = await db.QuerySingleOrDefaultAsync<string?>(
-            @"SELECT u.email FROM users u
+        var admin = await db.QuerySingleOrDefaultAsync<UserContact?>(
+            @"SELECT u.email, u.discord_id AS DiscordId FROM users u
               JOIN teams t ON t.team_admin_id = u.id
               WHERE t.id = @TeamId",
             new { TeamId = evt.TeamId });
 
-        if (!string.IsNullOrWhiteSpace(adminEmail))
-        {
-            // Intentionally NOT caught here — let it propagate up to HandleMessage,
-            // which is now the single place responsible for deciding retry vs. failed
-            // vs. processed. Swallowing it here (as in the earlier fix) hid failures
-            // from the outbox's retry bookkeeping entirely.
-            await emailService.SendEmailAsync(
-                adminEmail,
-                "New team join request",
-                "<h1>New join request</h1><p>A user has requested to join your team.</p>");
-        }
+        if (admin == null) return;
+
+        await SendToBothChannels(
+            admin.Email,
+            admin.DiscordId,
+            "New team join request",
+            "<h1>New join request</h1><p>A user has requested to join your team.</p>",
+            "📥 A new user has requested to join your team.",
+            emailService, discordService);
     }
 
-    private async Task SendEmailToUser(Guid userId, string subject, string htmlBody, IDbConnection db, IEmailService emailService)
+    private async Task NotifyUser(Guid userId, string subject, string htmlBody, string discordMessage, IDbConnection db, IEmailService emailService, IDiscordNotificationService discordService)
     {
-        var email = await db.QuerySingleOrDefaultAsync<string?>(
-            "SELECT email FROM users WHERE id = @UserId",
+        var contact = await db.QuerySingleOrDefaultAsync<UserContact?>(
+            "SELECT email, discord_id AS DiscordId FROM users WHERE id = @UserId",
             new { UserId = userId });
+
+        if (contact == null) return;
+
+        await SendToBothChannels(contact.Email, contact.DiscordId, subject, htmlBody, discordMessage, emailService, discordService);
+    }
+
+    /// <summary>
+    /// Tries both notification channels independently. A failure in one
+    /// doesn't stop the other from being attempted. Only throws (and thus
+    /// triggers the outbox's retry logic) if BOTH channels fail — if at
+    /// least one succeeded, the user was actually notified, so the row is
+    /// considered processed.
+    /// </summary>
+    private static async Task SendToBothChannels(
+        string? email, string? discordId, string subject, string htmlBody, string discordMessage,
+        IEmailService emailService, IDiscordNotificationService discordService)
+    {
+        Exception? emailError = null;
+        Exception? discordError = null;
+
+        if (!string.IsNullOrWhiteSpace(discordId))
+        {
+            try
+            {
+                await discordService.SendDirectMessageAsync(discordId, discordMessage);
+            }
+            catch (Exception ex)
+            {
+                discordError = ex;
+                Console.WriteLine($"[OutboxWorker] Discord DM failed for {discordId}: {ex.Message}");
+            }
+        }
+        else
+        {
+            discordError = new InvalidOperationException("No Discord ID on file.");
+        }
 
         if (!string.IsNullOrWhiteSpace(email))
         {
-            // Same reasoning as SendJoinRequestNotification above — no try/catch here.
-            await emailService.SendEmailAsync(email, subject, htmlBody);
+            try
+            {
+                await emailService.SendEmailAsync(email, subject, htmlBody);
+            }
+            catch (Exception ex)
+            {
+                emailError = ex;
+                Console.WriteLine($"[OutboxWorker] Email failed for {email}: {ex.Message}");
+            }
+        }
+        else
+        {
+            emailError = new InvalidOperationException("No email on file.");
+        }
+
+        if (discordError != null && emailError != null)
+        {
+            throw new InvalidOperationException(
+                $"Both notification channels failed. Discord: {discordError.Message} | Email: {emailError.Message}");
         }
     }
 }
+
+public record UserContact(string? Email, string? DiscordId);
