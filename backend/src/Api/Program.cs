@@ -71,6 +71,7 @@ builder.Services.Configure<Resend.ResendClientOptions>(o => { o.ApiToken = resen
 builder.Services.AddTransient<Resend.IResend, Resend.ResendClient>();
 builder.Services.AddTransient<Core.Logic.IEmailService>(sp =>
     new Core.Logic.ResendEmailService(sp.GetRequiredService<Resend.IResend>(), resendFrom));
+builder.Services.AddHttpClient<Core.Logic.IDiscordNotificationService, Core.Logic.DiscordNotificationService>();
 
 // --- 4. OUTBOX WORKER ---
 builder.Services.AddSingleton<IHostedService>(sp =>
