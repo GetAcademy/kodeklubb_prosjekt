@@ -141,7 +141,7 @@ public static class TeamEndpoints
             }
 
             // Notify the admin, unless they're the one who just added the tags.
-            if (admin?.DiscordId != null && admin.DiscordId != actingDiscordId)
+            if (!string.IsNullOrWhiteSpace(admin?.DiscordId) && admin.DiscordId != actingDiscordId)
             {
                 try
                 {
