@@ -281,7 +281,17 @@
         }
         const payload = await res.json();
         // payload may contain { team: {...}, isMember: bool } or just team
-        teamDetails.value = payload.team ?? payload;
+        const rawTeam = payload.team ?? payload;
+        // Backend returns PascalCase field names (Name, Description, etc.) —
+        // normalize to lowercase here so the template's teamDetails?.name
+        // actually matches instead of silently falling back to a default.
+        teamDetails.value = rawTeam ? {
+            id: rawTeam.id ?? rawTeam.Id,
+            name: rawTeam.name ?? rawTeam.Name,
+            description: rawTeam.description ?? rawTeam.Description,
+            discordLink: rawTeam.discordLink ?? rawTeam.DiscordLink,
+            isOpenToJoinRequests: rawTeam.isOpenToJoinRequests ?? rawTeam.IsOpenToJoinRequests,
+        } : null;
     } catch (err) {
         teamError.value = err instanceof Error ? err.message : 'Ukjent feil.';
     } finally {
