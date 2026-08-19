@@ -24,8 +24,11 @@
     <li v-for="team in teams" :key="team.id" class="team-card">
         <h3>{{ team.name }}</h3>
         <p v-if="team.description">{{ team.description }}</p>
-        <ul v-if="team.tags && team.tags.length" class="team-tags">
-            <li v-for="tag in team.tags" :key="tag">{{ tag }}</li>
+        <ul v-if="technicalTags(team).length" class="team-tags">
+            <li v-for="tag in technicalTags(team)" :key="tag.id">{{ tag.name }}</li>
+        </ul>
+        <ul v-if="geografiTags(team).length" class="team-tags team-tags-geo">
+            <li v-for="tag in geografiTags(team)" :key="tag.id">🌍 {{ tag.name }}</li>
         </ul>
         <button
             v-if="team.isOpenToJoinRequests"
@@ -43,6 +46,12 @@
     import { onMounted, ref } from 'vue';
     import { storeToRefs } from 'pinia';
     import { useAuthStore } from '@/stores/authStore';
+    import { useTagsStore } from '@/stores/tagsStore';
+
+    interface TeamTag {
+        id: string;
+        name: string;
+    }
 
     interface TeamListItem {
         id: string;
@@ -51,11 +60,36 @@
         isOpenToJoinRequests: boolean;
         createdBy: string;
         createdAt: string;
-        tags: string[];
+        tags: TeamTag[];
     };
 
     const authStore = useAuthStore();
     const { userName, user } = storeToRefs(authStore);
+    const tagsStore = useTagsStore();
+
+    const geografiId = ref<string | undefined>(undefined);
+
+    function isDescendantOf(tagId: string, ancestorId: string | undefined): boolean {
+        if (!ancestorId) return false;
+        let current = tagsStore.getById(tagId);
+        while (current?.parentId) {
+            if (current.parentId === ancestorId) return true;
+            current = tagsStore.getById(current.parentId);
+        }
+        return false;
+    }
+
+    function isGeografiTag(tagId: string): boolean {
+        return tagId === geografiId.value || isDescendantOf(tagId, geografiId.value);
+    }
+
+    function technicalTags(team: TeamListItem): TeamTag[] {
+        return team.tags.filter(t => !isGeografiTag(t.id));
+    }
+
+    function geografiTags(team: TeamListItem): TeamTag[] {
+        return team.tags.filter(t => isGeografiTag(t.id));
+    }
 
     const teams = ref<TeamListItem[]>([]);
     const loading = ref<boolean>(true);
@@ -67,6 +101,9 @@
     error.value = null;
 
     try {
+        await tagsStore.ensureLoaded();
+        geografiId.value = tagsStore.tags.find(t => t.name === 'Geografi' && t.parentId === null)?.id;
+
         const baseApi = import.meta.env.VITE_BASE_API;
         const discordId = user.value?.id;
         const query = discordId ? `?discordId=${encodeURIComponent(discordId)}` : '';
@@ -82,8 +119,13 @@
             isOpenToJoinRequests: team.IsOpenToJoinRequests ?? team.isOpenToJoinRequests,
             createdBy: team.CreatedBy ?? team.createdBy,
             createdAt: team.CreatedAt ?? team.createdAt,
-            // Backend now returns real tags directly on the team object (Tags/tags) — no more per-team fetch needed.
-            tags: team.Tags ?? team.tags ?? [],
+            // Backend now returns tag objects ({ id, name }) directly on the
+            // team, not just names — needed to tell Geografi tags apart from
+            // technical ones on the frontend.
+            tags: (team.Tags ?? team.tags ?? []).map((t: any) => ({
+                id: t.Id ?? t.id,
+                name: t.Name ?? t.name,
+            })),
         }));
 
         teams.value = rows;
@@ -188,6 +230,11 @@
         padding: 0.25rem 0.5rem;
         border-radius: 4px;
         font-size: 0.85rem;
+    }
+
+    .team-tags-geo li {
+        background-color: #e6fbf5;
+        color: #0f766e;
     }
 
     .team-card button {
