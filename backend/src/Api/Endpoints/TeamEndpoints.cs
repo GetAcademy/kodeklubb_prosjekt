@@ -76,9 +76,22 @@ public static class TeamEndpoints
         if (body.Selections == null || body.Selections.Length == 0)
             return Results.BadRequest(new { message = "At least one tag selection is required" });
 
+        if (string.IsNullOrWhiteSpace(body.DiscordId))
+            return Results.BadRequest(new { message = "Discord ID is required" });
+
         await using var db = await DbSession.OpenAsync();
         try
         {
+            // Only team members are allowed to add tags to a team.
+            var isMember = await db.Conn.QuerySingleAsync<bool>(
+                TeamSql.IsUserMemberByDiscordId(), new { TeamId = teamId, DiscordId = body.DiscordId }, db.Tx);
+
+            if (!isMember)
+            {
+                await db.Tx.RollbackAsync();
+                return Results.Json(new { message = "Only team members can add tags to this team." }, statusCode: 403);
+            }
+
             foreach (var selection in body.Selections)
             {
                 // Combined check-and-insert: one round trip instead of a
@@ -99,7 +112,7 @@ public static class TeamEndpoints
             // and separately let the team admin know (skipped if they're the
             // same person). Best-effort only — a notification failure should
             // never make the tag save itself look like it failed.
-            await NotifyTeamTagsAdded(teamId, body.DiscordId, body.Selections.Length, db.Conn, sp);
+            await NotifyTeamTagsAdded(teamId, body.DiscordId, body.Selections.Select(s => s.TagId).ToArray(), db.Conn, sp);
 
             return Results.Ok(new { message = "Tags added successfully" });
         }
@@ -110,7 +123,7 @@ public static class TeamEndpoints
         }
     }
 
-    private static async Task NotifyTeamTagsAdded(Guid teamId, string? actingDiscordId, int tagCount, NpgsqlConnection connection, IServiceProvider sp)
+    private static async Task NotifyTeamTagsAdded(Guid teamId, string? actingDiscordId, Guid[] tagIds, NpgsqlConnection connection, IServiceProvider sp)
     {
         try
         {
@@ -121,6 +134,12 @@ public static class TeamEndpoints
 
             var admin = await connection.QueryOneOrDefaultAsync<UserEntity>(
                 "SELECT * FROM users WHERE id = @AdminId", new { AdminId = team.TeamAdminId });
+            var adminName = admin?.Username ?? "ukjent admin";
+
+            // Look up the actual tag names, in the same order they were selected.
+            var tagNames = await connection.QueryManyAsync<string>(
+                "SELECT name FROM predefined_tags WHERE id = ANY(@TagIds)", new { TagIds = tagIds });
+            var tagList = string.Join(", ", tagNames);
 
             var actingUsername = "Noen";
             if (!string.IsNullOrWhiteSpace(actingDiscordId))
@@ -132,7 +151,7 @@ public static class TeamEndpoints
                 try
                 {
                     await discordService.SendDirectMessageAsync(actingDiscordId,
-                        $"✅ {tagCount} tag(s) saved for {team.Name}!");
+                        $"✅ Du la til [{tagList}] på {team.Name}! (Admin: {adminName})");
                 }
                 catch (Exception ex)
                 {
@@ -146,7 +165,7 @@ public static class TeamEndpoints
                 try
                 {
                     await discordService.SendDirectMessageAsync(admin.DiscordId,
-                        $"🏷️ {actingUsername} added {tagCount} tag(s) to {team.Name}.");
+                        $"🏷️ {actingUsername} la til [{tagList}] på {team.Name}.");
                 }
                 catch (Exception ex)
                 {
