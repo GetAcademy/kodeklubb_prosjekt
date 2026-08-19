@@ -1,4 +1,5 @@
 SELECT tt.team_id AS "TeamId",
+       pt.id      AS "TagId",
        pt.name    AS "TagName"
 FROM team_tags tt
 JOIN predefined_tags pt ON pt.id = tt.predefined_tag_id
