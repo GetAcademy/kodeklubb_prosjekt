@@ -20,20 +20,28 @@
       <div class="selected-section">
         <template v-if="savedSelections.length">
           <h3 class="selected-title">✅ Allerede lagt til</h3>
-          <ul class="selected-list">
-            <li v-for="sel in savedSelections" :key="sel.tagId" class="selected-item saved">
+          <ul v-if="savedTechnical.length" class="selected-list">
+            <li v-for="sel in savedTechnical" :key="sel.tagId" class="selected-item saved">
               <span class="tag-badge">
                 🏷️ {{ tagName(sel.tagId) }}
                 <span v-if="sel.levelName" class="level-pill">{{ sel.levelName }}</span>
               </span>
             </li>
           </ul>
+          <template v-if="savedGeografi.length">
+            <h4 class="selected-subtitle">🌍 Geografi</h4>
+            <ul class="selected-list">
+              <li v-for="sel in savedGeografi" :key="sel.tagId" class="selected-item saved geo">
+                <span class="tag-badge">🌍 {{ tagName(sel.tagId) }}</span>
+              </li>
+            </ul>
+          </template>
         </template>
 
         <template v-if="pendingSelections.length">
           <h3 class="selected-title pending-title">🆕 Nye valg (ikke lagret enda)</h3>
-          <ul class="selected-list">
-            <li v-for="sel in pendingSelections" :key="sel.tagId" class="selected-item">
+          <ul v-if="pendingTechnical.length" class="selected-list">
+            <li v-for="sel in pendingTechnical" :key="sel.tagId" class="selected-item">
               <span class="tag-badge">
                 🏷️ {{ tagName(sel.tagId) }}
                 <span v-if="sel.levelTagId" class="level-pill">{{ tagName(sel.levelTagId) }}</span>
@@ -41,6 +49,15 @@
               <button class="remove-btn" @click="removeSelection(sel.tagId)">✕</button>
             </li>
           </ul>
+          <template v-if="pendingGeografi.length">
+            <h4 class="selected-subtitle pending-title">🌍 Geografi</h4>
+            <ul class="selected-list">
+              <li v-for="sel in pendingGeografi" :key="sel.tagId" class="selected-item geo">
+                <span class="tag-badge">🌍 {{ tagName(sel.tagId) }}</span>
+                <button class="remove-btn" @click="removeSelection(sel.tagId)">✕</button>
+              </li>
+            </ul>
+          </template>
           <button class="save-btn" @click="saveTags" :disabled="saveStatus === 'saving'">
             {{ saveStatus === 'saving' ? 'Lagrer...' : '💾 Lagre tags' }}
           </button>
@@ -121,6 +138,15 @@ const geografiId = computed<string | undefined>(() =>
   tagsStore.tags.find(t => t.name === 'Geografi' && t.parentId === null)?.id
 );
 const specialSectionIds = computed<string[]>(() => geografiId.value ? [geografiId.value] : []);
+
+function isGeografiTag(tagId: string): boolean {
+  return tagId === geografiId.value || isDescendantOf(tagId, geografiId.value);
+}
+
+const savedTechnical = computed(() => savedSelections.value.filter(s => !isGeografiTag(s.tagId)));
+const savedGeografi = computed(() => savedSelections.value.filter(s => isGeografiTag(s.tagId)));
+const pendingTechnical = computed(() => pendingSelections.value.filter(s => !isGeografiTag(s.tagId)));
+const pendingGeografi = computed(() => pendingSelections.value.filter(s => isGeografiTag(s.tagId)));
 
 // "Erfaringsniva" (experience level) — picking any technical tag (i.e.
 // anything outside Geografi and outside the level tags themselves)
@@ -320,6 +346,18 @@ onMounted(fetchExistingTags);
 .pending-title {
   margin-top: 16px;
   color: #b8860b;
+}
+
+.selected-subtitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f766e;
+  margin: 12px 0 8px;
+}
+
+.selected-item.geo {
+  border-color: #a7f0d0;
+  background: #f0fdf9;
 }
 
 .selected-list {
