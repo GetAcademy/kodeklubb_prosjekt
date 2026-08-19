@@ -1,5 +1,3 @@
-
-
 <template>
     <section v-if="isAuthenticated && user">
         <p v-if="userTeamsLoading" class="loading">Laster teams...</p>
@@ -54,7 +52,13 @@
                 isOpenToJoinRequests: team.IsOpenToJoinRequests ?? team.isOpenToJoinRequests,
                 createdBy: team.CreatedBy ?? team.createdBy,
                 createdAt: team.CreatedAt ?? team.createdAt,
-                tags: team.Tags ?? team.tags ?? [],
+                // Backend returns tag objects ({ Id, Name }), not just names —
+                // normalized to lowercase here so Dashboard.vue can tell
+                // Geografi tags apart from technical ones.
+                tags: (team.Tags ?? team.tags ?? []).map((t: any) => ({
+                    id: t.Id ?? t.id,
+                    name: t.Name ?? t.name,
+                })),
             }));
         } catch (error) {
             userTeamsError.value = error instanceof Error ? error.message : 'An error occurred';

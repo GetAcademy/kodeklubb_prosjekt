@@ -19,8 +19,11 @@
                         <RouterLink class="team-link" :to="`/teams/${team.id}`">Open</RouterLink>
                     </header>
                     <p v-if="team.description">{{ team.description }}</p>
-                    <section v-if="team.tags && team.tags.length" class="team-tags">
-                        <span v-for="tag in team.tags" :key="tag" class="team-tag">{{ tag }}</span>
+                    <section v-if="technicalTags(team).length" class="team-tags">
+                        <span v-for="tag in technicalTags(team)" :key="tag.id" class="team-tag">{{ tag.name }}</span>
+                    </section>
+                    <section v-if="geografiTags(team).length" class="team-tags team-tags-geo">
+                        <span v-for="tag in geografiTags(team)" :key="tag.id" class="team-tag geo">🌍 {{ tag.name }}</span>
                     </section>
                 </article>
             </section>
@@ -37,16 +40,45 @@
     import { computed } from 'vue';
     import type { DashboardProps} from '@/types/props';
     import NotificationBell from '../NotificationBell.vue';
-    
+    import { useTagsStore } from '@/stores/tagsStore';
+
     // --- Props Definition Logic
     const props = defineProps<DashboardProps>();
     const data = computed(() => props.data);
     const teams = computed(() => props.teams || [])
 
+    // --- Split team tags into technical vs Geografi, same pattern as Discover.vue
+    const tagsStore = useTagsStore();
+    const geografiId = computed(() =>
+        tagsStore.tags.find(t => t.name === 'Geografi' && t.parentId === null)?.id
+    );
+
+    function isDescendantOf(tagId: string, ancestorId: string | undefined): boolean {
+        if (!ancestorId) return false;
+        let current = tagsStore.getById(tagId);
+        while (current?.parentId) {
+            if (current.parentId === ancestorId) return true;
+            current = tagsStore.getById(current.parentId);
+        }
+        return false;
+    }
+
+    function isGeografiTag(tagId: string): boolean {
+        return tagId === geografiId.value || isDescendantOf(tagId, geografiId.value);
+    }
+
+    function technicalTags(team: any): { id: string; name: string }[] {
+        return (team.tags ?? []).filter((t: any) => !isGeografiTag(t.id));
+    }
+
+    function geografiTags(team: any): { id: string; name: string }[] {
+        return (team.tags ?? []).filter((t: any) => isGeografiTag(t.id));
+    }
+
     //  --  Debug Logic
     //console.log(data.value)
 
-    
+
 </script>
 
 <style scoped>
@@ -110,5 +142,10 @@
         padding: 0.25rem 0.5rem;
         border-radius: 4px;
         font-size: 0.85rem;
+    }
+
+    .team-tag.geo {
+        background-color: #e6fbf5;
+        color: #0f766e;
     }
 </style>
