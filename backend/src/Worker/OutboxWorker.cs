@@ -148,13 +148,81 @@ public class OutboxWorker : BackgroundService
             db, emailService, discordService);
     }
 
-    private Task SendApprovalNotification(JoinRequestApproved evt, IDbConnection db, IEmailService emailService, IDiscordNotificationService discordService)
+    private async Task SendApprovalNotification(JoinRequestApproved evt, IDbConnection db, IEmailService emailService, IDiscordNotificationService discordService)
     {
-        return NotifyUser(evt.UserId,
+        await NotifyUser(evt.UserId,
             "Your team request was approved",
             "<h1>Congratulations!</h1><p>Your request to join the team has been approved.</p>",
             "🎉 Your request to join the team has been approved!",
             db, emailService, discordService);
+
+        // Since server membership itself is still added manually (we only
+        // have one Discord server), this is the automated part: introduce
+        // the new member and the team admin to each other — both via a
+        // channel post (if the team has one configured) and a DM to each
+        // person naming the other, so they can connect directly.
+        await SendTeamIntroNotifications(evt.TeamId, evt.UserId, db, discordService);
+    }
+
+    private async Task SendTeamIntroNotifications(Guid teamId, Guid newMemberId, IDbConnection db, IDiscordNotificationService discordService)
+    {
+        try
+        {
+            var info = await db.QuerySingleOrDefaultAsync<ApprovalIntroInfo?>(
+                OutboxSql.GetApprovalIntroInfo(), new { TeamId = teamId, UserId = newMemberId });
+
+            if (info == null) return;
+
+            // Post in the team's Discord channel, mentioning both people,
+            // if one is configured for this team.
+            if (!string.IsNullOrWhiteSpace(info.DiscordChannelId)
+                && !string.IsNullOrWhiteSpace(info.AdminDiscordId)
+                && !string.IsNullOrWhiteSpace(info.NewMemberDiscordId))
+            {
+                try
+                {
+                    await discordService.SendChannelMessageAsync(info.DiscordChannelId,
+                        $"👋 <@{info.NewMemberDiscordId}> has joined the team! <@{info.AdminDiscordId}>, say hi.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[OutboxWorker] Failed to post team-intro channel message: {ex.Message}");
+                }
+            }
+
+            // Also DM each person individually with the other's name, so the
+            // connection happens even for teams with no channel configured.
+            if (!string.IsNullOrWhiteSpace(info.AdminDiscordId))
+            {
+                try
+                {
+                    await discordService.SendDirectMessageAsync(info.AdminDiscordId,
+                        $"👋 {info.NewMemberUsername} just joined your team on Discord \u2014 say hi and get them connected!");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[OutboxWorker] Failed to send admin intro DM: {ex.Message}");
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(info.NewMemberDiscordId))
+            {
+                try
+                {
+                    await discordService.SendDirectMessageAsync(info.NewMemberDiscordId,
+                        $"👋 Your team admin is {info.AdminUsername} \u2014 reach out on Discord if you have questions!");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[OutboxWorker] Failed to send new-member intro DM: {ex.Message}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Best-effort only — never let this affect the approval itself.
+            Console.WriteLine($"[OutboxWorker] Team-intro notification step failed: {ex.Message}");
+        }
     }
 
     private Task SendDeclineNotification(JoinRequestDeclined evt, IDbConnection db, IEmailService emailService, IDiscordNotificationService discordService)
@@ -251,3 +319,4 @@ public class OutboxWorker : BackgroundService
 }
 
 public record UserContact(string? Email, string? DiscordId);
+public record ApprovalIntroInfo(string? DiscordChannelId, string? AdminDiscordId, string? AdminUsername, string? NewMemberDiscordId, string? NewMemberUsername);
