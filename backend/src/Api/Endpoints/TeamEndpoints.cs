@@ -133,12 +133,12 @@ public static class TeamEndpoints
             if (team == null) return;
 
             var admin = await connection.QueryOneOrDefaultAsync<UserEntity>(
-                "SELECT * FROM users WHERE id = @AdminId", new { AdminId = team.TeamAdminId });
+                TeamSql.GetUserByAdminId(), new { AdminId = team.TeamAdminId });
             var adminName = admin?.Username ?? "ukjent admin";
 
             // Look up the actual tag names, in the same order they were selected.
             var tagNames = await connection.QueryManyAsync<string>(
-                "SELECT name FROM predefined_tags WHERE id = ANY(@TagIds)", new { TagIds = tagIds });
+                TeamSql.GetTagNamesByIds(), new { TagIds = tagIds });
             var tagList = string.Join(", ", tagNames);
 
             var actingUsername = "Noen";
