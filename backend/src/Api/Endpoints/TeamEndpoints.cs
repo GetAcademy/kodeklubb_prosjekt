@@ -635,12 +635,12 @@ public static class TeamEndpoints
         });
     }
 
-    private static async Task<Dictionary<Guid, string[]>> LoadTeamTagsLookupAsync(NpgsqlConnection connection)
+    private static async Task<Dictionary<Guid, TeamTagSummary[]>> LoadTeamTagsLookupAsync(NpgsqlConnection connection)
     {
         var rows = await connection.QueryManyAsync<TeamTagRow>(TeamSql.GetAllTeamTagsGrouped());
         return rows
             .GroupBy(row => row.TeamId)
-            .ToDictionary(g => g.Key, g => g.Select(row => row.TagName).ToArray());
+            .ToDictionary(g => g.Key, g => g.Select(row => new TeamTagSummary(row.TagId, row.TagName)).ToArray());
     }
 
     private static async Task<IResult> GetAvailableTeams(string? discordId)
@@ -651,7 +651,7 @@ public static class TeamEndpoints
         var results = teams.Select(team => new TeamListItem(
             team.Id, team.Name, team.Description,
             team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt,
-            tagsByTeam.GetValueOrDefault(team.Id, Array.Empty<string>())));
+            tagsByTeam.GetValueOrDefault(team.Id, Array.Empty<TeamTagSummary>())));
         return Results.Ok(results);
     }
 
@@ -666,7 +666,7 @@ public static class TeamEndpoints
         var results = teams.Select(team => new TeamListItem(
             team.Id, team.Name, team.Description,
             team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt,
-            tagsByTeam.GetValueOrDefault(team.Id, Array.Empty<string>())));
+            tagsByTeam.GetValueOrDefault(team.Id, Array.Empty<TeamTagSummary>())));
         return Results.Ok(results);
     }
 
@@ -869,8 +869,9 @@ public static class TeamEndpoints
 }
 
 // ── Records ──────────────────────────────────────────────────────────────────
-public record TeamListItem(Guid Id, string Name, string? Description, bool IsOpenToJoinRequests, Guid CreatedBy, DateTime CreatedAt, string[] Tags);
-public record TeamTagRow(Guid TeamId, string TagName);
+public record TeamListItem(Guid Id, string Name, string? Description, bool IsOpenToJoinRequests, Guid CreatedBy, DateTime CreatedAt, TeamTagSummary[] Tags);
+public record TeamTagRow(Guid TeamId, Guid TagId, string TagName);
+public record TeamTagSummary(Guid Id, string Name);
 public record TeamTagInsertResult(bool TagExists, bool WasInserted);
 public record CreateTeamRequest(string Name, string? Description, Guid AdminUserId);
 public record AdminActionRequest(string DiscordId);
