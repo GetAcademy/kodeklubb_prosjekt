@@ -5,6 +5,7 @@ using Core.Logic;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Persistence;
 using Persistence.Outbox;
 using Npgsql;
 
@@ -39,15 +40,7 @@ public class OutboxWorker : BackgroundService
                 // Only pick up rows that are still pending (never re-pick 'failed'
                 // rows — per handbook 3.6, those need an admin to look at them,
                 // not endless silent retries) and whose next_retry_at has passed.
-                var messages = await db.QueryAsync<OutboxMessage>(
-                    @"SELECT id, event_type AS EventType, event_data AS Payload, created_at AS OccuredOn,
-                             retry_count AS RetryCount, max_retries AS MaxRetries
-                      FROM outbox
-                      WHERE processed_at IS NULL
-                        AND status = 'pending'
-                        AND (next_retry_at IS NULL OR next_retry_at <= NOW())
-                      ORDER BY created_at
-                      LIMIT 20");
+                var messages = await db.QueryAsync<OutboxMessage>(OutboxSql.ClaimPending());
 
                 foreach (var msg in messages)
                 {
@@ -112,7 +105,7 @@ public class OutboxWorker : BackgroundService
         if (errorMessage == null)
         {
             await db.ExecuteAsync(
-                "UPDATE outbox SET status = 'processed', processed_at = NOW() WHERE id = @id",
+                OutboxSql.MarkProcessed(),
                 new { id = msg.Id });
             return;
         }
@@ -176,9 +169,7 @@ public class OutboxWorker : BackgroundService
     private async Task SendJoinRequestNotification(UserRequestedToJoinTeam evt, IDbConnection db, IEmailService emailService, IDiscordNotificationService discordService)
     {
         var admin = await db.QuerySingleOrDefaultAsync<UserContact?>(
-            @"SELECT u.email, u.discord_id AS DiscordId FROM users u
-              JOIN teams t ON t.team_admin_id = u.id
-              WHERE t.id = @TeamId",
+            OutboxSql.GetAdminContactByTeamId(),
             new { TeamId = evt.TeamId });
 
         if (admin == null) return;
@@ -195,7 +186,7 @@ public class OutboxWorker : BackgroundService
     private async Task NotifyUser(Guid userId, string subject, string htmlBody, string discordMessage, IDbConnection db, IEmailService emailService, IDiscordNotificationService discordService)
     {
         var contact = await db.QuerySingleOrDefaultAsync<UserContact?>(
-            "SELECT email, discord_id AS DiscordId FROM users WHERE id = @UserId",
+            OutboxSql.GetUserContactById(),
             new { UserId = userId });
 
         if (contact == null) return;
