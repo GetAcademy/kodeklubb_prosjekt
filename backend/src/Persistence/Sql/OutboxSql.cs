@@ -9,4 +9,6 @@ public static class OutboxSql
     public static string GetAdminContactByTeamId() => SqlLoader.Load("Queries/Users_GetAdminContactByTeamId.sql");
 
     public static string GetUserContactById() => SqlLoader.Load("Queries/Users_GetContactById.sql");
+
+    public static string GetApprovalIntroInfo() => SqlLoader.Load("Queries/Teams_GetApprovalIntroInfo.sql");
 }
