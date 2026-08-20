@@ -67,8 +67,8 @@ var resendApiKey = Environment.GetEnvironmentVariable("RESEND_API_KEY");
 
 Console.WriteLine($"[DEBUG] RESEND_API_KEY length: {resendApiKey?.Length ?? -1}");
 
-var resendFrom = "updates@updates.getacademy.no";
-
+//var resendFrom = "updates@updates.getacademy.no";
+var resendFrom = "onboarding@resend.dev";
 builder.Services.AddOptions();
 builder.Services.AddHttpClient<Resend.ResendClient>();
 builder.Services.Configure<Resend.ResendClientOptions>(o => { o.ApiToken = resendApiKey!; });
