@@ -128,6 +128,7 @@ public static class TeamEndpoints
         try
         {
             var discordService = sp.GetRequiredService<Core.Logic.IDiscordNotificationService>();
+            var emailService = sp.GetRequiredService<Core.Logic.IEmailService>();
 
             var team = await connection.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById(), new { TeamId = teamId });
             if (team == null) return;
@@ -147,29 +148,62 @@ public static class TeamEndpoints
                 var actingUser = await connection.QueryOneOrDefaultAsync<UserEntity>(TeamSql.GetUserByDiscordId(), new { DiscordId = actingDiscordId });
                 if (actingUser != null) actingUsername = actingUser.Username;
 
-                // Confirmation to the person who added the tags.
+                var confirmMessage = $"✅ Du la til [{tagList}] på {team.Name}! (Admin: {adminName})";
+
+                // Confirmation to the person who added the tags — Discord and email, independently.
                 try
                 {
-                    await discordService.SendDirectMessageAsync(actingDiscordId,
-                        $"✅ Du la til [{tagList}] på {team.Name}! (Admin: {adminName})");
+                    await discordService.SendDirectMessageAsync(actingDiscordId, confirmMessage);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[AddTeamTags] Failed to send confirmation DM to {actingDiscordId}: {ex.Message}");
                 }
+
+                if (!string.IsNullOrWhiteSpace(actingUser?.Email))
+                {
+                    try
+                    {
+                        await emailService.SendEmailAsync(actingUser.Email,
+                            $"Tags lagt til for {team.Name}",
+                            $"<p>{System.Net.WebUtility.HtmlEncode(confirmMessage)}</p>");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[AddTeamTags] Failed to send confirmation email to {actingUser.Email}: {ex.Message}");
+                    }
+                }
             }
 
             // Notify the admin, unless they're the one who just added the tags.
-            if (!string.IsNullOrWhiteSpace(admin?.DiscordId) && admin.DiscordId != actingDiscordId)
+            if (admin != null && admin.DiscordId != actingDiscordId)
             {
-                try
+                var adminMessage = $"🏷️ {actingUsername} la til [{tagList}] på {team.Name}.";
+
+                if (!string.IsNullOrWhiteSpace(admin.DiscordId))
                 {
-                    await discordService.SendDirectMessageAsync(admin.DiscordId,
-                        $"🏷️ {actingUsername} la til [{tagList}] på {team.Name}.");
+                    try
+                    {
+                        await discordService.SendDirectMessageAsync(admin.DiscordId, adminMessage);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[AddTeamTags] Failed to send admin notification to {admin.DiscordId}: {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
+
+                if (!string.IsNullOrWhiteSpace(admin.Email))
                 {
-                    Console.WriteLine($"[AddTeamTags] Failed to send admin notification to {admin.DiscordId}: {ex.Message}");
+                    try
+                    {
+                        await emailService.SendEmailAsync(admin.Email,
+                            $"Nye tags lagt til for {team.Name}",
+                            $"<p>{System.Net.WebUtility.HtmlEncode(adminMessage)}</p>");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[AddTeamTags] Failed to send admin email to {admin.Email}: {ex.Message}");
+                    }
                 }
             }
         }
