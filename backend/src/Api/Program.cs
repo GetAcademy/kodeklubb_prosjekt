@@ -63,6 +63,10 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 // --- 3. RESEND EMAIL ---
 var resendApiKey = Environment.GetEnvironmentVariable("RESEND_API_KEY");
+// --- 3. RESEND EMAIL ---
+
+Console.WriteLine($"[DEBUG] RESEND_API_KEY length: {resendApiKey?.Length ?? -1}");
+
 var resendFrom = "updates@updates.getacademy.no";
 
 builder.Services.AddOptions();
