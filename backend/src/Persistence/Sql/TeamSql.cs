@@ -72,4 +72,13 @@ public static class TeamSql
     public static string GetAllRequestsForUser() => SqlLoader.Load("Queries/Invitations_GetAllForUser.sql");
 
     public static string GetPendingRequestsForUser() => SqlLoader.Load("Queries/Invitations_GetPendingForUser.sql");
+
+    // --- Notification support ---
+    public static string GetUserByAdminId() => SqlLoader.Load("Queries/Users_GetByAdminId.sql");
+
+    public static string GetTagNamesByIds() => SqlLoader.Load("Queries/PredefinedTags_GetNamesByIds.sql");
+
+    public static string GetUserByUserId() => SqlLoader.Load("Queries/Users_GetByUserId.sql");
+
+    public static string GetAdminUserRaw() => SqlLoader.Load("Queries/Teams_GetAdminUserRaw.sql");
 }

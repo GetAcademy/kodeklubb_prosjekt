@@ -51,6 +51,23 @@ public class DiscordNotificationService : IDiscordNotificationService
                 $"Failed to send Discord DM ({messageResponse.StatusCode}): {error}");
         }
     }
+
+    public async Task SendChannelMessageAsync(string channelId, string message)
+    {
+        if (string.IsNullOrWhiteSpace(channelId))
+            throw new ArgumentException("channelId is required.", nameof(channelId));
+
+        var response = await _httpClient.PostAsJsonAsync(
+            $"channels/{channelId}/messages",
+            new { content = message });
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            throw new InvalidOperationException(
+                $"Failed to post Discord channel message ({response.StatusCode}): {error}");
+        }
+    }
 }
 
 public record DiscordChannel(string? Id);
