@@ -4,94 +4,33 @@
 
     <div class="tag-container">
       <div class="tree-section">
-        <p v-if="existingLoading" class="loading-existing">Laster eksisterende tags...</p>
-        <TagTree @add-tag="addTag" :disabled-tag-ids="disabledTagIds" :exclude-ids="specialSectionIds" />
-
-        <div v-if="geografiId" class="tree-section-block">
-          <h3 class="tree-section-heading">🌍 Geografi</h3>
-          <TagTree
-            :parent-id="geografiId"
-            @add-tag="addTag"
-            :disabled-tag-ids="disabledTagIds"
-          />
-        </div>
+        <p v-if="loading" class="loading-existing">Laster tags...</p>
+        <TagTree @add-tag="addTag" :disabled-tag-ids="savedTagIds" />
       </div>
 
       <div class="selected-section">
-        <template v-if="savedSelections.length">
-          <h3 class="selected-title">✅ Allerede lagt til</h3>
-          <ul v-if="savedTechnical.length" class="selected-list">
-            <li v-for="sel in savedTechnical" :key="sel.tagId" class="selected-item saved">
-              <span class="tag-badge">
-                🏷️ {{ tagName(sel.tagId) }}
-                <span v-if="sel.levelName" class="level-pill">{{ sel.levelName }}</span>
-              </span>
+        <template v-if="savedTags.length">
+          <h3 class="selected-title">✅ Dine tags</h3>
+          <ul class="selected-list">
+            <li v-for="tag in savedTags" :key="tag.id" class="selected-item">
+              <span class="tag-badge">🏷️ {{ tag.name }}</span>
+              <button class="remove-btn" @click="removeTag(tag.id)" title="Fjern">✕</button>
             </li>
           </ul>
-          <template v-if="savedGeografi.length">
-            <h4 class="selected-subtitle">🌍 Geografi</h4>
-            <ul class="selected-list">
-              <li v-for="sel in savedGeografi" :key="sel.tagId" class="selected-item saved geo">
-                <span class="tag-badge">🌍 {{ tagName(sel.tagId) }}</span>
-              </li>
-            </ul>
-          </template>
         </template>
 
-        <template v-if="pendingSelections.length">
-          <h3 class="selected-title pending-title">🆕 Nye valg (ikke lagret enda)</h3>
-          <ul v-if="pendingTechnical.length" class="selected-list">
-            <li v-for="sel in pendingTechnical" :key="sel.tagId" class="selected-item">
-              <span class="tag-badge">
-                🏷️ {{ tagName(sel.tagId) }}
-                <span v-if="sel.levelTagId" class="level-pill">{{ tagName(sel.levelTagId) }}</span>
-              </span>
-              <button class="remove-btn" @click="removeSelection(sel.tagId)">✕</button>
-            </li>
-          </ul>
-          <template v-if="pendingGeografi.length">
-            <h4 class="selected-subtitle pending-title">🌍 Geografi</h4>
-            <ul class="selected-list">
-              <li v-for="sel in pendingGeografi" :key="sel.tagId" class="selected-item geo">
-                <span class="tag-badge">🌍 {{ tagName(sel.tagId) }}</span>
-                <button class="remove-btn" @click="removeSelection(sel.tagId)">✕</button>
-              </li>
-            </ul>
-          </template>
-          <button class="save-btn" @click="saveTags" :disabled="saveStatus === 'saving'">
-            {{ saveStatus === 'saving' ? 'Lagrer...' : '💾 Lagre tags' }}
-          </button>
-        </template>
-
-        <p v-if="!savedSelections.length && !pendingSelections.length" class="no-tags">
-          Ingen tags lagt til ennå. Velg fra treet til venstre.
+        <p v-else class="no-tags">
+          Ingen tags lagt til ennå. Velg fra treet til venstre — de lagres med en gang.
         </p>
       </div>
     </div>
 
-    <!-- Status message always visible -->
-    <p v-if="saveMessage" :class="saveStatus === 'error' ? 'error-msg' : 'success-msg'" class="status-msg">
-      {{ saveMessage }}
+    <p v-if="statusMessage" :class="statusType === 'error' ? 'error-msg' : 'success-msg'" class="status-msg">
+      {{ statusMessage }}
     </p>
-
-    <!-- Experience level popup, shown after picking a technical tag -->
-    <div v-if="pendingLevelPrompt" class="modal-overlay" @click.self="chooseLevel(null)">
-      <div class="modal-box">
-        <h3 class="modal-title">Erfaringsnivå for «{{ tagName(pendingLevelPrompt) }}»</h3>
-        <p class="modal-subtitle">Hvor erfaren er du med dette?</p>
-        <div class="level-options">
-          <button
-            v-for="level in levelOptions"
-            :key="level.id"
-            class="level-btn"
-            @click="chooseLevel(level.id)"
-          >{{ level.name }}</button>
-        </div>
-        <button class="skip-btn" @click="chooseLevel(null)">Hopp over</button>
-      </div>
-    </div>
   </div>
 </template>
+
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import axios from 'axios';
@@ -109,147 +48,60 @@ const authStore = useAuthStore();
 const { user } = storeToRefs(authStore);
 const tagsStore = useTagsStore();
 
-// A "selection" pairs a tag with an optional experience level, matching
-// the level_tag_id column on team_tags/user_tags — a tag and its level
-// are stored as ONE linked row, not two separate unrelated tag rows.
-interface Selection {
-  tagId: string;
-  levelTagId?: string;
-  levelName?: string; // only populated for savedSelections, from the API
+interface SavedTag {
+  id: string;
+  name: string;
 }
 
-const savedSelections = ref<Selection[]>([]);
-const existingLoading = ref(false);
+const savedTags = ref<SavedTag[]>([]);
+const savedTagIds = computed(() => savedTags.value.map(t => t.id));
+const loading = ref(false);
 
-const pendingSelections = ref<Selection[]>([]);
-const saveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
-const saveMessage = ref('');
-
-// Every tag id that should render as locked/non-addable in the tree: both
-// already-saved tags and ones selected-but-not-yet-saved this session.
-const disabledTagIds = computed(() => [
-  ...savedSelections.value.map(s => s.tagId),
-  ...pendingSelections.value.map(s => s.tagId),
-]);
-
-// "Geografi" is pulled out of the main tree into its own separate box
-// below, rather than being mixed in with the tech categories.
-const geografiId = computed<string | undefined>(() =>
-  tagsStore.tags.find(t => t.name === 'Geografi' && t.parentId === null)?.id
-);
-const specialSectionIds = computed<string[]>(() => geografiId.value ? [geografiId.value] : []);
-
-function isGeografiTag(tagId: string): boolean {
-  return tagId === geografiId.value || isDescendantOf(tagId, geografiId.value);
-}
-
-const savedTechnical = computed(() => savedSelections.value.filter(s => !isGeografiTag(s.tagId)));
-const savedGeografi = computed(() => savedSelections.value.filter(s => isGeografiTag(s.tagId)));
-const pendingTechnical = computed(() => pendingSelections.value.filter(s => !isGeografiTag(s.tagId)));
-const pendingGeografi = computed(() => pendingSelections.value.filter(s => isGeografiTag(s.tagId)));
-
-// "Erfaringsniva" (experience level) — picking any technical tag (i.e.
-// anything outside Geografi and outside the level tags themselves)
-// triggers a popup asking which level applies. ASCII spelling used here
-// deliberately: the database value must match exactly, and piping "å"
-// through some shells has corrupted it before (see backend seed notes).
-const erfaringsnivaId = computed<string | undefined>(() =>
-  tagsStore.tags.find(t => t.name === 'Erfaringsniva')?.id
-);
-const levelOptions = computed(() =>
-  erfaringsnivaId.value ? tagsStore.getChildren(erfaringsnivaId.value) : []
-);
-const levelTagIds = computed<string[]>(() => levelOptions.value.map(t => t.id));
-
-const pendingLevelPrompt = ref<string | null>(null);
-
-function isDescendantOf(tagId: string, ancestorId: string | undefined): boolean {
-  if (!ancestorId) return false;
-  let current = tagsStore.getById(tagId);
-  while (current?.parentId) {
-    if (current.parentId === ancestorId) return true;
-    current = tagsStore.getById(current.parentId);
-  }
-  return false;
-}
+const statusMessage = ref('');
+const statusType = ref<'idle' | 'error' | 'success'>('idle');
 
 function tagName(tagId: string): string {
   return tagsStore.getById(tagId)?.name ?? tagId;
 }
 
 async function fetchExistingTags() {
-  existingLoading.value = true;
+  loading.value = true;
   try {
     const baseApi = import.meta.env.VITE_BASE_API || '';
-
     const url = props.teamId
       ? `${baseApi}/api/discover/${props.teamId}/tags`
       : (user.value?.id ? `${baseApi}/api/users/${user.value.id}/tags` : null);
     if (!url) return;
 
     const response = await axios.get(url);
-    savedSelections.value = (response.data ?? []).map((t: any) => ({
-      tagId: t.id ?? t.Id,
-      levelTagId: t.levelTagId ?? t.LevelTagId ?? undefined,
-      levelName: t.levelName ?? t.LevelName ?? undefined,
+    savedTags.value = (response.data ?? []).map((t: any) => ({
+      id: t.id ?? t.Id,
+      name: t.name ?? t.Name,
     }));
   } catch (err) {
     console.error('Failed to load existing tags', err);
   } finally {
-    existingLoading.value = false;
+    loading.value = false;
   }
 }
 
-function addTag(tagId: string) {
-  // Guard against double-adding: skip anything already saved or already
-  // pending, even if somehow triggered twice (e.g. a stray double click).
-  if (disabledTagIds.value.includes(tagId)) return;
+// Every node in the tree behaves identically — there is no special
+// handling for any particular tag, category, or subtree. Clicking a tag
+// saves it immediately; there is no pending/staging step.
+async function addTag(tagId: string) {
+  if (savedTagIds.value.includes(tagId)) return;
 
-  const isGeography = tagId === geografiId.value || isDescendantOf(tagId, geografiId.value);
-  const isLevelRelated = tagId === erfaringsnivaId.value || levelTagIds.value.includes(tagId);
+  // Mark as saved immediately (before the API call resolves) so a second
+  // rapid click on the same tag — a real double-click, or a stray double
+  // emit — sees it as already taken and bails out via the guard above,
+  // instead of both calls racing past the check before either finishes.
+  const optimisticTag = { id: tagId, name: tagName(tagId) };
+  savedTags.value.push(optimisticTag);
 
-  if (isGeography || isLevelRelated || !erfaringsnivaId.value) {
-    // Geography tags, the level tags themselves, and the case where no
-    // "Erfaringsniva" category exists at all: just add with no level.
-    pendingSelections.value.push({ tagId });
-    return;
-  }
-
-  // Any other (technical) tag: ask which experience level applies before
-  // actually adding it — the answer gets attached to this same selection.
-  pendingLevelPrompt.value = tagId;
-}
-
-function chooseLevel(levelTagId: string | null) {
-  const tagId = pendingLevelPrompt.value;
-  if (!tagId) return;
-
-  pendingSelections.value.push({
-    tagId,
-    levelTagId: levelTagId ?? undefined,
-  });
-  pendingLevelPrompt.value = null;
-}
-
-function removeSelection(tagId: string) {
-  // Only removes a not-yet-saved selection; already-saved tags aren't
-  // removable from this view.
-  pendingSelections.value = pendingSelections.value.filter(s => s.tagId !== tagId);
-}
-
-async function saveTags() {
-  if (!pendingSelections.value.length) return;
-  saveStatus.value = 'saving';
-  saveMessage.value = '';
-
+  statusMessage.value = '';
   try {
     const baseApi = import.meta.env.VITE_BASE_API || '';
-    const payload = {
-      selections: pendingSelections.value.map(s => ({
-        tagId: s.tagId,
-        levelTagId: s.levelTagId ?? null,
-      })),
-    };
+    const payload = { selections: [{ tagId, levelTagId: null }] };
 
     if (props.teamId) {
       await axios.post(`${baseApi}/api/discover/${props.teamId}/tags`, {
@@ -262,20 +114,40 @@ async function saveTags() {
       await axios.post(`${baseApi}/api/users/${discordId}/tags`, payload);
     }
 
-    saveStatus.value = 'saved';
-    saveMessage.value = 'Tags lagret!';
-    pendingSelections.value = [];
-    // Refresh from the server so "Allerede lagt til" reflects reality
-    // (also catches the rare case where a tag was already saved elsewhere).
-    await fetchExistingTags();
+    statusType.value = 'success';
+    statusMessage.value = 'Tag lagret!';
   } catch (err) {
-    console.error('Failed to save tags', err);
-    saveStatus.value = 'error';
-    saveMessage.value = 'Kunne ikke lagre tags.';
+    console.error('Failed to save tag', err);
+    // Roll back the optimistic add — it was never actually saved.
+    savedTags.value = savedTags.value.filter(t => t.id !== tagId);
+    statusType.value = 'error';
+    statusMessage.value = 'Kunne ikke lagre tag.';
   }
 }
 
-onMounted(fetchExistingTags);
+async function removeTag(tagId: string) {
+  statusMessage.value = '';
+  try {
+    const baseApi = import.meta.env.VITE_BASE_API || '';
+    if (props.teamId) {
+      await axios.delete(`${baseApi}/api/discover/${props.teamId}/tags/${tagId}`);
+    } else {
+      const discordId = user.value?.id;
+      if (!discordId) throw new Error('Not logged in');
+      await axios.delete(`${baseApi}/api/users/${discordId}/tags/${tagId}`);
+    }
+    savedTags.value = savedTags.value.filter(t => t.id !== tagId);
+  } catch (err) {
+    console.error('Failed to remove tag', err);
+    statusType.value = 'error';
+    statusMessage.value = 'Kunne ikke fjerne tag.';
+  }
+}
+
+onMounted(async () => {
+  await tagsStore.ensureLoaded();
+  await fetchExistingTags();
+});
 </script>
 
 <style scoped>
@@ -314,19 +186,6 @@ onMounted(fetchExistingTags);
   margin: 0 0 10px;
 }
 
-.tree-section-block {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid #e4e6eb;
-}
-
-.tree-section-heading {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin: 0 0 10px;
-}
-
 .selected-section {
   width: 280px;
   background: #f0f7ff;
@@ -343,29 +202,12 @@ onMounted(fetchExistingTags);
   color: #1a73e8;
 }
 
-.pending-title {
-  margin-top: 16px;
-  color: #b8860b;
-}
-
-.selected-subtitle {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f766e;
-  margin: 12px 0 8px;
-}
-
-.selected-item.geo {
-  border-color: #a7f0d0;
-  background: #f0fdf9;
-}
-
 .selected-list {
   list-style: none;
   padding: 0;
-  margin: 0 0 16px 0;
+  margin: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 8px;
 }
 
@@ -377,37 +219,11 @@ onMounted(fetchExistingTags);
   border: 1px solid #d0e4ff;
   border-radius: 6px;
   padding: 6px 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  width: 100%;
-}
-
-.selected-item.saved {
-  border-color: #bfe3cf;
-  background: #f2fbf6;
 }
 
 .tag-badge {
   font-size: 13px;
   color: #333;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  text-align: left;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.level-pill {
-  font-size: 11px;
-  font-weight: 700;
-  color: #1a73e8;
-  background: #e8f0fe;
-  border-radius: 999px;
-  padding: 1px 8px;
-  white-space: nowrap;
 }
 
 .remove-btn {
@@ -426,26 +242,6 @@ onMounted(fetchExistingTags);
   background: #ffe0e0;
 }
 
-.save-btn {
-  width: 100%;
-  padding: 8px;
-  background: #0077cc;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.save-btn:hover {
-  background: #005fa3;
-}
-
-.save-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .no-tags {
   color: #999;
   font-size: 13px;
@@ -455,77 +251,8 @@ onMounted(fetchExistingTags);
   border-radius: 10px;
   text-align: center;
 }
+
 .success-msg { color: #0f5132; margin-top: 8px; font-size: 13px; }
 .error-msg { color: #842029; margin-top: 8px; font-size: 13px; }
 .status-msg { margin-top: 16px; font-size: 14px; text-align: center; }
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.modal-box {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  width: 320px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
-}
-
-.modal-title {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0 0 4px;
-  color: #1a1a1a;
-}
-
-.modal-subtitle {
-  font-size: 13px;
-  color: #666;
-  margin: 0 0 16px;
-}
-
-.level-options {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.level-btn {
-  text-align: left;
-  padding: 10px 14px;
-  border: 1px solid #d0e4ff;
-  background: #f0f7ff;
-  border-radius: 8px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #1a73e8;
-  cursor: pointer;
-  transition: background 0.12s ease;
-}
-
-.level-btn:hover {
-  background: #dceaff;
-}
-
-.skip-btn {
-  width: 100%;
-  padding: 8px;
-  border: none;
-  background: none;
-  color: #999;
-  font-size: 13px;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.skip-btn:hover {
-  color: #666;
-}
 </style>

@@ -7,6 +7,7 @@ public static class UserSql
     public static string Insert() => SqlLoader.Load("Commands/Users_Insert.sql");
     public static string GetUserPredefinedTagsByDiscordId() => SqlLoader.Load("Queries/UserTags_GetPredefinedByDiscordId.sql");
     public static string InsertUserPredefinedTag() => SqlLoader.Load("Commands/UserTags_InsertPredefined.sql");
+    public static string DeleteUserTag() => SqlLoader.Load("Commands/UserTags_DeleteOne.sql");
 
     // Used by GetCurrentUser (falls back to matching by username if a
     // Discord ID isn't found — e.g. for accounts not yet linked).

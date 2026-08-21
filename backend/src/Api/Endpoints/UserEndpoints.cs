@@ -21,6 +21,7 @@ public static class UserEndpoints
         // --- Tags ---
         group.MapGet("/{discordId}/tags", (string discordId) => GetUserTags(discordId)).WithName("GetUserTags");
         group.MapPost("/{discordId}/tags", (string discordId, UpdateUserTagsRequest request) => AddUserTags(discordId, request)).WithName("AddUserTags");
+        group.MapDelete("/{discordId}/tags/{tagId:guid}", (string discordId, Guid tagId) => RemoveUserTag(discordId, tagId)).WithName("RemoveUserTag");
 
         // --- Discord account linking ---
         group.MapPost("/{discordId}/discord/link", (string discordId, HttpContext context) => LinkDiscordAccount(discordId, context)).WithName("LinkDiscordAccount");
@@ -96,9 +97,6 @@ public static class UserEndpoints
                 if (!tagExists)
                     throw new InvalidOperationException($"Tag '{selection.TagId}' does not exist.");
 
-                // UserTags_InsertPredefined.sql upserts level_tag_id on
-                // conflict, so re-adding an already-saved tag with a new
-                // level updates it instead of being a no-op.
                 await db.ExecuteAsync(
                     UserSql.InsertUserPredefinedTag(),
                     new { UserId = user.Id, PredefinedTagId = selection.TagId, LevelTagId = selection.LevelTagId });
@@ -108,6 +106,24 @@ public static class UserEndpoints
             return Results.Ok(new { message = "Tags added successfully" });
         }
         catch (Exception) { await db.Tx.RollbackAsync(); throw; }
+    }
+
+    private static async Task<IResult> RemoveUserTag(string discordId, Guid tagId)
+    {
+        if (string.IsNullOrWhiteSpace(discordId)) return Results.BadRequest(new { message = "Discord ID is required" });
+
+        await using var db = await Handlers.DbSession.OpenAsync();
+        try
+        {
+            await db.ExecuteAsync(UserSql.DeleteUserTag(), new { DiscordId = discordId, TagId = tagId });
+            await db.CommitAsync();
+            return Results.Ok(new { message = "Tag removed successfully" });
+        }
+        catch (Exception ex)
+        {
+            await db.Tx.RollbackAsync();
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
     // ========== Discord Account Linking ==========
@@ -125,7 +141,6 @@ public static class UserEndpoints
             if (user == null)
                 return Results.NotFound(new { message = "User not found" });
 
-            // User is already linked if they have a Discord ID
             return Results.Ok(new { message = "Discord account is linked", userId = user.Id, discordId = user.DiscordId });
         }
         catch (Exception ex)
@@ -135,38 +150,37 @@ public static class UserEndpoints
     }
 
     private static async Task<IResult> UnlinkDiscordAccount(string discordId, IServiceProvider sp)
-{
-    if (string.IsNullOrWhiteSpace(discordId))
-        return Results.BadRequest(new { message = "Discord ID is required" });
-
-    await using var db = await Handlers.DbSession.OpenAsync();
-    try
     {
-        var user = await db.QueryOneOrDefaultAsync<UserEntity>(
-            UserSql.GetByDiscordId(), new { DiscordId = discordId });
-        if (user == null)
+        if (string.IsNullOrWhiteSpace(discordId))
+            return Results.BadRequest(new { message = "Discord ID is required" });
+
+        await using var db = await Handlers.DbSession.OpenAsync();
+        try
+        {
+            var user = await db.QueryOneOrDefaultAsync<UserEntity>(
+                UserSql.GetByDiscordId(), new { DiscordId = discordId });
+            if (user == null)
+            {
+                await db.Tx.RollbackAsync();
+                return Results.NotFound(new { message = "User not found" });
+            }
+
+            await db.ExecuteAsync(UserSql.DeleteAllUserTagsForUser(), new { UserId = user.Id });
+            await db.ExecuteAsync(UserSql.DeleteUser(), new { UserId = user.Id });
+            
+            await db.CommitAsync();
+
+            return Results.Ok(new { message = "Account unlinked. Please log in again." });
+        }
+        catch (Exception ex)
         {
             await db.Tx.RollbackAsync();
-            return Results.NotFound(new { message = "User not found" });
+            return Results.BadRequest(new { message = $"Error: {ex.Message}" });
         }
-
-        // Delete user record - they must log in again to create new account
-        await db.ExecuteAsync(UserSql.DeleteAllUserTagsForUser(), new { UserId = user.Id });
-        await db.ExecuteAsync(UserSql.DeleteUser(), new { UserId = user.Id });
-        
-        await db.CommitAsync();
-
-        return Results.Ok(new { message = "Account unlinked. Please log in again." });
     }
-    catch (Exception ex)
-    {
-        await db.Tx.RollbackAsync();
-        return Results.BadRequest(new { message = $"Error: {ex.Message}" });
-    }
-}
+
     private static async Task<IResult> GetCurrentUser(HttpContext context)
     {
-        // Get the Discord ID from claims or headers
         var discordId = context.User.FindFirst("sub")?.Value
                        ?? context.Request.Headers["X-Discord-ID"].FirstOrDefault();
 
@@ -175,7 +189,6 @@ public static class UserEndpoints
 
         await using var connection = await AppConfig.OpenConnectionAsync();
 
-        // Falls back to matching by username if not found by Discord ID
         var user = await connection.QueryOneOrDefaultAsync<UserEntity>(
             UserSql.GetByDiscordIdOrUsername(),
             new { DiscordId = discordId });
@@ -191,6 +204,7 @@ public static class UserEndpoints
             isLinked = !string.IsNullOrWhiteSpace(user.DiscordId)
         });
     }
+
     private static async Task<IResult> GetDiscordAccountStatus(string discordId)
     {
         if (string.IsNullOrWhiteSpace(discordId))

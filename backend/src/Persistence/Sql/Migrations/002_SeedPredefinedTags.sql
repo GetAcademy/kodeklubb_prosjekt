@@ -1,4 +1,4 @@
--- Seed initial predefined tags
+﻿-- Seed initial predefined tags
 INSERT INTO predefined_tags (id, name, slug, description, category) VALUES
 -- Programming Languages
 (gen_random_uuid(), 'C#', 'csharp', 'C# programming language', 'Programming Languages'),
