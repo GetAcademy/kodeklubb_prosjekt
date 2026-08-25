@@ -24,16 +24,13 @@
     <li v-for="team in teams" :key="team.id" class="team-card">
         <h3>{{ team.name }}</h3>
         <p v-if="team.description">{{ team.description }}</p>
-        <div
-            v-for="group in groupedTags(team)"
-            :key="group.category"
-            class="tag-group"
-        >
-            <span class="tag-group-label">{{ group.category }}</span>
-            <ul class="team-tags">
-                <li v-for="tag in group.tags" :key="tag.id">{{ tag.name }}</li>
-            </ul>
-        </div>
+        <ul v-if="team.tags.length" class="team-tags">
+            <li
+                v-for="tag in team.tags"
+                :key="tag.id"
+                :class="{ 'team-tag-main': isMainTag(tag.id) }"
+            >{{ tag.name }}</li>
+        </ul>
         <button
             v-if="team.isOpenToJoinRequests"
             @click="joinTeam(team.id)"
@@ -71,35 +68,16 @@
     const { userName, user } = storeToRefs(authStore);
     const tagsStore = useTagsStore();
 
-    // Tags are grouped into a separate row per top-level category (all
-    // rows share one uniform color), at Swati's explicit request,
+    // If a team was tagged with one of the 4 top-level nodes directly
+    // (rather than one of their children), that one tag is shown
+    // differently from the rest — at Swati's explicit request,
     // overriding Terje's "no special code for any category" instruction
-    // from the 25.08 review. Worth confirming with Terje directly if this
-    // divergence is meant to stick.
+    // from the 25.08 review. Worth confirming with Terje directly if
+    // this divergence is meant to stick.
 
-    function topLevelAncestorName(tagId: string): string {
-        let current = tagsStore.getById(tagId);
-        while (current?.parentId) {
-            current = tagsStore.getById(current.parentId);
-        }
-        return current?.name ?? 'Annet';
-    }
-
-    interface TagGroup {
-        category: string;
-        tags: TeamTag[];
-    }
-
-    function groupedTags(team: TeamListItem): TagGroup[] {
-        const byCategory = new Map<string, TeamTag[]>();
-
-        for (const tag of team.tags) {
-            const category = topLevelAncestorName(tag.id);
-            if (!byCategory.has(category)) byCategory.set(category, []);
-            byCategory.get(category)!.push(tag);
-        }
-
-        return Array.from(byCategory.entries()).map(([category, tags]) => ({ category, tags }));
+    function isMainTag(tagId: string): boolean {
+        const tag = tagsStore.getById(tagId);
+        return tag != null && tag.parentId === null;
     }
 
     const teams = ref<TeamListItem[]>([]);
@@ -219,27 +197,13 @@
         color: #666;
     }
 
-    .tag-group {
-        margin-bottom: 0.75rem;
-    }
-
-    .tag-group-label {
-        display: block;
-        font-size: 0.72rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        color: #8a97a8;
-        margin-bottom: 0.3rem;
-    }
-
     .team-tags {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
         padding: 0;
         list-style: none;
-        margin: 0;
+        margin: 0 0 0.75rem 0;
     }
 
     .team-tags li {
@@ -250,6 +214,12 @@
         font-size: 0.85rem;
         font-weight: 500;
         border: 1px solid #dde3ea;
+    }
+
+    .team-tag-main {
+        background-color: #dcf5ec;
+        color: #0c6b52;
+        border-color: #b8e6d4;
     }
 
     .team-card button {
@@ -274,4 +244,4 @@
         padding: 1rem 0;
         color: #666;
     }
-</style>
+</style>s
