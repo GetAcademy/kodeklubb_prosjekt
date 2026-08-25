@@ -5,7 +5,6 @@ import App from './App.vue';
 import router from './router';
 import './assets/sass/index.sass';
 import { useTagsStore } from './stores/tagsStore';
-import '@picocss/pico/css/pico.classless.min.css';
 
 const app = createApp(App)
 

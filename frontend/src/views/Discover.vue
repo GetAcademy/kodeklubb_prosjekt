@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <section class="teams-container">
         <h2>Teams</h2>
         <p v-if="userName">
@@ -67,6 +67,10 @@
     const { userName, user } = storeToRefs(authStore);
     const tagsStore = useTagsStore();
 
+    // Geografi is displayed differently (green, with a globe icon) at
+    // Swati's explicit request, overriding Terje's "no special code for
+    // any category" instruction from the 25.08 review. Worth confirming
+    // with Terje directly if this divergence is meant to stick.
     const geografiId = ref<string | undefined>(undefined);
 
     function isDescendantOf(tagId: string, ancestorId: string | undefined): boolean {
@@ -119,9 +123,6 @@
             isOpenToJoinRequests: team.IsOpenToJoinRequests ?? team.isOpenToJoinRequests,
             createdBy: team.CreatedBy ?? team.createdBy,
             createdAt: team.CreatedAt ?? team.createdAt,
-            // Backend now returns tag objects ({ id, name }) directly on the
-            // team, not just names — needed to tell Geografi tags apart from
-            // technical ones on the frontend.
             tags: (team.Tags ?? team.tags ?? []).map((t: any) => ({
                 id: t.Id ?? t.id,
                 name: t.Name ?? t.name,
@@ -156,9 +157,6 @@
             });
 
             if (!response.ok) {
-                // Surface the backend's actual rejection reason (e.g. "already a member",
-                // "already has a pending request") instead of a generic message, so
-                // failures are self-explanatory without digging through server logs.
                 let message = 'Kunne ikke sende forespørsel til team.';
                 try {
                     const errorBody = await response.json();
@@ -167,7 +165,6 @@
                 throw new Error(message);
             }
 
-            // Refresh teams list after requesting
             await fetchTeams();
             error.value = 'Forespørsel sendt til team!';
         } catch (err) {

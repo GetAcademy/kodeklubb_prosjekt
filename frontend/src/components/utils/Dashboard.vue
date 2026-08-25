@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <section class="dashboard">
         <header class="dashboard-header">
             <h2>Dashboard</h2>
@@ -36,18 +36,19 @@
 
 <script lang="ts" setup>
 
-    // --- Importing Dependencies & Types
     import { computed } from 'vue';
     import type { DashboardProps} from '@/types/props';
     import NotificationBell from '../NotificationBell.vue';
     import { useTagsStore } from '@/stores/tagsStore';
 
-    // --- Props Definition Logic
     const props = defineProps<DashboardProps>();
     const data = computed(() => props.data);
     const teams = computed(() => props.teams || [])
 
-    // --- Split team tags into technical vs Geografi, same pattern as Discover.vue
+    // Geografi is displayed differently (green, with a globe icon) at
+    // Swati's explicit request, overriding Terje's "no special code for
+    // any category" instruction from the 25.08 review. Worth confirming
+    // with Terje directly if this divergence is meant to stick.
     const tagsStore = useTagsStore();
     const geografiId = computed(() =>
         tagsStore.tags.find(t => t.name === 'Geografi' && t.parentId === null)?.id
@@ -74,10 +75,6 @@
     function geografiTags(team: any): { id: string; name: string }[] {
         return (team.tags ?? []).filter((t: any) => isGeografiTag(t.id));
     }
-
-    //  --  Debug Logic
-    //console.log(data.value)
-
 
 </script>
 
