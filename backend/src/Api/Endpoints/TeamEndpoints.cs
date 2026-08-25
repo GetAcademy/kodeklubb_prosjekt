@@ -23,7 +23,7 @@ public static class TeamEndpoints
 
         // --- Team discovery & management ---
         group.MapGet("/available", GetAvailableTeams).WithName("GetAvailableTeams");
-        group.MapPost("/", (HttpContext context, IServiceProvider sp) => CreateTeam(context, sp)).WithName("CreateTeam");
+        group.MapPost("/", (HttpContext context, IEmailService emailService) => CreateTeam(context, emailService)).WithName("CreateTeam");
         group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams");
         group.MapGet("/{teamId:guid}", GetTeamDetails).WithName("GetTeamDetails");
         group.MapGet("/{teamId:guid}/members", GetTeamMembers).WithName("GetTeamMembers");
@@ -31,22 +31,22 @@ public static class TeamEndpoints
 
         // --- Tags ---
         group.MapGet("/{teamId:guid}/tags", GetTeamTags).WithName("GetTeamTags");
-        group.MapPost("/{teamId:guid}/tags", (Guid teamId, AddTeamTagsRequest body, IServiceProvider sp) => AddTeamTags(teamId, body, sp)).WithName("AddTeamTags");
+        group.MapPost("/{teamId:guid}/tags", (Guid teamId, AddTeamTagsRequest body, IDiscordNotificationService discordService, IEmailService emailService) => AddTeamTags(teamId, body, discordService, emailService)).WithName("AddTeamTags");
         group.MapDelete("/{teamId:guid}/tags/{tagId:guid}", RemoveTeamTag).WithName("RemoveTeamTag");
 
         // --- Join requests & invitations ---
-        group.MapPost("/{teamId:guid}/request", (Guid teamId, HttpContext context, IServiceProvider sp) => RequestToJoinTeam(teamId, context, sp)).WithName("RequestToJoinTeam");
+        group.MapPost("/{teamId:guid}/request", (Guid teamId, HttpContext context, IEmailService emailService) => RequestToJoinTeam(teamId, context, emailService)).WithName("RequestToJoinTeam");
         group.MapGet("/{teamId:guid}/requests", GetTeamRequests).WithName("GetTeamRequests");
-        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/approve", (Guid teamId, Guid requestId, HttpContext context, IServiceProvider sp) => ApproveTeamRequest(teamId, requestId, context, sp)).WithName("ApproveTeamRequest");
-        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/decline", DeclineTeamRequest).WithName("DeclineTeamRequest");
-        group.MapDelete("/{teamId:guid}/requests/{requestId:guid}", (Guid teamId, Guid requestId, string discordId, IServiceProvider sp) => CancelJoinRequest(teamId, requestId, discordId, sp)).WithName("CancelJoinRequest");
+        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/approve", (Guid teamId, Guid requestId, HttpContext context, IEmailService emailService) => ApproveTeamRequest(teamId, requestId, context, emailService)).WithName("ApproveTeamRequest");
+        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/decline", (Guid teamId, Guid requestId, HttpContext context, IEmailService emailService) => DeclineTeamRequest(teamId, requestId, context, emailService)).WithName("DeclineTeamRequest");
+        group.MapDelete("/{teamId:guid}/requests/{requestId:guid}", (Guid teamId, Guid requestId, string discordId) => CancelJoinRequest(teamId, requestId, discordId)).WithName("CancelJoinRequest");
         group.MapGet("/my-requests", GetMyRequests).WithName("GetMyRequests");
         group.MapGet("/notifications", GetNotifications).WithName("GetNotifications");
 
         // --- Announcements ---
         group.MapGet("/{teamId:guid}/announcements", GetTeamAnnouncements).WithName("GetTeamAnnouncements");
-        group.MapPost("/{teamId:guid}/announcements", (Guid teamId, HttpContext context, IServiceProvider sp) => CreateTeamAnnouncement(teamId, context, sp)).WithName("CreateTeamAnnouncement");
-        group.MapPatch("/{teamId:guid}/announcements/{announcementId:guid}", (Guid teamId, Guid announcementId, HttpContext context, IServiceProvider sp) => UpdateTeamAnnouncement(teamId, announcementId, context, sp)).WithName("UpdateTeamAnnouncement");
+        group.MapPost("/{teamId:guid}/announcements", (Guid teamId, HttpContext context) => CreateTeamAnnouncement(teamId, context)).WithName("CreateTeamAnnouncement");
+        group.MapPatch("/{teamId:guid}/announcements/{announcementId:guid}", (Guid teamId, Guid announcementId, HttpContext context) => UpdateTeamAnnouncement(teamId, announcementId, context)).WithName("UpdateTeamAnnouncement");
         group.MapDelete("/{teamId:guid}/announcements/{announcementId:guid}", DeleteTeamAnnouncement).WithName("DeleteTeamAnnouncement");
 
         // --- Discord integration ---
@@ -60,9 +60,6 @@ public static class TeamEndpoints
     }
 
     // ========== Tags ==========
-    // Reads a team's tags, adds tags to a team, and removes a tag from a team.
-    // All SQL lives in Persistence (see TeamSql: GetTeamTagsByTeamId, InsertTeamTag,
-    // DeleteTeamTag, CheckPredefinedTagExists) rather than inline here.
 
     private static async Task<IResult> GetTeamTags(Guid teamId)
     {
@@ -71,7 +68,7 @@ public static class TeamEndpoints
         return Results.Ok(tags);
     }
 
-    private static async Task<IResult> AddTeamTags(Guid teamId, AddTeamTagsRequest body, IServiceProvider sp)
+    private static async Task<IResult> AddTeamTags(Guid teamId, AddTeamTagsRequest body, IDiscordNotificationService discordService, IEmailService emailService)
     {
         if (body.Selections == null || body.Selections.Length == 0)
             return Results.BadRequest(new { message = "At least one tag selection is required" });
@@ -82,25 +79,20 @@ public static class TeamEndpoints
         await using var db = await DbSession.OpenAsync();
         try
         {
-            // Only team members are allowed to add tags to a team.
-            var isMember = await db.Conn.QuerySingleAsync<bool>(
-                TeamSql.IsUserMemberByDiscordId(), new { TeamId = teamId, DiscordId = body.DiscordId }, db.Tx);
+            var isMember = await db.QuerySingleAsync<bool>(
+                TeamSql.IsUserMemberByDiscordId(), new { TeamId = teamId, DiscordId = body.DiscordId });
 
             if (!isMember)
             {
-                await db.Tx.RollbackAsync();
+                await db.RollbackAsync();
                 return Results.Json(new { message = "Only team members can add tags to this team." }, statusCode: 403);
             }
 
             foreach (var selection in body.Selections)
             {
-                // Combined check-and-insert: one round trip instead of a
-                // separate "does it exist" query followed by an insert.
-                // If the tag was already added, its level is updated to
-                // whatever was just selected (upsert), rather than a no-op.
-                var result = await db.Conn.QuerySingleAsync<TeamTagInsertResult>(
+                var result = await db.QuerySingleAsync<TeamTagInsertResult>(
                     TeamSql.CheckAndInsertTeamTag(),
-                    new { TeamId = teamId, TagId = selection.TagId, LevelTagId = selection.LevelTagId }, db.Tx);
+                    new { TeamId = teamId, TagId = selection.TagId, LevelTagId = selection.LevelTagId });
 
                 if (!result.TagExists)
                     throw new InvalidOperationException($"Tag '{selection.TagId}' does not exist.");
@@ -108,28 +100,24 @@ public static class TeamEndpoints
 
             await db.CommitAsync();
 
-            // Notify via Discord: confirm to the person who added the tags,
-            // and separately let the team admin know (skipped if they're the
-            // same person). Best-effort only — a notification failure should
-            // never make the tag save itself look like it failed.
-            await NotifyTeamTagsAdded(teamId, body.DiscordId, body.Selections.Select(s => s.TagId).ToArray(), db.Conn, sp);
+            await using (var notifyConn = await AppConfig.OpenConnectionAsync())
+            {
+                await NotifyTeamTagsAdded(teamId, body.DiscordId, body.Selections.Select(s => s.TagId).ToArray(), notifyConn, discordService, emailService);
+            }
 
             return Results.Ok(new { message = "Tags added successfully" });
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
 
-    private static async Task NotifyTeamTagsAdded(Guid teamId, string? actingDiscordId, Guid[] tagIds, NpgsqlConnection connection, IServiceProvider sp)
+    private static async Task NotifyTeamTagsAdded(Guid teamId, string? actingDiscordId, Guid[] tagIds, NpgsqlConnection connection, IDiscordNotificationService discordService, IEmailService emailService)
     {
         try
         {
-            var discordService = sp.GetRequiredService<Core.Logic.IDiscordNotificationService>();
-            var emailService = sp.GetRequiredService<Core.Logic.IEmailService>();
-
             var team = await connection.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById(), new { TeamId = teamId });
             if (team == null) return;
 
@@ -137,20 +125,19 @@ public static class TeamEndpoints
                 TeamSql.GetUserByAdminId(), new { AdminId = team.TeamAdminId });
             var adminName = admin?.Username ?? "ukjent admin";
 
-            // Look up the actual tag names, in the same order they were selected.
             var tagNames = await connection.QueryManyAsync<string>(
                 TeamSql.GetTagNamesByIds(), new { TagIds = tagIds });
             var tagList = string.Join(", ", tagNames);
 
             var actingUsername = "Noen";
+            UserEntity? actingUser = null;
             if (!string.IsNullOrWhiteSpace(actingDiscordId))
             {
-                var actingUser = await connection.QueryOneOrDefaultAsync<UserEntity>(TeamSql.GetUserByDiscordId(), new { DiscordId = actingDiscordId });
+                actingUser = await connection.QueryOneOrDefaultAsync<UserEntity>(TeamSql.GetUserByDiscordId(), new { DiscordId = actingDiscordId });
                 if (actingUser != null) actingUsername = actingUser.Username;
 
-                var confirmMessage = $"✅ Du la til [{tagList}] på {team.Name}! (Admin: {adminName})";
+                var confirmMessage = $"Du la til [{tagList}] pa {team.Name}! (Admin: {adminName})";
 
-                // Confirmation to the person who added the tags — Discord and email, independently.
                 try
                 {
                     await discordService.SendDirectMessageAsync(actingDiscordId, confirmMessage);
@@ -175,10 +162,9 @@ public static class TeamEndpoints
                 }
             }
 
-            // Notify the admin, unless they're the one who just added the tags.
             if (admin != null && admin.DiscordId != actingDiscordId)
             {
-                var adminMessage = $"🏷️ {actingUsername} la til [{tagList}] på {team.Name}.";
+                var adminMessage = $"{actingUsername} la til [{tagList}] pa {team.Name}.";
 
                 if (!string.IsNullOrWhiteSpace(admin.DiscordId))
                 {
@@ -209,7 +195,6 @@ public static class TeamEndpoints
         }
         catch (Exception ex)
         {
-            // Never let a notification problem affect the tag-save response.
             Console.WriteLine($"[AddTeamTags] Notification step failed: {ex.Message}");
         }
     }
@@ -220,22 +205,17 @@ public static class TeamEndpoints
         try
         {
             await db.ExecuteAsync(TeamSql.DeleteTeamTag(), new { TeamId = teamId, TagId = tagId });
-
             await db.CommitAsync();
             return Results.Ok(new { message = "Tag removed successfully" });
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
 
     // ========== Discord Integration Endpoints ==========
-    // Connecting a team to a Discord server/channel/role, and syncing member
-    // access to that role. SQL lives in Persistence (TeamSql), except
-    // UpdateTeamDiscordConfig which builds its SET clause dynamically based
-    // on which fields were actually supplied — see the comment there.
 
     private static async Task<IResult> SetTeamDiscordConfig(Guid teamId, SetDiscordConfigRequest body)
     {
@@ -265,17 +245,11 @@ public static class TeamEndpoints
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
 
-    // Kept as dynamic inline SQL rather than a static .sql file: unlike every
-    // other command here, the SET clause genuinely varies per call (only the
-    // fields the caller actually supplied are updated). A static file can't
-    // express that; a fixed set of nullable-COALESCE columns was considered
-    // but would silently no-op on intentional-null updates, which isn't what
-    // "partial update" callers expect either.
     private static async Task<IResult> UpdateTeamDiscordConfig(Guid teamId, UpdateDiscordConfigRequest body)
     {
         await using var db = await DbSession.OpenAsync();
@@ -316,7 +290,7 @@ public static class TeamEndpoints
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
@@ -324,7 +298,6 @@ public static class TeamEndpoints
     private static async Task<IResult> GetTeamDiscordInfo(Guid teamId)
     {
         await using var connection = await AppConfig.OpenConnectionAsync();
-
         var results = await connection.QueryAsync<dynamic>(TeamSql.GetTeamDiscordInfo(), new { TeamId = teamId });
         var team = results.FirstOrDefault();
 
@@ -344,13 +317,12 @@ public static class TeamEndpoints
                 return Results.NotFound(new { message = "Team not found" });
 
             await db.ExecuteAsync(TeamSql.ClearTeamDiscordConfig(), new { TeamId = teamId });
-
             await db.CommitAsync();
             return Results.Ok(new { message = "Discord config removed" });
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
@@ -361,13 +333,12 @@ public static class TeamEndpoints
         try
         {
             await db.ExecuteAsync(TeamSql.InsertDiscordRoleAssignment(), new { TeamId = teamId, UserId = userId });
-
             await db.CommitAsync();
             return Results.Ok(new { message = "Discord access granted" });
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
@@ -378,13 +349,12 @@ public static class TeamEndpoints
         try
         {
             await db.ExecuteAsync(TeamSql.RemoveDiscordRoleAssignment(), new { TeamId = teamId, UserId = userId });
-
             await db.CommitAsync();
             return Results.Ok(new { message = "Discord access revoked" });
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
@@ -399,21 +369,13 @@ public static class TeamEndpoints
 
         foreach (var member in teamMembers)
         {
-            try
-            {
-                synced++;
-            }
-            catch
-            {
-                failed++;
-            }
+            try { synced++; }
+            catch { failed++; }
         }
 
         return Results.Ok(new { message = "Sync completed", synced, failed });
     }
 
-    // Not yet implemented — placeholder for general team content (separate from
-    // announcements/tags/members below).
     private static Task<IResult> GetTeamContent(Guid teamId)
     {
         return Task.FromResult(Results.StatusCode(501));
@@ -430,7 +392,7 @@ public static class TeamEndpoints
         return Results.Ok(announcements);
     }
 
-    private static async Task<IResult> CreateTeamAnnouncement(Guid teamId, HttpContext context, IServiceProvider sp)
+    private static async Task<IResult> CreateTeamAnnouncement(Guid teamId, HttpContext context)
     {
         try
         {
@@ -477,7 +439,7 @@ public static class TeamEndpoints
             }
             catch (Exception ex)
             {
-                await db.Tx.RollbackAsync();
+                await db.RollbackAsync();
                 return Results.BadRequest(new { message = ex.Message });
             }
         }
@@ -487,7 +449,7 @@ public static class TeamEndpoints
         }
     }
 
-    private static async Task<IResult> UpdateTeamAnnouncement(Guid teamId, Guid announcementId, HttpContext context, IServiceProvider sp)
+    private static async Task<IResult> UpdateTeamAnnouncement(Guid teamId, Guid announcementId, HttpContext context)
     {
         var body = await context.Request.ReadFromJsonAsync<UpdateTeamAnnouncementRequest>();
         if (body == null || string.IsNullOrWhiteSpace(body.Title) || string.IsNullOrWhiteSpace(body.Body) || body.UpdatedBy == Guid.Empty)
@@ -516,7 +478,7 @@ public static class TeamEndpoints
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
@@ -536,17 +498,13 @@ public static class TeamEndpoints
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
 
     // ========== Join Requests & Invitations ==========
 
-    // Returns either all of a user's requests (history=true) or just the
-    // pending ones — two separate queries rather than one with a runtime
-    // WHERE toggle, since the "all" version intentionally drops the status
-    // filter entirely rather than filtering by every possible status.
     private static async Task<IResult> GetMyRequests(string? discordId, bool history = false)
     {
         if (string.IsNullOrWhiteSpace(discordId))
@@ -560,7 +518,7 @@ public static class TeamEndpoints
             return Results.NotFound(new { message = "User not found" });
 
         var query = history ? TeamSql.GetAllRequestsForUser() : TeamSql.GetPendingRequestsForUser();
-        var requests = await db.Conn.QueryManyAsync<JoinRequestDto>(query, new { UserId = user.Id });
+        var requests = await db.QueryManyAsync<JoinRequestDto>(query, new { UserId = user.Id });
 
         return Results.Ok(requests);
     }
@@ -577,18 +535,16 @@ public static class TeamEndpoints
         if (user == null)
             return Results.NotFound(new { message = "User not found" });
 
-        // Requests waiting for this user's approval (teams they admin)
         var pendingApprovals = await connection.QueryManyAsync<dynamic>(
             TeamSql.GetPendingApprovalsForAdmin(), new { UserId = user.Id });
 
-        // Recent status changes on this user's own requests (accepted/declined)
         var myUpdates = await connection.QueryManyAsync<dynamic>(
             TeamSql.GetRecentUpdatesForUser(), new { UserId = user.Id });
 
         return Results.Ok(new { pendingApprovals, myUpdates });
     }
 
-    private static async Task<IResult> CancelJoinRequest(Guid teamId, Guid requestId, string discordId, IServiceProvider sp)
+    private static async Task<IResult> CancelJoinRequest(Guid teamId, Guid requestId, string discordId)
     {
         if (string.IsNullOrWhiteSpace(discordId))
             return Results.BadRequest(new { message = "Discord ID is required" });
@@ -607,7 +563,10 @@ public static class TeamEndpoints
                 return await db.RollbackAsync("Request not found");
 
             if (request.InvitedUserId != user.Id)
+            {
+                await db.RollbackAsync();
                 return Results.Forbid();
+            }
 
             if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
                 return await db.RollbackAsync("Request has already been processed and cannot be cancelled");
@@ -621,14 +580,14 @@ public static class TeamEndpoints
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
 
     // ========== Team Discovery & Management ==========
 
-    private static async Task<IResult> CreateTeam(HttpContext context, IServiceProvider sp)
+    private static async Task<IResult> CreateTeam(HttpContext context, IEmailService emailService)
     {
         var body = await context.Request.ReadFromJsonAsync<CreateTeamRequest>();
         if (body == null || string.IsNullOrWhiteSpace(body.Name) || body.AdminUserId == Guid.Empty)
@@ -637,16 +596,16 @@ public static class TeamEndpoints
         await using var db = await DbSession.OpenAsync();
         try
         {
-            return await CreateTeamCore(body, db, sp);
+            return await CreateTeamCore(body, db, emailService);
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
 
-    private static async Task<IResult> CreateTeamCore(CreateTeamRequest body, DbSession db, IServiceProvider sp)
+    private static async Task<IResult> CreateTeamCore(CreateTeamRequest body, DbSession db, IEmailService emailService)
     {
         var userExists = await db.QueryOneAsync<bool>(TeamSql.CheckUserExists(), new { Id = body.AdminUserId });
         if (!userExists) return await db.RollbackAsync("Admin user not found");
@@ -658,7 +617,7 @@ public static class TeamEndpoints
         if (result.Outcome.Status == OutcomeStatus.Rejected)
             return await db.RollbackAsync(result.Outcome.Message);
 
-        await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx, sp);
+        await TeamEventHandler.HandleAsync(result.Events, db, emailService);
         await db.CommitAsync();
         return Results.Created($"/api/discover/{state.TeamId}", new
         {
@@ -704,7 +663,7 @@ public static class TeamEndpoints
         return Results.Ok(results);
     }
 
-    private static async Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context, IServiceProvider sp)
+    private static async Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context, IEmailService emailService)
     {
         Console.WriteLine($"[JoinTeam] Incoming request for teamId={teamId}");
 
@@ -720,24 +679,24 @@ public static class TeamEndpoints
         await using var db = await DbSession.OpenAsync();
         try
         {
-            return await RequestToJoinTeamCore(teamId, body, db, sp);
+            return await RequestToJoinTeamCore(teamId, body, db, emailService);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[JoinTeam] EXCEPTION: {ex.GetType().Name}: {ex.Message}");
             Console.WriteLine($"[JoinTeam] StackTrace: {ex.StackTrace}");
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
 
-    private static async Task<IResult> RequestToJoinTeamCore(Guid teamId, TeamJoinRequest body, DbSession db, IServiceProvider sp)
+    private static async Task<IResult> RequestToJoinTeamCore(Guid teamId, TeamJoinRequest body, DbSession db, IEmailService emailService)
     {
         var user = await db.QueryOneOrDefaultAsync<UserEntity>(TeamSql.GetUserByDiscordId(), new { body.DiscordId });
         if (user == null)
         {
             Console.WriteLine($"[JoinTeam] User not found for DiscordId={body.DiscordId}");
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = "User not found" });
         }
         Console.WriteLine($"[JoinTeam] Resolved user: {user.Id} ({user.Username})");
@@ -746,7 +705,7 @@ public static class TeamEndpoints
         if (team == null)
         {
             Console.WriteLine($"[JoinTeam] Team not found for teamId={teamId}");
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = "Team not found" });
         }
         Console.WriteLine($"[JoinTeam] Resolved team: {team.Id} ({team.Name})");
@@ -766,7 +725,7 @@ public static class TeamEndpoints
 
         try
         {
-            await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx, sp);
+            await TeamEventHandler.HandleAsync(result.Events, db, emailService);
             await db.CommitAsync();
             Console.WriteLine("[JoinTeam] Committed successfully");
         }
@@ -778,7 +737,6 @@ public static class TeamEndpoints
         }
 
         return Results.Ok(new { teamId, status = "pending", message = "Join request submitted successfully" });
-
     }
 
     private static async Task<IResult> GetTeamRequests(Guid teamId)
@@ -788,7 +746,7 @@ public static class TeamEndpoints
         return Results.Ok(requests);
     }
 
-    private static async Task<IResult> ApproveTeamRequest(Guid teamId, Guid requestId, HttpContext context, IServiceProvider sp)
+    private static async Task<IResult> ApproveTeamRequest(Guid teamId, Guid requestId, HttpContext context, IEmailService emailService)
     {
         var body = await context.Request.ReadFromJsonAsync<AdminActionRequest>();
         if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
@@ -797,16 +755,16 @@ public static class TeamEndpoints
         await using var db = await DbSession.OpenAsync();
         try
         {
-            return await ApproveTeamRequestCore(teamId, requestId, body, db, sp);
+            return await ApproveTeamRequestCore(teamId, requestId, body, db, emailService);
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { ex.Message });
         }
     }
 
-    private static async Task<IResult> ApproveTeamRequestCore(Guid teamId, Guid requestId, AdminActionRequest body, DbSession db, IServiceProvider sp)
+    private static async Task<IResult> ApproveTeamRequestCore(Guid teamId, Guid requestId, AdminActionRequest body, DbSession db, IEmailService emailService)
     {
         var adminUser = await db.QueryOneOrDefaultAsync<TeamMemberEntity>(TeamSql.GetAdminUserByTeamId(), new { TeamId = teamId });
         if (adminUser == null) return await db.RollbackAsync("Admin user not found");
@@ -827,12 +785,12 @@ public static class TeamEndpoints
         if (result.Outcome.Status == OutcomeStatus.Rejected)
             return await db.RollbackAsync(result.Outcome.Message);
 
-        await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx, sp);
+        await TeamEventHandler.HandleAsync(result.Events, db, emailService);
         await db.CommitAsync();
         return Results.Ok(new { message = "Request approved successfully" });
     }
 
-    private static async Task<IResult> DeclineTeamRequest(Guid teamId, Guid requestId, HttpContext context, IServiceProvider sp)
+    private static async Task<IResult> DeclineTeamRequest(Guid teamId, Guid requestId, HttpContext context, IEmailService emailService)
     {
         var body = await context.Request.ReadFromJsonAsync<AdminActionRequest>();
         if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
@@ -841,16 +799,16 @@ public static class TeamEndpoints
         await using var db = await DbSession.OpenAsync();
         try
         {
-            return await DeclineTeamRequestCore(teamId, requestId, body, db, sp);
+            return await DeclineTeamRequestCore(teamId, requestId, body, db, emailService);
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { ex.Message });
         }
     }
 
-    private static async Task<IResult> DeclineTeamRequestCore(Guid teamId, Guid requestId, AdminActionRequest body, DbSession db, IServiceProvider sp)
+    private static async Task<IResult> DeclineTeamRequestCore(Guid teamId, Guid requestId, AdminActionRequest body, DbSession db, IEmailService emailService)
     {
         var adminUser = await db.QueryOneOrDefaultAsync<TeamMemberEntity>(TeamSql.GetAdminUserByTeamId(), new { TeamId = teamId });
         if (adminUser == null) return await db.RollbackAsync("User not found");
@@ -871,7 +829,7 @@ public static class TeamEndpoints
         if (result.Outcome.Status == OutcomeStatus.Rejected)
             return await db.RollbackAsync(result.Outcome.Message);
 
-        await TeamEventHandler.HandleAsync(result.Events, db.Conn, db.Tx, sp);
+        await TeamEventHandler.HandleAsync(result.Events, db, emailService);
         await db.CommitAsync();
         return Results.Ok(new { message = "Request declined successfully" });
     }
@@ -885,7 +843,6 @@ public static class TeamEndpoints
         if (string.IsNullOrWhiteSpace(discordId))
             return Results.Ok(team);
 
-        // Resolve the caller by discord id to determine membership and admin status
         var user = await connection.QueryOneOrDefaultAsync<UserEntity>(UserSql.GetByDiscordId(), new { DiscordId = discordId });
         var isMember = await connection.QueryOneAsync<bool>(
             TeamSql.IsUserMemberByDiscordId, new { TeamId = teamId, DiscordId = discordId });
@@ -902,7 +859,6 @@ public static class TeamEndpoints
     }
 }
 
-// ── Records ──────────────────────────────────────────────────────────────────
 public record TeamListItem(Guid Id, string Name, string? Description, bool IsOpenToJoinRequests, Guid CreatedBy, DateTime CreatedAt, TeamTagSummary[] Tags);
 public record TeamTagRow(Guid TeamId, Guid TagId, string TagName);
 public record TeamTagSummary(Guid Id, string Name);

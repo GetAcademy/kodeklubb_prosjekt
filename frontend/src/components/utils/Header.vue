@@ -1,9 +1,20 @@
 <template>
-    <router-link to="/" class="brand-logo">GET Academy</router-link>
-    <NavigationMenu v-if="isAuthenticated" :data="authMenu"/>
-    <NavigationMenu v-else :data="menu"/>
-    <h1> GET - Kode Klubb</h1>
+  <header>
+    <nav>
+      <ul>
+        <li><router-link to="/"><strong>GET Academy</strong></router-link></li>
+      </ul>
+      <ul>
+        <li>
+          <NavigationMenu v-if="isAuthenticated" :data="authMenu" />
+          <NavigationMenu v-else :data="menu" />
+        </li>
+      </ul>
+    </nav>
+    <h1>GET - Kode Klubb</h1>
+  </header>
 </template>
+
 <script setup lang="ts">
     // --- Importing Dependencies & Types
     import { computed } from 'vue';
@@ -56,18 +67,3 @@
     });
     function toTitleCase(str: string) { return str.replace(/\w\S*/g, (txt) => { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(); } );}
 </script>
-
-<style scoped>
-.brand-logo {
-    display: inline-block;
-    font-weight: 700;
-    font-size: 1.1rem;
-    color: #0f5ed8;
-    text-decoration: none;
-    padding: 0.5rem 0;
-}
-
-.brand-logo:hover {
-    text-decoration: underline;
-}
-</style>

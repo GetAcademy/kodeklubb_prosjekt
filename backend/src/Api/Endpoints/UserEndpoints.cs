@@ -25,13 +25,12 @@ public static class UserEndpoints
 
         // --- Discord account linking ---
         group.MapPost("/{discordId}/discord/link", (string discordId, HttpContext context) => LinkDiscordAccount(discordId, context)).WithName("LinkDiscordAccount");
-        group.MapDelete("/{discordId}/discord/unlink", (string discordId, IServiceProvider sp) => UnlinkDiscordAccount(discordId, sp)).WithName("UnlinkDiscordAccount");
+        group.MapDelete("/{discordId}/discord/unlink", (string discordId) => UnlinkDiscordAccount(discordId)).WithName("UnlinkDiscordAccount");
         group.MapGet("/{discordId}/discord/status", (string discordId) => GetDiscordAccountStatus(discordId)).WithName("GetDiscordAccountStatus");
 
         // --- Misc / dev utilities ---
-        group.MapPost("/send-test-email", async (IServiceProvider sp, string toEmail) =>
+        group.MapPost("/send-test-email", async (Core.Logic.IEmailService emailService, string toEmail) =>
         {
-            var emailService = sp.GetRequiredService<Core.Logic.IEmailService>();
             await emailService.SendEmailAsync(toEmail, "Test Email from Kodeklubb", "<h1>This is a test email sent via Resend!</h1>");
             return Results.Ok(new { message = $"Test email sent to {toEmail}" });
         }).WithName("SendTestEmail");
@@ -86,13 +85,13 @@ public static class UserEndpoints
         try
         {
             var user = await db.QueryOneOrDefaultAsync<UserEntity>(UserSql.GetByDiscordId(), new { DiscordId = discordId });
-            if (user == null) { await db.Tx.RollbackAsync(); return Results.NotFound(new { message = "User not found" }); }
+            if (user == null) { await db.RollbackAsync(); return Results.NotFound(new { message = "User not found" }); }
 
             foreach (var selection in request.Selections)
             {
-                var tagExists = await db.Conn.QuerySingleAsync<bool>(
+                var tagExists = await db.QuerySingleAsync<bool>(
                     TagsSql.CheckExists(),
-                    new { TagId = selection.TagId }, db.Tx);
+                    new { TagId = selection.TagId });
 
                 if (!tagExists)
                     throw new InvalidOperationException($"Tag '{selection.TagId}' does not exist.");
@@ -105,7 +104,7 @@ public static class UserEndpoints
             await db.CommitAsync();
             return Results.Ok(new { message = "Tags added successfully" });
         }
-        catch (Exception) { await db.Tx.RollbackAsync(); throw; }
+        catch (Exception) { await db.RollbackAsync(); throw; }
     }
 
     private static async Task<IResult> RemoveUserTag(string discordId, Guid tagId)
@@ -121,7 +120,7 @@ public static class UserEndpoints
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = ex.Message });
         }
     }
@@ -149,7 +148,7 @@ public static class UserEndpoints
         }
     }
 
-    private static async Task<IResult> UnlinkDiscordAccount(string discordId, IServiceProvider sp)
+    private static async Task<IResult> UnlinkDiscordAccount(string discordId)
     {
         if (string.IsNullOrWhiteSpace(discordId))
             return Results.BadRequest(new { message = "Discord ID is required" });
@@ -161,7 +160,7 @@ public static class UserEndpoints
                 UserSql.GetByDiscordId(), new { DiscordId = discordId });
             if (user == null)
             {
-                await db.Tx.RollbackAsync();
+                await db.RollbackAsync();
                 return Results.NotFound(new { message = "User not found" });
             }
 
@@ -174,7 +173,7 @@ public static class UserEndpoints
         }
         catch (Exception ex)
         {
-            await db.Tx.RollbackAsync();
+            await db.RollbackAsync();
             return Results.BadRequest(new { message = $"Error: {ex.Message}" });
         }
     }

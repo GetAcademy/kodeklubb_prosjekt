@@ -23,9 +23,9 @@
 
         <span class="node-label">{{ node.name }}</span>
 
-        <span v-if="!hasChildren(node.id) && isDisabled(node.id)" class="node-status added">✓</span>
+        <span v-if="isDisabled(node.id)" class="node-status added">✓</span>
         <button
-          v-else-if="!hasChildren(node.id) && canAdd(node)"
+          v-else
           class="add-btn"
           @click.stop="emitAddTag(node.id)"
         >+ Legg til</button>
@@ -93,10 +93,6 @@ function toggle(tagId: string) {
   const next = new Set(expandedIds.value);
   next.has(tagId) ? next.delete(tagId) : next.add(tagId);
   expandedIds.value = next;
-}
-
-function canAdd(node: Tag): boolean {
-  return !hasChildren(node.id) || node.openForChildSuggestions === true;
 }
 
 function isDisabled(tagId: string): boolean {
