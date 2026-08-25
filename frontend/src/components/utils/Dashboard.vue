@@ -24,7 +24,7 @@
                             v-for="tag in team.tags"
                             :key="tag.id"
                             class="team-tag"
-                            :class="{ 'team-tag-main': isMainTag(tag.id) }"
+                            :class="{ 'team-tag-main': isMainTag(tag.id), 'team-tag-geo': isGeografiDescendant(tag.id) }"
                         >{{ tag.name }}</span>
                     </section>
                 </article>
@@ -58,6 +58,15 @@
     function isMainTag(tagId: string): boolean {
         const tag = tagsStore.getById(tagId);
         return tag != null && tag.parentId === null;
+    }
+
+    function isGeografiDescendant(tagId: string): boolean {
+        let current = tagsStore.getById(tagId);
+        if (!current || current.parentId === null) return false; // main tags handled separately
+        while (current?.parentId) {
+            current = tagsStore.getById(current.parentId);
+        }
+        return current?.name === 'Geografi';
     }
 
 </script>
@@ -119,18 +128,24 @@
 
     .team-tag {
         display: inline-block;
-        background-color: #eef1f5;
+        background-color: transparent;
         color: #33475b;
         padding: 0.3rem 0.65rem;
         border-radius: 6px;
         font-size: 0.85rem;
         font-weight: 500;
-        border: 1px solid #dde3ea;
+        border: 1.5px solid #b7c0cc;
     }
 
     .team-tag-main {
         background-color: #dcf5ec;
         color: #0c6b52;
         border-color: #b8e6d4;
+    }
+
+    .team-tag-geo {
+        background-color: transparent;
+        color: #0c6b52;
+        border-color: #7fd4b3;
     }
 </style>
