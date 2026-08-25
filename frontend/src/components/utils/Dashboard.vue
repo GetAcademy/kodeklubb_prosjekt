@@ -19,15 +19,13 @@
                         <RouterLink class="team-link" :to="`/teams/${team.id}`">Open</RouterLink>
                     </header>
                     <p v-if="team.description">{{ team.description }}</p>
-                    <section
-                        v-for="group in groupedTags(team)"
-                        :key="group.category"
-                        class="tag-group"
-                    >
-                        <span class="tag-group-label">{{ group.category }}</span>
-                        <div class="team-tags">
-                            <span v-for="tag in group.tags" :key="tag.id" class="team-tag">{{ tag.name }}</span>
-                        </div>
+                    <section v-if="(team.tags ?? []).length" class="team-tags">
+                        <span
+                            v-for="tag in team.tags"
+                            :key="tag.id"
+                            class="team-tag"
+                            :class="{ 'team-tag-main': isMainTag(tag.id) }"
+                        >{{ tag.name }}</span>
                     </section>
                 </article>
             </section>
@@ -49,37 +47,17 @@
     const data = computed(() => props.data);
     const teams = computed(() => props.teams || [])
 
-    // Tags are grouped into a separate row per top-level category (all
-    // rows share one uniform color), at Swati's explicit request,
+    // If a team was tagged with one of the 4 top-level nodes directly
+    // (rather than one of their children), that one tag is shown
+    // differently from the rest — at Swati's explicit request,
     // overriding Terje's "no special code for any category" instruction
-    // from the 25.08 review. Worth confirming with Terje directly if this
-    // divergence is meant to stick.
+    // from the 25.08 review. Worth confirming with Terje directly if
+    // this divergence is meant to stick.
     const tagsStore = useTagsStore();
 
-    function topLevelAncestorName(tagId: string): string {
-        let current = tagsStore.getById(tagId);
-        while (current?.parentId) {
-            current = tagsStore.getById(current.parentId);
-        }
-        return current?.name ?? 'Annet';
-    }
-
-    interface TagGroup {
-        category: string;
-        tags: { id: string; name: string }[];
-    }
-
-    function groupedTags(team: any): TagGroup[] {
-        const tags = team.tags ?? [];
-        const byCategory = new Map<string, { id: string; name: string }[]>();
-
-        for (const tag of tags) {
-            const category = topLevelAncestorName(tag.id);
-            if (!byCategory.has(category)) byCategory.set(category, []);
-            byCategory.get(category)!.push(tag);
-        }
-
-        return Array.from(byCategory.entries()).map(([category, tags]) => ({ category, tags }));
+    function isMainTag(tagId: string): boolean {
+        const tag = tagsStore.getById(tagId);
+        return tag != null && tag.parentId === null;
     }
 
 </script>
@@ -132,24 +110,11 @@
         border-radius: 999px;
     }
 
-    .tag-group {
-        margin-top: 0.75rem;
-    }
-
-    .tag-group-label {
-        display: block;
-        font-size: 0.72rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        color: #8a97a8;
-        margin-bottom: 0.3rem;
-    }
-
     .team-tags {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
+        margin-top: 0.75rem;
     }
 
     .team-tag {
@@ -161,5 +126,11 @@
         font-size: 0.85rem;
         font-weight: 500;
         border: 1px solid #dde3ea;
+    }
+
+    .team-tag-main {
+        background-color: #dcf5ec;
+        color: #0c6b52;
+        border-color: #b8e6d4;
     }
 </style>
