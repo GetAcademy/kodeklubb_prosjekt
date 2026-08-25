@@ -24,13 +24,16 @@
     <li v-for="team in teams" :key="team.id" class="team-card">
         <h3>{{ team.name }}</h3>
         <p v-if="team.description">{{ team.description }}</p>
-        <ul v-if="team.tags.length" class="team-tags">
-            <li
-                v-for="tag in team.tags"
-                :key="tag.id"
-                :class="tagCategoryClass(tag.id)"
-            >{{ tag.name }}</li>
-        </ul>
+        <div
+            v-for="group in groupedTags(team)"
+            :key="group.category"
+            class="tag-group"
+        >
+            <span class="tag-group-label">{{ group.category }}</span>
+            <ul class="team-tags">
+                <li v-for="tag in group.tags" :key="tag.id">{{ tag.name }}</li>
+            </ul>
+        </div>
         <button
             v-if="team.isOpenToJoinRequests"
             @click="joinTeam(team.id)"
@@ -68,31 +71,35 @@
     const { userName, user } = storeToRefs(authStore);
     const tagsStore = useTagsStore();
 
-    // Each of the 4 top-level nodes gets its own distinct color, at
-    // Swati's explicit request, overriding Terje's "no special code for
-    // any category" instruction from the 25.08 review. Worth confirming
-    // with Terje directly if this divergence is meant to stick.
+    // Tags are grouped into a separate row per top-level category (all
+    // rows share one uniform color), at Swati's explicit request,
+    // overriding Terje's "no special code for any category" instruction
+    // from the 25.08 review. Worth confirming with Terje directly if this
+    // divergence is meant to stick.
 
-    // Maps a top-level node's name to a CSS class. Adding a 5th top-level
-    // node later just needs one more line here — nothing else changes.
-    const CATEGORY_CLASSES: Record<string, string> = {
-        'Anvendelsesomrade': 'tag-anvendelse',
-        'Geografi': 'tag-geografi',
-        'Programmeringssprak': 'tag-proglang',
-        'Faglig niva': 'tag-faglig',
-    };
-
-    function topLevelAncestorName(tagId: string): string | undefined {
+    function topLevelAncestorName(tagId: string): string {
         let current = tagsStore.getById(tagId);
         while (current?.parentId) {
             current = tagsStore.getById(current.parentId);
         }
-        return current?.name;
+        return current?.name ?? 'Annet';
     }
 
-    function tagCategoryClass(tagId: string): string {
-        const topName = topLevelAncestorName(tagId);
-        return (topName && CATEGORY_CLASSES[topName]) || 'tag-default';
+    interface TagGroup {
+        category: string;
+        tags: TeamTag[];
+    }
+
+    function groupedTags(team: TeamListItem): TagGroup[] {
+        const byCategory = new Map<string, TeamTag[]>();
+
+        for (const tag of team.tags) {
+            const category = topLevelAncestorName(tag.id);
+            if (!byCategory.has(category)) byCategory.set(category, []);
+            byCategory.get(category)!.push(tag);
+        }
+
+        return Array.from(byCategory.entries()).map(([category, tags]) => ({ category, tags }));
     }
 
     const teams = ref<TeamListItem[]>([]);
@@ -212,51 +219,37 @@
         color: #666;
     }
 
+    .tag-group {
+        margin-bottom: 0.75rem;
+    }
+
+    .tag-group-label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #8a97a8;
+        margin-bottom: 0.3rem;
+    }
+
     .team-tags {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
         padding: 0;
         list-style: none;
-        margin: 0 0 0.75rem 0;
+        margin: 0;
     }
 
     .team-tags li {
+        background-color: #eef1f5;
+        color: #33475b;
         padding: 0.3rem 0.65rem;
         border-radius: 6px;
         font-size: 0.85rem;
         font-weight: 500;
-        border: 1px solid transparent;
-    }
-
-    .tag-default {
-        background-color: #eef1f5;
-        color: #33475b;
-        border-color: #dde3ea;
-    }
-
-    .tag-anvendelse {
-        background-color: #efe9fb;
-        color: #5b3aa8;
-        border-color: #d9cdf3;
-    }
-
-    .tag-geografi {
-        background-color: #dcf5ec;
-        color: #0c6b52;
-        border-color: #b8e6d4;
-    }
-
-    .tag-proglang {
-        background-color: #fde8e0;
-        color: #a3411a;
-        border-color: #f7c7b3;
-    }
-
-    .tag-faglig {
-        background-color: #fbe7ef;
-        color: #a3245a;
-        border-color: #f4c3d9;
+        border: 1px solid #dde3ea;
     }
 
     .team-card button {
