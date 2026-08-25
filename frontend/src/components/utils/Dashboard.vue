@@ -19,11 +19,13 @@
                         <RouterLink class="team-link" :to="`/teams/${team.id}`">Open</RouterLink>
                     </header>
                     <p v-if="team.description">{{ team.description }}</p>
-                    <section v-if="technicalTags(team).length" class="team-tags">
-                        <span v-for="tag in technicalTags(team)" :key="tag.id" class="team-tag">{{ tag.name }}</span>
-                    </section>
-                    <section v-if="geografiTags(team).length" class="team-tags team-tags-geo">
-                        <span v-for="tag in geografiTags(team)" :key="tag.id" class="team-tag geo">🌍 {{ tag.name }}</span>
+                    <section v-if="(team.tags ?? []).length" class="team-tags">
+                        <span
+                            v-for="tag in team.tags"
+                            :key="tag.id"
+                            class="team-tag"
+                            :class="tagCategoryClass(tag.id)"
+                        >{{ tag.name }}</span>
                     </section>
                 </article>
             </section>
@@ -45,35 +47,32 @@
     const data = computed(() => props.data);
     const teams = computed(() => props.teams || [])
 
-    // Geografi is displayed differently (green, with a globe icon) at
+    // Each of the 4 top-level nodes gets its own distinct color, at
     // Swati's explicit request, overriding Terje's "no special code for
     // any category" instruction from the 25.08 review. Worth confirming
     // with Terje directly if this divergence is meant to stick.
     const tagsStore = useTagsStore();
-    const geografiId = computed(() =>
-        tagsStore.tags.find(t => t.name === 'Geografi' && t.parentId === null)?.id
-    );
 
-    function isDescendantOf(tagId: string, ancestorId: string | undefined): boolean {
-        if (!ancestorId) return false;
+    // Maps a top-level node's name to a CSS class. Adding a 5th top-level
+    // node later just needs one more line here — nothing else changes.
+    const CATEGORY_CLASSES: Record<string, string> = {
+        'Anvendelsesomrade': 'tag-anvendelse',
+        'Geografi': 'tag-geografi',
+        'Programmeringssprak': 'tag-proglang',
+        'Faglig niva': 'tag-faglig',
+    };
+
+    function topLevelAncestorName(tagId: string): string | undefined {
         let current = tagsStore.getById(tagId);
         while (current?.parentId) {
-            if (current.parentId === ancestorId) return true;
             current = tagsStore.getById(current.parentId);
         }
-        return false;
+        return current?.name;
     }
 
-    function isGeografiTag(tagId: string): boolean {
-        return tagId === geografiId.value || isDescendantOf(tagId, geografiId.value);
-    }
-
-    function technicalTags(team: any): { id: string; name: string }[] {
-        return (team.tags ?? []).filter((t: any) => !isGeografiTag(t.id));
-    }
-
-    function geografiTags(team: any): { id: string; name: string }[] {
-        return (team.tags ?? []).filter((t: any) => isGeografiTag(t.id));
+    function tagCategoryClass(tagId: string): string {
+        const topName = topLevelAncestorName(tagId);
+        return (topName && CATEGORY_CLASSES[topName]) || 'tag-default';
     }
 
 </script>
@@ -135,18 +134,40 @@
 
     .team-tag {
         display: inline-block;
-        background-color: #eef1f5;
-        color: #33475b;
         padding: 0.3rem 0.65rem;
         border-radius: 6px;
         font-size: 0.85rem;
         font-weight: 500;
-        border: 1px solid #dde3ea;
+        border: 1px solid transparent;
     }
 
-    .team-tag.geo {
+    .tag-default {
+        background-color: #eef1f5;
+        color: #33475b;
+        border-color: #dde3ea;
+    }
+
+    .tag-anvendelse {
+        background-color: #efe9fb;
+        color: #5b3aa8;
+        border-color: #d9cdf3;
+    }
+
+    .tag-geografi {
         background-color: #dcf5ec;
         color: #0c6b52;
-        border: 1px solid #b8e6d4;
+        border-color: #b8e6d4;
+    }
+
+    .tag-proglang {
+        background-color: #fde8e0;
+        color: #a3411a;
+        border-color: #f7c7b3;
+    }
+
+    .tag-faglig {
+        background-color: #fbe7ef;
+        color: #a3245a;
+        border-color: #f4c3d9;
     }
 </style>
