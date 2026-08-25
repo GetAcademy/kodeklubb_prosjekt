@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <section class="teams-container">
         <h2>Teams</h2>
         <p v-if="userName">
@@ -223,15 +223,19 @@
     }
 
     .team-tags li {
-        background-color: #f0f0f0;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
+        background-color: #eef1f5;
+        color: #33475b;
+        padding: 0.3rem 0.65rem;
+        border-radius: 6px;
         font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid #dde3ea;
     }
 
     .team-tags-geo li {
-        background-color: #e6fbf5;
-        color: #0f766e;
+        background-color: #dcf5ec;
+        color: #0c6b52;
+        border: 1px solid #b8e6d4;
     }
 
     .team-card button {
