@@ -3,6 +3,9 @@ using Persistence;
 using Persistence.DbModels;
 using Npgsql;
 using Dapper;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Mvc;
+
 
 namespace Api.Endpoints;
 
@@ -178,10 +181,9 @@ public static class UserEndpoints
         }
     }
 
-    private static async Task<IResult> GetCurrentUser(HttpContext context)
-    {
-        var discordId = context.User.FindFirst("sub")?.Value
-                       ?? context.Request.Headers["X-Discord-ID"].FirstOrDefault();
+        private static async Task<IResult> GetCurrentUser(ClaimsPrincipal principal, [FromHeader(Name = "X-Discord-ID")] string? discordIdHeader)
+{
+    var discordId = principal.FindFirst("sub")?.Value ?? discordIdHeader;
 
         if (string.IsNullOrWhiteSpace(discordId))
             return Results.BadRequest(new { message = "Discord ID not found in request" });

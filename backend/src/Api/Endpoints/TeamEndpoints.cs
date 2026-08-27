@@ -23,7 +23,7 @@ public static class TeamEndpoints
 
         // --- Team discovery & management ---
         group.MapGet("/available", GetAvailableTeams).WithName("GetAvailableTeams");
-        group.MapPost("/", (HttpContext context, IEmailService emailService) => CreateTeam(context, emailService)).WithName("CreateTeam");
+        group.MapPost("/", CreateTeam).WithName("CreateTeam");
         group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams");
         group.MapGet("/{teamId:guid}", GetTeamDetails).WithName("GetTeamDetails");
         group.MapGet("/{teamId:guid}/members", GetTeamMembers).WithName("GetTeamMembers");
@@ -35,7 +35,7 @@ public static class TeamEndpoints
         group.MapDelete("/{teamId:guid}/tags/{tagId:guid}", RemoveTeamTag).WithName("RemoveTeamTag");
 
         // --- Join requests & invitations ---
-        group.MapPost("/{teamId:guid}/request", (Guid teamId, HttpContext context, IEmailService emailService) => RequestToJoinTeam(teamId, context, emailService)).WithName("RequestToJoinTeam");
+        group.MapPost("/{teamId:guid}/request", RequestToJoinTeam).WithName("RequestToJoinTeam");
         group.MapGet("/{teamId:guid}/requests", GetTeamRequests).WithName("GetTeamRequests");
        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/approve", ApproveTeamRequest).WithName("ApproveTeamRequest");       
        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/decline", DeclineTeamRequest).WithName("DeclineTeamRequest");
@@ -45,8 +45,8 @@ public static class TeamEndpoints
 
         // --- Announcements ---
         group.MapGet("/{teamId:guid}/announcements", GetTeamAnnouncements).WithName("GetTeamAnnouncements");
-        group.MapPost("/{teamId:guid}/announcements", (Guid teamId, HttpContext context) => CreateTeamAnnouncement(teamId, context)).WithName("CreateTeamAnnouncement");
-        group.MapPatch("/{teamId:guid}/announcements/{announcementId:guid}", (Guid teamId, Guid announcementId, HttpContext context) => UpdateTeamAnnouncement(teamId, announcementId, context)).WithName("UpdateTeamAnnouncement");
+        group.MapPost("/{teamId:guid}/announcements", CreateTeamAnnouncement).WithName("CreateTeamAnnouncement");
+        group.MapPatch("/{teamId:guid}/announcements/{announcementId:guid}", UpdateTeamAnnouncement).WithName("UpdateTeamAnnouncement");
         group.MapDelete("/{teamId:guid}/announcements/{announcementId:guid}", DeleteTeamAnnouncement).WithName("DeleteTeamAnnouncement");
 
         // --- Discord integration ---
@@ -392,27 +392,16 @@ public static class TeamEndpoints
         return Results.Ok(announcements);
     }
 
-    private static async Task<IResult> CreateTeamAnnouncement(Guid teamId, HttpContext context)
+    private static async Task<IResult> CreateTeamAnnouncement(Guid teamId, CreateTeamAnnouncementRequest body)
+{
+    try
     {
+        if (body == null || string.IsNullOrWhiteSpace(body.Title) || string.IsNullOrWhiteSpace(body.Body) || string.IsNullOrWhiteSpace(body.CreatedBy))
+            return Results.BadRequest(new { message = "Title, body, and createdBy are required" });
+
+        await using var db = await DbSession.OpenAsync();
         try
         {
-            context.Request.EnableBuffering();
-            context.Request.Body.Position = 0;
-
-            using var reader = new StreamReader(context.Request.Body, leaveOpen: true);
-            var rawBody = await reader.ReadToEndAsync();
-            context.Request.Body.Position = 0;
-
-            var body = JsonSerializer.Deserialize<CreateTeamAnnouncementRequest>(rawBody, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
-            if (body == null || string.IsNullOrWhiteSpace(body.Title) || string.IsNullOrWhiteSpace(body.Body) || string.IsNullOrWhiteSpace(body.CreatedBy))
-                return Results.BadRequest(new { message = "Title, body, and createdBy are required" });
-
-            await using var db = await DbSession.OpenAsync();
-            try
-            {
                 var existingTeam = await db.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById(), new { TeamId = teamId });
                 if (existingTeam == null)
                     return await db.RollbackAsync("Team not found");
@@ -449,11 +438,10 @@ public static class TeamEndpoints
         }
     }
 
-    private static async Task<IResult> UpdateTeamAnnouncement(Guid teamId, Guid announcementId, HttpContext context)
-    {
-        var body = await context.Request.ReadFromJsonAsync<UpdateTeamAnnouncementRequest>();
-        if (body == null || string.IsNullOrWhiteSpace(body.Title) || string.IsNullOrWhiteSpace(body.Body) || body.UpdatedBy == Guid.Empty)
-            return Results.BadRequest(new { message = "Title, body, and updatedBy are required" });
+    private static async Task<IResult> UpdateTeamAnnouncement(Guid teamId, Guid announcementId, UpdateTeamAnnouncementRequest body)
+{
+    if (body == null || string.IsNullOrWhiteSpace(body.Title) || string.IsNullOrWhiteSpace(body.Body) || body.UpdatedBy == Guid.Empty)
+        return Results.BadRequest(new { message = "Title, body, and updatedBy are required" });
 
         await using var db = await DbSession.OpenAsync();
         try
@@ -587,11 +575,10 @@ public static class TeamEndpoints
 
     // ========== Team Discovery & Management ==========
 
-    private static async Task<IResult> CreateTeam(HttpContext context, IEmailService emailService)
-    {
-        var body = await context.Request.ReadFromJsonAsync<CreateTeamRequest>();
-        if (body == null || string.IsNullOrWhiteSpace(body.Name) || body.AdminUserId == Guid.Empty)
-            return Results.BadRequest(new { message = "Team name and admin user ID are required" });
+    private static async Task<IResult> CreateTeam(CreateTeamRequest body, IEmailService emailService)
+{
+    if (body == null || string.IsNullOrWhiteSpace(body.Name) || body.AdminUserId == Guid.Empty)
+        return Results.BadRequest(new { message = "Team name and admin user ID are required" });
 
         await using var db = await DbSession.OpenAsync();
         try
@@ -663,16 +650,15 @@ public static class TeamEndpoints
         return Results.Ok(results);
     }
 
-    private static async Task<IResult> RequestToJoinTeam(Guid teamId, HttpContext context, IEmailService emailService)
-    {
-        Console.WriteLine($"[JoinTeam] Incoming request for teamId={teamId}");
+   private static async Task<IResult> RequestToJoinTeam(Guid teamId, TeamJoinRequest body, IEmailService emailService)
+{
+    Console.WriteLine($"[JoinTeam] Incoming request for teamId={teamId}");
 
-        var body = await context.Request.ReadFromJsonAsync<TeamJoinRequest>();
-        if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
-        {
-            Console.WriteLine("[JoinTeam] Rejected: missing or invalid body / DiscordId");
-            return Results.BadRequest(new { message = "Discord ID is required" });
-        }
+    if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
+    {
+        Console.WriteLine("[JoinTeam] Rejected: missing or invalid body / DiscordId");
+        return Results.BadRequest(new { message = "Discord ID is required" });
+    }
 
         Console.WriteLine($"[JoinTeam] Body parsed OK, DiscordId={body.DiscordId}");
 
