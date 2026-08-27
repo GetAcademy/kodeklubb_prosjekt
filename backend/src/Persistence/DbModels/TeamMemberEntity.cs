@@ -5,7 +5,7 @@ public class TeamMemberEntity
     public Guid Id { get; init; }
     public Guid TeamId { get; init; }
     public Guid UserId { get; init; }
-    public string DiscordId { get; init; }
+    public string DiscordId { get; init; } = string.Empty;
     public string Username { get; init; } = string.Empty;
     public string Email { get; init; } = string.Empty;
     public string AvatarUrl { get; init; } = string.Empty;

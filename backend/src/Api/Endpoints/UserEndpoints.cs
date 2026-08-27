@@ -16,7 +16,7 @@ public static class UserEndpoints
         group.MapGet("/", () => GetAllUsers()).WithName("GetAllUsers");
         group.MapGet("/{id}", (Guid id) => GetUserById(id)).WithName("GetUserById");
         group.MapPost("/", (CreateUserRequest request) => CreateUser(request)).WithName("CreateUser");
-        group.MapGet("/me", (HttpContext context) => GetCurrentUser(context)).WithName("GetCurrentUser");
+        group.MapGet("/me", GetCurrentUser).WithName("GetCurrentUser");
 
         // --- Tags ---
         group.MapGet("/{discordId}/tags", (string discordId) => GetUserTags(discordId)).WithName("GetUserTags");
