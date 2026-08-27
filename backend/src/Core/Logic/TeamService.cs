@@ -90,11 +90,10 @@ public static class TeamService
     public static TeamResult HandleApproveRequest(
         TeamState state,
         ApproveJoinRequestCommand command,
-        DateTime now,
-        Guid adminId
+        DateTime now
         )
     {
-        if (!state.Members.Contains(adminId))
+        if (!state.Members.Contains(command.AdminId))
         {
             return new TeamResult(
                 new Outcome(OutcomeStatus.Rejected, "HandlerIsNotAMember"),
@@ -133,7 +132,7 @@ public static class TeamService
             newState,
             new List<IDomainEvent>
             {
-                new JoinRequestApproved(state.TeamId, command.RequestId, command.UserId, adminId, now)
+                new JoinRequestApproved(state.TeamId, command.RequestId, command.UserId, command.AdminId, now)
             }
         );
     }

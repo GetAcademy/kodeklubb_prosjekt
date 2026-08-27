@@ -19,11 +19,16 @@
                         <RouterLink class="team-link" :to="`/teams/${team.id}`">Open</RouterLink>
                     </header>
                     <p v-if="team.description">{{ team.description }}</p>
-                    <section v-if="technicalTags(team).length" class="team-tags">
-                        <span v-for="tag in technicalTags(team)" :key="tag.id" class="team-tag">{{ tag.name }}</span>
+
+                    <section v-if="otherTags(team).length" class="team-tags">
+                        <span v-for="tag in otherTags(team)" :key="tag.id" class="team-tag">{{ tag.name }}</span>
                     </section>
-                    <section v-if="geografiTags(team).length" class="team-tags team-tags-geo">
-                        <span v-for="tag in geografiTags(team)" :key="tag.id" class="team-tag geo">🌍 {{ tag.name }}</span>
+
+                    <section v-if="geografiTags(team).length" class="geo-section">
+                        <h4 class="geo-heading">Geografi</h4>
+                        <div class="team-tags">
+                            <span v-for="tag in geografiTags(team)" :key="tag.id" class="team-tag team-tag-geo">{{ tag.name }}</span>
+                        </div>
                     </section>
                 </article>
             </section>
@@ -45,35 +50,27 @@
     const data = computed(() => props.data);
     const teams = computed(() => props.teams || [])
 
-    // Geografi is displayed differently (green, with a globe icon) at
-    // Swati's explicit request, overriding Terje's "no special code for
-    // any category" instruction from the 25.08 review. Worth confirming
-    // with Terje directly if this divergence is meant to stick.
+    // Geografi tags are shown in their own separate section with a
+    // heading, at Swati's explicit request, overriding Terje's "no
+    // special code for any category" instruction from the 25.08 review.
+    // Worth confirming with Terje directly if this divergence is meant
+    // to stick.
     const tagsStore = useTagsStore();
-    const geografiId = computed(() =>
-        tagsStore.tags.find(t => t.name === 'Geografi' && t.parentId === null)?.id
-    );
-
-    function isDescendantOf(tagId: string, ancestorId: string | undefined): boolean {
-        if (!ancestorId) return false;
-        let current = tagsStore.getById(tagId);
-        while (current?.parentId) {
-            if (current.parentId === ancestorId) return true;
-            current = tagsStore.getById(current.parentId);
-        }
-        return false;
-    }
 
     function isGeografiTag(tagId: string): boolean {
-        return tagId === geografiId.value || isDescendantOf(tagId, geografiId.value);
-    }
-
-    function technicalTags(team: any): { id: string; name: string }[] {
-        return (team.tags ?? []).filter((t: any) => !isGeografiTag(t.id));
+        let current = tagsStore.getById(tagId);
+        while (current?.parentId) {
+            current = tagsStore.getById(current.parentId);
+        }
+        return current?.name === 'Geografi';
     }
 
     function geografiTags(team: any): { id: string; name: string }[] {
         return (team.tags ?? []).filter((t: any) => isGeografiTag(t.id));
+    }
+
+    function otherTags(team: any): { id: string; name: string }[] {
+        return (team.tags ?? []).filter((t: any) => !isGeografiTag(t.id));
     }
 
 </script>
@@ -124,6 +121,7 @@
         border: 1px solid #0f5ed8;
         padding: 0.25rem 0.6rem;
         border-radius: 999px;
+        white-space: nowrap;
     }
 
     .team-tags {
@@ -135,14 +133,33 @@
 
     .team-tag {
         display: inline-block;
-        background-color: #f0f0f0;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
+        background-color: #eef1f5;
+        color: #33475b;
+        padding: 0.3rem 0.65rem;
+        border-radius: 6px;
         font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid #dde3ea;
     }
 
-    .team-tag.geo {
-        background-color: #e6fbf5;
-        color: #0f766e;
+    .geo-section {
+        margin-top: 0.75rem;
+        padding-top: 0.6rem;
+        border-top: 1px dashed #dde3ea;
+    }
+
+    .geo-heading {
+        margin: 0 0 0.4rem 0;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #0c6b52;
+    }
+
+    .team-tag-geo {
+        background-color: #dcf5ec;
+        color: #0c6b52;
+        border-color: #b8e6d4;
     }
 </style>

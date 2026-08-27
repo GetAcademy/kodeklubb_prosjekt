@@ -4,16 +4,16 @@
       <div
         class="tree-row"
         :style="{ paddingLeft: `${depth * 18 + 8}px` }"
-        @click="hasChildren(node.id) ? toggle(node.id) : null"
+        @click="tagsStore.hasChildren(node.id) ? toggle(node.id) : null"
       >
         <span class="toggle" :class="{ expanded: isExpanded(node.id) }">
-          <svg v-if="hasChildren(node.id)" viewBox="0 0 16 16" width="10" height="10">
+          <svg v-if="tagsStore.hasChildren(node.id)" viewBox="0 0 16 16" width="10" height="10">
             <path d="M4 2 L12 8 L4 14 Z" fill="currentColor" />
           </svg>
         </span>
 
         <span class="node-icon">
-          <svg v-if="hasChildren(node.id)" viewBox="0 0 20 16" width="15" height="12">
+          <svg v-if="tagsStore.hasChildren(node.id)" viewBox="0 0 20 16" width="15" height="12">
             <path d="M1 2h6l2 2h10v10a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" fill="currentColor" />
           </svg>
           <svg v-else viewBox="0 0 16 16" width="12" height="12">
@@ -23,7 +23,7 @@
 
         <span class="node-label">{{ node.name }}</span>
 
-        <span v-if="isDisabled(node.id)" class="node-status added">✓</span>
+        <span v-if="isAlreadyAdded(node.id)" class="node-status added">✓</span>
         <button
           v-else
           class="add-btn"
@@ -32,10 +32,10 @@
       </div>
 
       <TagTree
-        v-if="hasChildren(node.id) && isExpanded(node.id)"
+        v-if="tagsStore.hasChildren(node.id) && isExpanded(node.id)"
         :parent-id="node.id"
         :depth="depth + 1"
-        :disabled-tag-ids="disabledTagIds"
+        :already-added-tags="alreadyAddedTags"
         @add-tag="emitAddTag"
       />
     </li>
@@ -48,42 +48,38 @@ import { useTagsStore } from '@/stores/tagsStore';
 import type { Tag } from '@/stores/tagsStore';
 // No self-import needed: Vue's <script setup> compiler automatically lets
 // a component reference itself by its own filename (TagTree.vue → <TagTree>
-// in its own template), with no import statement required. Adding an
-// explicit self-import was confusing the TypeScript language server.
+// in its own template), with no import statement required.
 //
-// This recursion is SAFE, unlike the earlier AddTags.vue bug that caused a
-// blank-page crash: that component rendered itself unconditionally with no
-// stopping point. Here, the recursive <TagTree> below is guarded by
-// v-if="hasChildren(node.id) && isExpanded(node.id)" — it only renders for
-// a node that (a) actually has children and (b) the user has explicitly
-// expanded, and each recursive call is scoped to a different, deeper
-// parentId. A leaf node (no children) never recurses, so the chain always
+// This recursion is SAFE: the recursive <TagTree> below is guarded by
+// v-if="tagsStore.hasChildren(node.id) && isExpanded(node.id)" — it only
+// renders for a node that (a) actually has children and (b) the user has
+// explicitly expanded, and each recursive call is scoped to a different,
+// deeper parentId. A leaf node never recurses, so the chain always
 // terminates.
 
 const props = defineProps<{
   parentId?: string | null;
   depth?: number;
-  disabledTagIds?: string[];
-  // Tag ids to hide from this specific list (used to pull a category like
-  // "Geografi" out of the main tree so it can be shown in its own box).
-  excludeIds?: string[];
+  // Ids of tags the caller has already saved for the current context
+  // (a team or a user). Still shown in the tree, but marked with a
+  // checkmark instead of an "add" button. This is contextual (differs
+  // per team/user), so it stays a prop passed down from the caller
+  // rather than living in tagsStore, which only holds the shared,
+  // global tag catalog.
+  alreadyAddedTags?: string[];
 }>();
 
 const emit = defineEmits<{ (e: 'add-tag', tagId: string): void }>();
 
 const tagsStore = useTagsStore();
 const depth = computed(() => props.depth ?? 0);
-const nodes = computed<Tag[]>(() => {
-  const all = tagsStore.getChildren(props.parentId ?? null);
-  if (!props.excludeIds?.length) return all;
-  return all.filter(tag => !props.excludeIds!.includes(tag.id));
-});
+
+// No filtering happens here — this just asks the store for this node's
+// children directly, per review feedback (no per-component array
+// filtering; the tree renders whatever the store's catalog says exists).
+const nodes = computed<Tag[]>(() => tagsStore.getChildren(props.parentId ?? null));
 
 const expandedIds = ref<Set<string>>(new Set());
-
-function hasChildren(tagId: string): boolean {
-  return tagsStore.getChildren(tagId).length > 0;
-}
 
 function isExpanded(tagId: string): boolean {
   return expandedIds.value.has(tagId);
@@ -95,8 +91,8 @@ function toggle(tagId: string) {
   expandedIds.value = next;
 }
 
-function isDisabled(tagId: string): boolean {
-  return props.disabledTagIds?.includes(tagId) ?? false;
+function isAlreadyAdded(tagId: string): boolean {
+  return props.alreadyAddedTags?.includes(tagId) ?? false;
 }
 
 function emitAddTag(tagId: string) {
