@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <section class="teams-container">
         <h2>Teams</h2>
         <p v-if="userName">
@@ -24,12 +24,18 @@
     <li v-for="team in teams" :key="team.id" class="team-card">
         <h3>{{ team.name }}</h3>
         <p v-if="team.description">{{ team.description }}</p>
-        <ul v-if="technicalTags(team).length" class="team-tags">
-            <li v-for="tag in technicalTags(team)" :key="tag.id">{{ tag.name }}</li>
+
+        <ul v-if="otherTags(team).length" class="team-tags">
+            <li v-for="tag in otherTags(team)" :key="tag.id">{{ tag.name }}</li>
         </ul>
-        <ul v-if="geografiTags(team).length" class="team-tags team-tags-geo">
-            <li v-for="tag in geografiTags(team)" :key="tag.id">🌍 {{ tag.name }}</li>
-        </ul>
+
+        <div v-if="geografiTags(team).length" class="geo-section">
+            <h4 class="geo-heading">Geografi</h4>
+            <ul class="team-tags">
+                <li v-for="tag in geografiTags(team)" :key="tag.id" class="team-tag-geo">{{ tag.name }}</li>
+            </ul>
+        </div>
+
         <button
             v-if="team.isOpenToJoinRequests"
             @click="joinTeam(team.id)"
@@ -67,32 +73,26 @@
     const { userName, user } = storeToRefs(authStore);
     const tagsStore = useTagsStore();
 
-    // Geografi is displayed differently (green, with a globe icon) at
-    // Swati's explicit request, overriding Terje's "no special code for
-    // any category" instruction from the 25.08 review. Worth confirming
-    // with Terje directly if this divergence is meant to stick.
-    const geografiId = ref<string | undefined>(undefined);
-
-    function isDescendantOf(tagId: string, ancestorId: string | undefined): boolean {
-        if (!ancestorId) return false;
-        let current = tagsStore.getById(tagId);
-        while (current?.parentId) {
-            if (current.parentId === ancestorId) return true;
-            current = tagsStore.getById(current.parentId);
-        }
-        return false;
-    }
+    // Geografi tags are shown in their own separate section with a
+    // heading, at Swati's explicit request, overriding Terje's "no
+    // special code for any category" instruction from the 25.08 review.
+    // Worth confirming with Terje directly if this divergence is meant
+    // to stick.
 
     function isGeografiTag(tagId: string): boolean {
-        return tagId === geografiId.value || isDescendantOf(tagId, geografiId.value);
-    }
-
-    function technicalTags(team: TeamListItem): TeamTag[] {
-        return team.tags.filter(t => !isGeografiTag(t.id));
+        let current = tagsStore.getById(tagId);
+        while (current?.parentId) {
+            current = tagsStore.getById(current.parentId);
+        }
+        return current?.name === 'Geografi';
     }
 
     function geografiTags(team: TeamListItem): TeamTag[] {
         return team.tags.filter(t => isGeografiTag(t.id));
+    }
+
+    function otherTags(team: TeamListItem): TeamTag[] {
+        return team.tags.filter(t => !isGeografiTag(t.id));
     }
 
     const teams = ref<TeamListItem[]>([]);
@@ -106,7 +106,6 @@
 
     try {
         await tagsStore.ensureLoaded();
-        geografiId.value = tagsStore.tags.find(t => t.name === 'Geografi' && t.parentId === null)?.id;
 
         const baseApi = import.meta.env.VITE_BASE_API;
         const discordId = user.value?.id;
@@ -223,15 +222,34 @@
     }
 
     .team-tags li {
-        background-color: #f0f0f0;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
+        background-color: #eef1f5;
+        color: #33475b;
+        padding: 0.3rem 0.65rem;
+        border-radius: 6px;
         font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid #dde3ea;
     }
 
-    .team-tags-geo li {
-        background-color: #e6fbf5;
-        color: #0f766e;
+    .geo-section {
+        margin-bottom: 0.75rem;
+        padding-top: 0.6rem;
+        border-top: 1px dashed #dde3ea;
+    }
+
+    .geo-heading {
+        margin: 0 0 0.4rem 0;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #0c6b52;
+    }
+
+    .team-tag-geo {
+        background-color: #dcf5ec;
+        color: #0c6b52;
+        border-color: #b8e6d4;
     }
 
     .team-card button {

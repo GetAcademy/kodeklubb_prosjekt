@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <section class="dashboard">
         <header class="dashboard-header">
             <h2>Dashboard</h2>
@@ -142,7 +142,7 @@
         border: 1px solid #dde3ea;
     }
 
-    .geo-section {
+       .geo-section {
         margin-top: 0.75rem;
         padding-top: 0.6rem;
         border-top: 1px dashed #dde3ea;
