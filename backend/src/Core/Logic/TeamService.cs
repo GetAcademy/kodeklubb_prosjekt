@@ -138,13 +138,12 @@ public static class TeamService
     }
 
     public static TeamResult HandleDeclineRequest(
-        TeamState state,
-        DeclineJoinRequestCommand command,
-        DateTime now,
-        Guid adminId
-        )
-    {
-        if (!state.Members.Contains(adminId))
+    TeamState state,
+    DeclineJoinRequestCommand command,
+    DateTime now
+    )
+{
+    if (!state.Members.Contains(command.AdminId))
         {
             return new TeamResult(
                 new Outcome(OutcomeStatus.Rejected, "HandlerIsNotAMember"),

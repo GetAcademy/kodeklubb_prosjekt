@@ -37,7 +37,8 @@ public static class TeamEndpoints
         // --- Join requests & invitations ---
         group.MapPost("/{teamId:guid}/request", (Guid teamId, HttpContext context, IEmailService emailService) => RequestToJoinTeam(teamId, context, emailService)).WithName("RequestToJoinTeam");
         group.MapGet("/{teamId:guid}/requests", GetTeamRequests).WithName("GetTeamRequests");
-       group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/approve", ApproveTeamRequest).WithName("ApproveTeamRequest");        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/decline", (Guid teamId, Guid requestId, HttpContext context, IEmailService emailService) => DeclineTeamRequest(teamId, requestId, context, emailService)).WithName("DeclineTeamRequest");
+       group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/approve", ApproveTeamRequest).WithName("ApproveTeamRequest");       
+       group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/decline", DeclineTeamRequest).WithName("DeclineTeamRequest");
         group.MapDelete("/{teamId:guid}/requests/{requestId:guid}", (Guid teamId, Guid requestId, string discordId) => CancelJoinRequest(teamId, requestId, discordId)).WithName("CancelJoinRequest");
         group.MapGet("/my-requests", GetMyRequests).WithName("GetMyRequests");
         group.MapGet("/notifications", GetNotifications).WithName("GetNotifications");
@@ -779,16 +780,32 @@ public static class TeamEndpoints
     }
 }
 
-    private static async Task<IResult> DeclineTeamRequest(Guid teamId, Guid requestId, HttpContext context, IEmailService emailService)
+       private static async Task<IResult> DeclineTeamRequest(Guid teamId, Guid requestId, AdminActionRequest body, IEmailService emailService)
     {
-        var body = await context.Request.ReadFromJsonAsync<AdminActionRequest>();
-        if (body == null || string.IsNullOrWhiteSpace(body.DiscordId))
+        if (string.IsNullOrWhiteSpace(body.DiscordId))
             return Results.BadRequest(new { message = "Discord ID is required" });
 
         await using var db = await DbSession.OpenAsync();
         try
         {
-            return await DeclineTeamRequestCore(teamId, requestId, body, db, emailService);
+            var adminUser = await db.QueryOneOrDefaultAsync<TeamMemberEntity>(TeamSql.GetAdminUserByTeamId(), new { TeamId = teamId });
+
+            var userIds = await db.QueryListAsync<Guid>(TeamSql.GetMemberIdsByTeamId(), new { TeamId = teamId });
+            var teamInvitations = await db.QueryListAsync<Guid>(InvitationSql.GetIdsByTeamId(), new { TeamId = teamId });
+
+            var request = await db.QueryOneOrDefaultAsync<InvitationEntity>(InvitationSql.GetById(), new { RequestId = requestId, TeamId = teamId });
+            if (request == null) return await db.RollbackAsync("Request not found");
+
+            var state = new TeamState(teamId, userIds, teamInvitations);
+            var command = new DeclineJoinRequestCommand(teamId, request.InvitedUserId, request.Id, adminUser?.UserId ?? Guid.Empty, adminUser?.Id ?? Guid.Empty);
+            var result = TeamService.HandleDeclineRequest(state, command, DateTime.UtcNow);
+
+            if (result.Outcome.Status == OutcomeStatus.Rejected)
+                return await db.RollbackAsync(result.Outcome.Message);
+
+            await TeamEventHandler.HandleAsync(result.Events, db, emailService);
+            await db.CommitAsync();
+            return Results.Ok(new { message = "Request declined successfully" });
         }
         catch (Exception ex)
         {
@@ -796,34 +813,7 @@ public static class TeamEndpoints
             return Results.BadRequest(new { ex.Message });
         }
     }
-
-    private static async Task<IResult> DeclineTeamRequestCore(Guid teamId, Guid requestId, AdminActionRequest body, DbSession db, IEmailService emailService)
-    {
-        var adminUser = await db.QueryOneOrDefaultAsync<TeamMemberEntity>(TeamSql.GetAdminUserByTeamId(), new { TeamId = teamId });
-        if (adminUser == null) return await db.RollbackAsync("User not found");
-
-        var userIds = await db.QueryListAsync<Guid>(TeamSql.GetMemberIdsByTeamId(), new { TeamId = teamId });
-        var teamInvitations = await db.QueryListAsync<Guid>(InvitationSql.GetIdsByTeamId(), new { TeamId = teamId });
-
-        var request = await db.QueryOneOrDefaultAsync<InvitationEntity>(InvitationSql.GetById(), new { RequestId = requestId, TeamId = teamId });
-        if (request == null) return await db.RollbackAsync("Request not found");
-
-        if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
-            return await db.RollbackAsync("Request has already been processed");
-
-        var state = new TeamState(teamId, userIds, teamInvitations);
-        var command = new DeclineJoinRequestCommand(teamId, request.InvitedUserId, request.Id, adminUser.UserId);
-        var result = TeamService.HandleDeclineRequest(state, command, DateTime.UtcNow, adminUser.Id);
-
-        if (result.Outcome.Status == OutcomeStatus.Rejected)
-            return await db.RollbackAsync(result.Outcome.Message);
-
-        await TeamEventHandler.HandleAsync(result.Events, db, emailService);
-        await db.CommitAsync();
-        return Results.Ok(new { message = "Request declined successfully" });
-    }
-
-    private static async Task<IResult> GetTeamDetails(Guid teamId, string? discordId)
+        private static async Task<IResult> GetTeamDetails(Guid teamId, string? discordId)
     {
         await using var connection = await AppConfig.OpenConnectionAsync();
         var team = await connection.QueryOneOrDefaultAsync<TeamEntity>(TeamSql.GetById, new { TeamId = teamId });
