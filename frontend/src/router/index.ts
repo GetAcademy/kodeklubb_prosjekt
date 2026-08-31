@@ -32,6 +32,7 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: "/", name : "index", component: () => import(`../views/Index.vue`) },
+    { path: "/pico-demo", name: "PicoDemo", component: () => import(`../views/PicoDemo.vue`) },
     ...requiredAuthorization
   ]});
 
