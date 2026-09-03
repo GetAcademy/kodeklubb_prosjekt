@@ -46,6 +46,16 @@
     import type { User } from '@/types/stores/userAuth';
     import DiscordLinking from '@/components/profile/DiscordLinking.vue';
 
+    // Pico's classless stylesheet, imported here rather than as a global
+    // main.ts import. Since Profile.vue is lazy-loaded by the router,
+    // Vite bundles this CSS into this component's own dynamic chunk —
+    // it only loads when someone actually visits this page, and never
+    // affects any other page in the app. Styles article/header/main/
+    // section/a/h2 automatically; the existing scoped .tags-list/
+    // .tag-badge/.muted/.error rules below still take precedence for
+    // those specific classes, since Vue's scoped-style specificity wins.
+    import '@picocss/pico/css/pico.classless.min.css';
+
     const authStore = useAuthStore();
     const { user } = storeToRefs(authStore);
     const userInfo = computed<User | null>(() => user.value)
@@ -94,6 +104,21 @@
 </script>
 
 <style scoped>
+.profile-container {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 24px;
+    font-size: 0.9rem;
+}
+
+.profile-container :deep(h2) {
+    font-size: 1.3rem;
+}
+
+.profile-container :deep(p) {
+    font-size: 0.9rem;
+}
+
 .tags-list {
     list-style: none;
     padding: 0;
