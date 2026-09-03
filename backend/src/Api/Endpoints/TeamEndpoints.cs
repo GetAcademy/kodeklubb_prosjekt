@@ -31,7 +31,7 @@ public static class TeamEndpoints
 
         // --- Tags ---
         group.MapGet("/{teamId:guid}/tags", GetTeamTags).WithName("GetTeamTags");
-        group.MapPost("/{teamId:guid}/tags", (Guid teamId, AddTeamTagsRequest body, IDiscordNotificationService discordService, IEmailService emailService) => AddTeamTags(teamId, body, discordService, emailService)).WithName("AddTeamTags");
+        group.MapPost("/{teamId:guid}/tags", AddTeamTags).WithName("AddTeamTags");
         group.MapDelete("/{teamId:guid}/tags/{tagId:guid}", RemoveTeamTag).WithName("RemoveTeamTag");
 
         // --- Join requests & invitations ---
@@ -39,7 +39,7 @@ public static class TeamEndpoints
         group.MapGet("/{teamId:guid}/requests", GetTeamRequests).WithName("GetTeamRequests");
        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/approve", ApproveTeamRequest).WithName("ApproveTeamRequest");       
        group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/decline", DeclineTeamRequest).WithName("DeclineTeamRequest");
-        group.MapDelete("/{teamId:guid}/requests/{requestId:guid}", (Guid teamId, Guid requestId, string discordId) => CancelJoinRequest(teamId, requestId, discordId)).WithName("CancelJoinRequest");
+        group.MapDelete("/{teamId:guid}/requests/{requestId:guid}", CancelJoinRequest).WithName("CancelJoinRequest");
         group.MapGet("/my-requests", GetMyRequests).WithName("GetMyRequests");
         group.MapGet("/notifications", GetNotifications).WithName("GetNotifications");
 
@@ -732,11 +732,8 @@ public static class TeamEndpoints
         return Results.Ok(requests);
     }
 
-    private static async Task<IResult> ApproveTeamRequest(Guid teamId, Guid requestId, AdminActionRequest body, IEmailService emailService)
+    private static async Task<IResult> ApproveTeamRequest(Guid teamId, Guid requestId, IEmailService emailService)
 {
-    if (string.IsNullOrWhiteSpace(body.DiscordId))
-        return Results.BadRequest(new { message = "Discord ID is required" });
-
     await using var db = await DbSession.OpenAsync();
     try
     {
@@ -766,12 +763,9 @@ public static class TeamEndpoints
     }
 }
 
-       private static async Task<IResult> DeclineTeamRequest(Guid teamId, Guid requestId, AdminActionRequest body, IEmailService emailService)
-    {
-        if (string.IsNullOrWhiteSpace(body.DiscordId))
-            return Results.BadRequest(new { message = "Discord ID is required" });
-
-        await using var db = await DbSession.OpenAsync();
+       private static async Task<IResult> DeclineTeamRequest(Guid teamId, Guid requestId, IEmailService emailService)
+{
+    await using var db = await DbSession.OpenAsync();
         try
         {
             var adminUser = await db.QueryOneOrDefaultAsync<TeamMemberEntity>(TeamSql.GetAdminUserByTeamId(), new { TeamId = teamId });
@@ -829,7 +823,6 @@ public record TeamTagRow(Guid TeamId, Guid TagId, string TagName);
 public record TeamTagSummary(Guid Id, string Name);
 public record TeamTagInsertResult(bool TagExists, bool WasInserted);
 public record CreateTeamRequest(string Name, string? Description, Guid AdminUserId);
-public record AdminActionRequest(string DiscordId);
 public record TeamJoinRequest([property: JsonPropertyName("discordId")] string DiscordId);
 public record JoinRequestDto(Guid Id, Guid TeamId, string TeamName, string Status, DateTime? InvitedAt);
 public record AddTeamTagsRequest(TagSelection[] Selections, string? DiscordId);

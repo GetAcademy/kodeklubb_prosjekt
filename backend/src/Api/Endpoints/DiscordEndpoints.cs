@@ -30,7 +30,7 @@ public static class DiscordEndpoints
 
             return Results.Redirect(url);
         });
-        app.MapGet("/auth/discord/callback", async (string? code, string? error, string? error_description, HttpContext context) =>
+        app.MapGet("/auth/discord/callback", async (string? code, string? error, string? error_description) =>
         {
             Console.WriteLine($"Discord callback received. Code: {!string.IsNullOrWhiteSpace(code)}, Error: {error}");
 

@@ -15,22 +15,21 @@ public static class UserEndpoints
     {
         var group = app.MapGroup("/api/users").WithName("Users");
 
-        // --- User CRUD ---
-        group.MapGet("/", () => GetAllUsers()).WithName("GetAllUsers");
-        group.MapGet("/{id}", (Guid id) => GetUserById(id)).WithName("GetUserById");
-        group.MapPost("/", (CreateUserRequest request) => CreateUser(request)).WithName("CreateUser");
+              // --- User CRUD ---
+        group.MapGet("/", GetAllUsers).WithName("GetAllUsers");
+        group.MapGet("/{id}", GetUserById).WithName("GetUserById");
+        group.MapPost("/", CreateUser).WithName("CreateUser");
         group.MapGet("/me", GetCurrentUser).WithName("GetCurrentUser");
 
         // --- Tags ---
-        group.MapGet("/{discordId}/tags", (string discordId) => GetUserTags(discordId)).WithName("GetUserTags");
-        group.MapPost("/{discordId}/tags", (string discordId, UpdateUserTagsRequest request) => AddUserTags(discordId, request)).WithName("AddUserTags");
-        group.MapDelete("/{discordId}/tags/{tagId:guid}", (string discordId, Guid tagId) => RemoveUserTag(discordId, tagId)).WithName("RemoveUserTag");
+        group.MapGet("/{discordId}/tags", GetUserTags).WithName("GetUserTags");
+        group.MapPost("/{discordId}/tags", AddUserTags).WithName("AddUserTags");
+        group.MapDelete("/{discordId}/tags/{tagId:guid}", RemoveUserTag).WithName("RemoveUserTag");
 
         // --- Discord account linking ---
-        group.MapPost("/{discordId}/discord/link", (string discordId, HttpContext context) => LinkDiscordAccount(discordId, context)).WithName("LinkDiscordAccount");
-        group.MapDelete("/{discordId}/discord/unlink", (string discordId) => UnlinkDiscordAccount(discordId)).WithName("UnlinkDiscordAccount");
-        group.MapGet("/{discordId}/discord/status", (string discordId) => GetDiscordAccountStatus(discordId)).WithName("GetDiscordAccountStatus");
-
+        group.MapPost("/{discordId}/discord/link", LinkDiscordAccount).WithName("LinkDiscordAccount");
+        group.MapDelete("/{discordId}/discord/unlink", UnlinkDiscordAccount).WithName("UnlinkDiscordAccount");
+        group.MapGet("/{discordId}/discord/status", GetDiscordAccountStatus).WithName("GetDiscordAccountStatus");
         // --- Misc / dev utilities ---
         group.MapPost("/send-test-email", async (Core.Logic.IEmailService emailService, string toEmail) =>
         {
@@ -130,7 +129,7 @@ public static class UserEndpoints
 
     // ========== Discord Account Linking ==========
 
-    private static async Task<IResult> LinkDiscordAccount(string discordId, HttpContext context)
+    private static async Task<IResult> LinkDiscordAccount(string discordId)
     {
         if (string.IsNullOrWhiteSpace(discordId))
             return Results.BadRequest(new { message = "Discord ID is required" });

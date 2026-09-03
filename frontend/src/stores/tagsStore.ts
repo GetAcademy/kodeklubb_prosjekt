@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia';
+﻿import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
 export interface Tag {
@@ -8,9 +8,6 @@ export interface Tag {
     openForChildSuggestions: boolean;
 }
 
-// Raw shape as returned by the API. /api/tags specifically returns
-// camelCase (opted out of the app's global PascalCase JSON config),
-// unlike most other endpoints in this app.
 interface RawTag {
     id: string;
     name: string;
@@ -32,8 +29,6 @@ export const useTagsStore = defineStore('tags', () => {
     const loading = ref(false);
     const error = ref('');
 
-    // Tracks the in-flight load so concurrent callers await the same
-    // request instead of firing multiple fetches.
     let loadPromise: Promise<void> | null = null;
     let loaded = false;
 
@@ -51,7 +46,6 @@ export const useTagsStore = defineStore('tags', () => {
             loaded = true;
         } catch (err) {
             error.value = err instanceof Error ? err.message : 'Ukjent feil.';
-            // Allow a retry on the next ensureLoaded() call since the load failed.
             loaded = false;
             throw err;
         } finally {
@@ -59,11 +53,6 @@ export const useTagsStore = defineStore('tags', () => {
         }
     }
 
-    /**
-     * Ensures the tag list has been loaded (or is currently loading).
-     * Safe to call from any component; only triggers one network request
-     * for the lifetime of the app, even if called many times concurrently.
-     */
     function ensureLoaded(): Promise<void> {
         if (loaded) {
             return Promise.resolve();
@@ -76,10 +65,6 @@ export const useTagsStore = defineStore('tags', () => {
         return loadPromise;
     }
 
-    /**
-     * Returns only the direct children of the given parent.
-     * Pass null to get top-level (root) tags.
-     */
     function getChildren(parentId: string | null): Tag[] {
         return tags.value.filter(tag => tag.parentId === parentId);
     }
@@ -88,5 +73,9 @@ export const useTagsStore = defineStore('tags', () => {
         return tags.value.find(tag => tag.id === id);
     }
 
-    return { tags, loading, error, ensureLoaded, getChildren, getById };
+    function hasChildren(tagId: string): boolean {
+        return tags.value.some(tag => tag.parentId === tagId);
+    }
+
+    return { tags, loading, error, ensureLoaded, getChildren, getById, hasChildren };
 });
