@@ -9,8 +9,9 @@
 
     <h2>Pico CSS demo (scoped)</h2>
     <p>
-      This page uses Pico's classless stylesheet, scoped to just this
-      component. No other page in the app is affected by it.
+      This page uses Pico's classless stylesheet, imported only inside
+      this component's own script. No other page in the app is affected
+      by it.
     </p>
 
     <article>
@@ -30,19 +31,17 @@
 </template>
 
 <script setup lang="ts">
-// No script logic needed — this page exists purely to compare Pico's
-// default styling against the rest of the app's custom CSS.
+// Imported here (a JS-level import, not a CSS @import inside a scoped
+// <style> block) because this component is lazy-loaded by the router
+// (() => import('../views/PicoDemo.vue')). Vite bundles this CSS into
+// that component's own dynamic chunk, so it's only ever injected into
+// the page when this specific route is visited — unlike the earlier
+// main.ts import, which loaded it globally for every page from the
+// moment the app started.
+import '@picocss/pico/css/pico.classless.min.css';
 </script>
 
 <style scoped>
-/* Pico's classless stylesheet, imported ONLY inside this component's
-   scoped style block. It styles raw semantic HTML (header, nav, article,
-   button, form, input) automatically, but — because Vue's `scoped`
-   attribute adds a unique data attribute to every element in this
-   template — it cannot leak out and affect any other component in the
-   app, unlike a global import in main.ts would. */
-@import '@picocss/pico/css/pico.classless.min.css';
-
 .pico-demo {
   padding: 24px;
   max-width: 640px;
