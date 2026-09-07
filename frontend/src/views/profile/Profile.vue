@@ -1,41 +1,50 @@
 <template>
-    <article class="flex-column-justify-space-evenly-items-center profile-container" v-if="!!userInfo">
-        <h2> Profile Informasjon </h2>
-        <header class="flex-column-justify-space-evenly-items-center profile-content">
-            <p>Bruker Navn : <a :href="userInfo?.id ? `https://discordapp.com/users/${userInfo.id}` : '#'" target="_blank">{{ userInfo?.username }}</a></p>
-            <p v-if="userInfo?.email">Epost : <a :href="`mailto:${userInfo.email}`">{{ userInfo.email }}</a></p>
-            <p v-if="userInfo && 'phone' in userInfo && userInfo.phone">Telefon : <a :href="`tel:${userInfo.phone}`">{{ userInfo.phone }}</a></p>
-            <address>
-                <p>Fylke / Kommune: {{(userInfo as any)?.location?.county || 'Ikke lagt til'}},{{(userInfo as any)?.location?.city || 'Ikke lagt til'}}</p>
-            </address>
-        </header>
+    <article v-if="!!userInfo">
+        <h2>Profilinformasjon</h2>
+
+        <dl>
+            <dt>Brukernavn</dt>
+            <dd>
+                <a :href="userInfo?.id ? `https://discordapp.com/users/${userInfo.id}` : '#'" target="_blank">{{ userInfo?.username }}</a>
+            </dd>
+
+            <template v-if="userInfo?.email">
+                <dt>E-post</dt>
+                <dd><a :href="`mailto:${userInfo.email}`">{{ userInfo.email }}</a></dd>
+            </template>
+
+            <template v-if="userInfo && 'phone' in userInfo && userInfo.phone">
+                <dt>Telefon</dt>
+                <dd><a :href="`tel:${userInfo.phone}`">{{ userInfo.phone }}</a></dd>
+            </template>
+
+            <dt>Fylke / kommune</dt>
+            <dd>{{(userInfo as any)?.location?.county || 'Ikke lagt til'}}, {{(userInfo as any)?.location?.city || 'Ikke lagt til'}}</dd>
+        </dl>
 
         <DiscordLinking />
 
-        <main class="flex-wrap-row-justify-space-evenly">
-            <section>
-                <h2> Mine interesser </h2>
-                <p v-if="tagsLoading" class="muted">Laster interesser...</p>
-                <p v-else-if="tagsError" class="error">{{ tagsError }}</p>
-                <ul v-else-if="userTags.length" class="tags-list">
-                    <li v-for="tag in userTags" :key="tag.id" class="tag-badge">
-                        {{ tag.name }}
-                    </li>
-                </ul>
-                <p v-else class="muted">Ingen interesser lagt til enda.</p>
-            </section>
+        <section>
+            <h2>Mine interesser</h2>
+            <p v-if="tagsLoading" class="muted">Laster interesser...</p>
+            <p v-else-if="tagsError" class="error">{{ tagsError }}</p>
+            <ul v-else-if="userTags.length" class="tags-list">
+                <li v-for="tag in userTags" :key="tag.id" class="tag-badge">
+                    {{ tag.name }}
+                </li>
+            </ul>
+            <p v-else class="muted">Ingen interesser lagt til enda.</p>
+        </section>
 
-            <section>
-                <h2> Anvendelses Områder </h2>
-                <ul v-if="(userInfo as any)?.interest && Array.isArray((userInfo as any).interest.scope)">
-                    <li v-for="scope in (userInfo as any).interest.scope" :key="scope">
-                        {{ scope }}
-                    </li>
-                </ul>
-                <p v-else class="muted">Ingen områder lagt til enda.</p>
-            </section>
-        </main>
-        <footer></footer>
+        <section>
+            <h2>Anvendelsesomrader</h2>
+            <ul v-if="(userInfo as any)?.interest && Array.isArray((userInfo as any).interest.scope)">
+                <li v-for="scope in (userInfo as any).interest.scope" :key="scope">
+                    {{ scope }}
+                </li>
+            </ul>
+            <p v-else class="muted">Ingen omrader lagt til enda.</p>
+        </section>
     </article>
 </template>
 
@@ -47,13 +56,15 @@
     import DiscordLinking from '@/components/profile/DiscordLinking.vue';
 
     // Pico's classless stylesheet, imported here rather than as a global
-    // main.ts import. Since Profile.vue is lazy-loaded by the router,
-    // Vite bundles this CSS into this component's own dynamic chunk —
-    // it only loads when someone actually visits this page, and never
-    // affects any other page in the app. Styles article/header/main/
-    // section/a/h2 automatically; the existing scoped .tags-list/
-    // .tag-badge/.muted/.error rules below still take precedence for
-    // those specific classes, since Vue's scoped-style specificity wins.
+    // main.ts import — scoped to just this page since it's lazy-loaded
+    // by the router. Per review feedback: this page's HTML is now
+    // genuinely semantic (a single <article>, a <dl> for the key/value
+    // profile fields, plain <section>s) with none of the old
+    // flex-utility classes that were fighting Pico's own styling
+    // underneath. The goal is to let Pico do essentially all of the
+    // work here, adding custom CSS back only where Pico genuinely
+    // doesn't give the desired result (currently: none, besides the
+    // pre-existing tag-badge styling below, which is genuinely custom).
     import '@picocss/pico/css/pico.classless.min.css';
 
     const authStore = useAuthStore();
@@ -104,21 +115,6 @@
 </script>
 
 <style scoped>
-.profile-container {
-    max-width: 640px;
-    margin: 0 auto;
-    padding: 24px;
-    font-size: 0.9rem;
-}
-
-.profile-container :deep(h2) {
-    font-size: 1.3rem;
-}
-
-.profile-container :deep(p) {
-    font-size: 0.9rem;
-}
-
 .tags-list {
     list-style: none;
     padding: 0;
