@@ -49,23 +49,38 @@
 </template>
 
 <script lang="ts" setup>
-    import { computed, onMounted, ref, watch } from 'vue';
+    import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
     import { storeToRefs } from 'pinia';
     import { useAuthStore } from '@/stores/authStore';
     import type { User } from '@/types/stores/userAuth';
     import DiscordLinking from '@/components/profile/DiscordLinking.vue';
 
-    // Pico's classless stylesheet, imported here rather than as a global
-    // main.ts import — scoped to just this page since it's lazy-loaded
-    // by the router. Per review feedback: this page's HTML is now
-    // genuinely semantic (a single <article>, a <dl> for the key/value
-    // profile fields, plain <section>s) with none of the old
-    // flex-utility classes that were fighting Pico's own styling
-    // underneath. The goal is to let Pico do essentially all of the
-    // work here, adding custom CSS back only where Pico genuinely
-    // doesn't give the desired result (currently: none, besides the
-    // pre-existing tag-badge styling below, which is genuinely custom).
-    import '@picocss/pico/css/pico.classless.min.css';
+    // Pico's classless stylesheet. Using the `?url` suffix gets Vite to
+    // hand back just the built file's URL as a plain string, WITHOUT
+    // automatically injecting it into the page — unlike a plain side-
+    // effect import, which only ever runs once per session (ES modules
+    // are cached after their first evaluation), meaning it would never
+    // re-fire on a second visit to this page within the same session.
+    // Managing the actual <link> tag ourselves, explicitly, in
+    // onMounted/onUnmounted below, means it's correctly added and
+    // removed every single time this page is entered and left — not
+    // just the first time.
+    import picoHref from '@picocss/pico/css/pico.classless.min.css?url';
+
+    let picoLinkEl: HTMLLinkElement | null = null;
+
+    onMounted(() => {
+        picoLinkEl = document.createElement('link');
+        picoLinkEl.rel = 'stylesheet';
+        picoLinkEl.href = picoHref;
+        picoLinkEl.setAttribute('data-pico-page', 'profile');
+        document.head.appendChild(picoLinkEl);
+    });
+
+    onUnmounted(() => {
+        picoLinkEl?.remove();
+        picoLinkEl = null;
+    });
 
     const authStore = useAuthStore();
     const { user } = storeToRefs(authStore);

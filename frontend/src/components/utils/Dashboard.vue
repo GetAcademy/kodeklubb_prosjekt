@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <section class="dashboard">
         <header class="dashboard-header">
             <h2>Dashboard</h2>
@@ -41,20 +41,32 @@
 
 <script lang="ts" setup>
 
-    import { computed } from 'vue';
+    import { computed, onMounted, onUnmounted } from 'vue';
     import type { DashboardProps} from '@/types/props';
     import NotificationBell from '../NotificationBell.vue';
     import { useTagsStore } from '@/stores/tagsStore';
+
+    import picoHref from '@picocss/pico/css/pico.classless.min.css?url';
+
+    let picoLinkEl: HTMLLinkElement | null = null;
+
+    onMounted(() => {
+        picoLinkEl = document.createElement('link');
+        picoLinkEl.rel = 'stylesheet';
+        picoLinkEl.href = picoHref;
+        picoLinkEl.setAttribute('data-pico-page', 'dashboard');
+        document.head.appendChild(picoLinkEl);
+    });
+
+    onUnmounted(() => {
+        picoLinkEl?.remove();
+        picoLinkEl = null;
+    });
 
     const props = defineProps<DashboardProps>();
     const data = computed(() => props.data);
     const teams = computed(() => props.teams || [])
 
-    // Geografi tags are shown in their own separate section with a
-    // heading, at Swati's explicit request, overriding Terje's "no
-    // special code for any category" instruction from the 25.08 review.
-    // Worth confirming with Terje directly if this divergence is meant
-    // to stick.
     const tagsStore = useTagsStore();
 
     function isGeografiTag(tagId: string): boolean {
@@ -76,6 +88,15 @@
 </script>
 
 <style scoped>
+    .dashboard :deep(h2) {
+        font-size: 1.4rem;
+    }
+
+    .team-card :deep(h3) {
+        font-size: 1.05rem;
+        margin: 0;
+    }
+
     .dashboard-header {
         display: flex;
         align-items: center;
@@ -142,7 +163,7 @@
         border: 1px solid #dde3ea;
     }
 
-       .geo-section {
+    .geo-section {
         margin-top: 0.75rem;
         padding-top: 0.6rem;
         border-top: 1px dashed #dde3ea;
