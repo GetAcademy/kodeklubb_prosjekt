@@ -14,7 +14,7 @@ public static class TeamSql
 
     public static string GetUserTeams() => SqlLoader.Load("Queries/Teams_GetUserTeams.sql");
 
-    public static string GetAdminUserByTeamId() => SqlLoader.Load("Queries/Teams_GetAdminUserByTeamId.sql");
+    
 
     public static string GetMemberIdsByTeamId() => SqlLoader.Load("Queries/TeamMembers_GetByTeamId.sql");
 
@@ -65,6 +65,7 @@ public static class TeamSql
     public static string GetActiveTeamMembersWithDiscordId() => SqlLoader.Load("Queries/TeamMembers_GetActiveWithDiscordId.sql");
 
     // --- Notifications & join requests ---
+    public static string GetApprovalState() => SqlLoader.Load("Queries/Teams_GetApprovalState.sql");
     public static string GetPendingApprovalsForAdmin() => SqlLoader.Load("Queries/Invitations_GetPendingApprovalsForAdmin.sql");
 
     public static string GetRecentUpdatesForUser() => SqlLoader.Load("Queries/Invitations_GetRecentUpdatesForUser.sql");

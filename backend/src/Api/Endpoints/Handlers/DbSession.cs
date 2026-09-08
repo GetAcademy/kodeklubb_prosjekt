@@ -47,6 +47,8 @@ public sealed class DbSession : IAsyncDisposable
     public Task<int> ExecuteAsync(string sql, object? param = null) =>
         _conn.ExecuteAsync(sql, param, _tx);
 
+    public Task<Dapper.SqlMapper.GridReader> QueryMultipleAsync(string sql, object? param = null) =>
+    _conn.QueryMultipleAsync(sql, param, _tx);
     /// <summary>
     /// Plain rollback with no response — use inside a catch block when you're
     /// about to return your own IResult separately (e.g. Results.BadRequest
