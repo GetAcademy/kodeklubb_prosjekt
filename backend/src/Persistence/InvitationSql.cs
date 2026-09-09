@@ -6,8 +6,7 @@ public static class InvitationSql
 
     public static string GetById() => SqlLoader.Load("Queries/Invitations_GetById.sql");
 
-    public static string GetIdsByTeamId() => SqlLoader.Load("Queries/Invitations_GetIdsByTeamId.sql");
-
+    
     public static string GetPendingByTeam() => SqlLoader.Load("Queries/Invitations_GetPendingByTeam.sql");
 
     public static string ApproveInvitation() => SqlLoader.Load("Commands/Invitations_Approve.sql");
