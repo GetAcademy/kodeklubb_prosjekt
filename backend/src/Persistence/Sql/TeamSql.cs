@@ -1,4 +1,4 @@
-namespace Persistence;
+﻿namespace Persistence;
 
 public static class TeamSql
 {
@@ -13,8 +13,6 @@ public static class TeamSql
     public static string GetAvailable() => SqlLoader.Load("Queries/Teams_GetAvailable.sql");
 
     public static string GetUserTeams() => SqlLoader.Load("Queries/Teams_GetUserTeams.sql");
-
-    
 
     public static string GetMemberIdsByTeamId() => SqlLoader.Load("Queries/TeamMembers_GetByTeamId.sql");
 
@@ -63,6 +61,11 @@ public static class TeamSql
     public static string RemoveDiscordRoleAssignment() => SqlLoader.Load("Commands/DiscordRoleAssignments_Remove.sql");
 
     public static string GetActiveTeamMembersWithDiscordId() => SqlLoader.Load("Queries/TeamMembers_GetActiveWithDiscordId.sql");
+
+    // --- Discord auto-provisioning (team channels feature) ---
+    public static string GetDiscordSetupInfo() => SqlLoader.Load("Queries/Teams_GetDiscordSetupInfo.sql");
+
+    public static string SetDiscordChannels() => SqlLoader.Load("Commands/Teams_SetDiscordChannels.sql");
 
     // --- Notifications & join requests ---
     public static string GetApprovalState() => SqlLoader.Load("Queries/Teams_GetApprovalState.sql");

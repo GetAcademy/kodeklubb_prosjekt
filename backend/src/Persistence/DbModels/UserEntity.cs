@@ -1,4 +1,4 @@
-namespace Persistence.DbModels;
+﻿namespace Persistence.DbModels;
 
 public class UserEntity
 {
@@ -12,3 +12,10 @@ public class UserEntity
     public DateTime UpdatedAt { get; init; }
     public int Version { get; init; }
 }
+
+public record TeamDiscordSetupInfo(
+    string Name,
+    string? DiscordServerId,
+    string? DiscordTeamRoleId,
+    string? DiscordTextChannelId,
+    string? DiscordVoiceChannelId);

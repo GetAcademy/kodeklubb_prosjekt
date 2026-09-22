@@ -1,4 +1,4 @@
-using Core.DomainEvents;
+﻿using Core.DomainEvents;
 using Persistence;
 
 namespace Api.Endpoints.Handlers;
@@ -8,13 +8,14 @@ public static class TeamEventHandler
     public static async Task HandleAsync(
         IReadOnlyList<IDomainEvent> events,
         DbSession db,
-        Core.Logic.IEmailService emailService)
+        Core.Logic.IEmailService emailService,
+        Core.Logic.IDiscordNotificationService? discordService = null)
     {
         foreach (var evt in events)
         {
             if (evt is TeamCreated created) await HandleEvent(created, db);
             if (evt is UserRequestedToJoinTeam team) await HandleEvent(team, db, emailService);
-            if (evt is JoinRequestApproved approved) await HandleEvent(approved, db, emailService);
+            if (evt is JoinRequestApproved approved) await HandleEvent(approved, db, emailService, discordService);
             if (evt is JoinRequestDeclined declined) await HandleEvent(declined, db);
         }
     }
@@ -27,7 +28,7 @@ public static class TeamEventHandler
         await InsertToEventLogAndOutbox(evt, db);
     }
 
-    private static async Task HandleEvent(JoinRequestApproved evt, DbSession db, Core.Logic.IEmailService emailService)
+    private static async Task HandleEvent(JoinRequestApproved evt, DbSession db, Core.Logic.IEmailService emailService, Core.Logic.IDiscordNotificationService? discordService)
     {
         await db.ExecuteAsync(
             InvitationSql.ApproveInvitation(),
@@ -39,6 +40,7 @@ public static class TeamEventHandler
 
         var user = await db.QueryOneOrDefaultAsync<Persistence.DbModels.UserEntity>(
             Persistence.TeamSql.GetUserByUserId(), new { UserId = evt.UserId });
+
         if (user?.Email != null)
         {
             try
@@ -49,11 +51,60 @@ public static class TeamEventHandler
             catch (Exception ex)
             {
                 // A failed notification email should never undo a successful
-                // approval. Log and move on — the outbox row already recorded
+                // approval. Log and move on -- the outbox row already recorded
                 // this event for later inspection/retry if needed.
                 Console.WriteLine($"[TeamEventHandler] Failed to send approval email to {user.Email}: {ex.Message}");
             }
         }
+
+        if (discordService != null && !string.IsNullOrWhiteSpace(user?.DiscordId))
+        {
+            try
+            {
+                await EnsureTeamDiscordSetupAndNotify(evt.TeamId, user!.DiscordId, db, discordService);
+            }
+            catch (Exception ex)
+            {
+                // Same principle as the email notification above -- Discord
+                // setup/notification failures must never undo the approval.
+                Console.WriteLine($"[TeamEventHandler] Discord setup/notify failed for team {evt.TeamId}: {ex.Message}");
+            }
+        }
+    }
+
+    private static async Task EnsureTeamDiscordSetupAndNotify(Guid teamId, string newMemberDiscordId, DbSession db, Core.Logic.IDiscordNotificationService discordService)
+    {
+        var team = await db.QueryOneOrDefaultAsync<Persistence.DbModels.TeamDiscordSetupInfo>(
+            Persistence.TeamSql.GetDiscordSetupInfo(), new { TeamId = teamId });
+
+        if (team == null || string.IsNullOrWhiteSpace(team.DiscordServerId))
+            return;
+
+        var roleId = team.DiscordTeamRoleId;
+        var textChannelId = team.DiscordTextChannelId;
+        var voiceChannelId = team.DiscordVoiceChannelId;
+
+        var alreadySetUp = !string.IsNullOrWhiteSpace(roleId)
+            && !string.IsNullOrWhiteSpace(textChannelId)
+            && !string.IsNullOrWhiteSpace(voiceChannelId);
+
+        if (!alreadySetUp)
+        {
+            roleId = await discordService.CreateRoleAsync(team.DiscordServerId, team.Name);
+            textChannelId = await discordService.CreateRestrictedChannelAsync(team.DiscordServerId, team.Name, Core.Logic.DiscordChannelType.Text, roleId);
+            voiceChannelId = await discordService.CreateRestrictedChannelAsync(team.DiscordServerId, team.Name, Core.Logic.DiscordChannelType.Voice, roleId);
+
+            await db.ExecuteAsync(Persistence.TeamSql.SetDiscordChannels(), new
+            {
+                TeamId = teamId,
+                DiscordTeamRoleId = roleId,
+                DiscordTextChannelId = textChannelId,
+                DiscordVoiceChannelId = voiceChannelId,
+            });
+        }
+
+        await discordService.AddRoleToMemberAsync(team.DiscordServerId, newMemberDiscordId, roleId!);
+        await discordService.SendChannelMessageAsync(textChannelId!, $"<@&{roleId}> -- a new member just joined the team!");
     }
 
     private static async Task HandleEvent(UserRequestedToJoinTeam evt, DbSession db, Core.Logic.IEmailService emailService)
@@ -110,13 +161,7 @@ public static class TeamEventHandler
 
     private static async Task InsertToEventLogAndOutbox(IDomainEvent evt, DbSession db)
     {
-        // evt.GetType().Name gives the real event type (e.g. "UserRequestedToJoinTeam").
-        // nameof(evt) would only ever return the literal string "evt" — the parameter's
-        // own name, not the runtime type — which was silently recording useless data.
         var eventType = evt.GetType().Name;
-
-        // Outbox_Insert.sql requires @EventData; it was previously never supplied,
-        // which is what caused the "column eventdata does not exist" failure.
         var eventDataJson = System.Text.Json.JsonSerializer.Serialize(evt, evt.GetType());
 
         await db.ExecuteAsync(TeamSql.InsertEventLog(),
