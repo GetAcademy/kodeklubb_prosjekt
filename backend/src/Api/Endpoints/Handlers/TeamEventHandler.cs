@@ -1,4 +1,4 @@
-﻿using Core.DomainEvents;
+using Core.DomainEvents;
 using Persistence;
 
 namespace Api.Endpoints.Handlers;
@@ -77,8 +77,18 @@ public static class TeamEventHandler
         var team = await db.QueryOneOrDefaultAsync<Persistence.DbModels.TeamDiscordSetupInfo>(
             Persistence.TeamSql.GetDiscordSetupInfo(), new { TeamId = teamId });
 
-        if (team == null || string.IsNullOrWhiteSpace(team.DiscordServerId))
+        if (team == null)
             return;
+
+        if (string.IsNullOrWhiteSpace(team.DiscordServerId))
+        {
+            var defaultServerId = Environment.GetEnvironmentVariable("Discord__DefaultServerId");
+            if (string.IsNullOrWhiteSpace(defaultServerId))
+                return;
+
+            await db.ExecuteAsync(Persistence.TeamSql.SetDiscordServerId(), new { TeamId = teamId, DiscordServerId = defaultServerId });
+            team = team with { DiscordServerId = defaultServerId };
+        }
 
         var roleId = team.DiscordTeamRoleId;
         var textChannelId = team.DiscordTextChannelId;

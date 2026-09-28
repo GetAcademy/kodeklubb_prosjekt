@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -605,6 +605,7 @@ public static class TeamEndpoints
             return await db.RollbackAsync(result.Outcome.Message);
 
         await TeamEventHandler.HandleAsync(result.Events, db, emailService);
+
         await db.CommitAsync();
         return Results.Created($"/api/discover/{state.TeamId}", new
         {
@@ -841,3 +842,4 @@ public record UpdateDiscordConfigRequest(string? DiscordServerId, string? Discor
 public record TeamAnnouncementDto(Guid Id, Guid TeamId, Guid CreatedBy, string Title, string Body, DateTime CreatedAt, DateTime UpdatedAt);
 public record CreateTeamAnnouncementRequest(string CreatedBy, string Title, string Body);
 public record UpdateTeamAnnouncementRequest(Guid UpdatedBy, string Title, string Body);
+

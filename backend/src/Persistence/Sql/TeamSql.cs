@@ -66,6 +66,7 @@ public static class TeamSql
     public static string GetDiscordSetupInfo() => SqlLoader.Load("Queries/Teams_GetDiscordSetupInfo.sql");
 
     public static string SetDiscordChannels() => SqlLoader.Load("Commands/Teams_SetDiscordChannels.sql");
+    public static string SetDiscordServerId() => SqlLoader.Load("Commands/Teams_SetDiscordServerId.sql");
 
     // --- Notifications & join requests ---
     public static string GetApprovalState() => SqlLoader.Load("Queries/Teams_GetApprovalState.sql");
@@ -86,3 +87,4 @@ public static class TeamSql
 
     public static string GetAdminUserRaw() => SqlLoader.Load("Queries/Teams_GetAdminUserRaw.sql");
 }
+
