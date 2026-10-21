@@ -5,6 +5,9 @@ public static class UserSql
     public static string GetById() => SqlLoader.Load("Queries/Users_GetById.sql");
     public static string GetByDiscordId() => SqlLoader.Load("Queries/Users_GetByDiscordId.sql");
     public static string Insert() => SqlLoader.Load("Commands/Users_Insert.sql");
+    public static string GetByAuth0UserId() => SqlLoader.Load("Queries/Users_GetByAuth0UserId.sql");
+    public static string SetAuth0UserId() => SqlLoader.Load("Commands/Users_SetAuth0UserId.sql");
+    public static string InsertFromAuth0() => SqlLoader.Load("Commands/Users_InsertFromAuth0.sql");
     public static string GetUserPredefinedTagsByDiscordId() => SqlLoader.Load("Queries/UserTags_GetPredefinedByDiscordId.sql");
     public static string InsertUserPredefinedTag() => SqlLoader.Load("Commands/UserTags_InsertPredefined.sql");
     public static string DeleteUserTag() => SqlLoader.Load("Commands/UserTags_DeleteOne.sql");

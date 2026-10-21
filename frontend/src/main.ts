@@ -2,6 +2,7 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 
 import App from './App.vue';
+import { auth0 } from './auth0';
 import router from './router';
 import './assets/sass/index.sass';
 import { useTagsStore } from './stores/tagsStore';
@@ -10,6 +11,7 @@ const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
+app.use(auth0)
 
 app.mount('#app')
 

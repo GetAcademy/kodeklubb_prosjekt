@@ -14,6 +14,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@auth0/auth0-vue": "^2.11.0",
     "@picocss/pico": "^2.1.1",
     "axios": "^1.13.4",
     "pinia": "^3.0.4",

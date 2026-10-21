@@ -4,6 +4,7 @@ public class UserEntity
 {
     public Guid Id { get; init; }
     public string DiscordId { get; init; } = string.Empty;
+    public string? Auth0UserId { get; init; }
     public string Username { get; init; } = string.Empty;
     public string? Email { get; init; }
     public string? AvatarUrl { get; init; }

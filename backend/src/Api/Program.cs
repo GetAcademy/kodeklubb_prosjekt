@@ -56,6 +56,21 @@ builder.Services.AddNpgsqlDataSource(connectionString);
 // --- 2. OTHER SERVICES ---
 builder.Services.AddCors();
 
+// --- 2b. AUTH0 (validate access tokens) ---
+// Authority = who made the token (our Auth0 tenant). Audience = who the token is for (our API).
+// The middleware checks signature, issuer, audience and expiry. We write no token code ourselves.
+var auth0Domain = builder.Configuration["Auth0:Domain"];
+var auth0Audience = builder.Configuration["Auth0:Audience"];
+builder.Services
+    .AddAuthentication(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = $"https://{auth0Domain}/";
+        options.Audience = auth0Audience;
+        options.MapInboundClaims = false; // keep claim names like "sub" as they are
+    });
+builder.Services.AddAuthorization();
+
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy = null;
@@ -105,6 +120,10 @@ app.UseCors(policy => policy
     .AllowAnyHeader()
     .AllowAnyMethod()
     .AllowCredentials());
+
+// Order matters: CORS first, then authentication, then authorization
+app.UseAuthentication();
+app.UseAuthorization();
 
 // --- 7. RUN MIGRATIONS ---
 try

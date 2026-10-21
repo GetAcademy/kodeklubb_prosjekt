@@ -33,6 +33,7 @@ const router = createRouter({
   routes: [
     { path: "/", name : "index", component: () => import(`../views/Index.vue`) },
     { path: "/pico-demo", name: "PicoDemo", component: () => import(`../views/PicoDemo.vue`) },
+    { path: "/auth-test", name: "AuthTest", component: () => import(`../views/AuthTest.vue`) },
     ...requiredAuthorization
   ]});
 

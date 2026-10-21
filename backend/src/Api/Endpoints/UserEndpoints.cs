@@ -19,7 +19,7 @@ public static class UserEndpoints
         group.MapGet("/", GetAllUsers).WithName("GetAllUsers");
         group.MapGet("/{id}", GetUserById).WithName("GetUserById");
         group.MapPost("/", CreateUser).WithName("CreateUser");
-        group.MapGet("/me", GetCurrentUser).WithName("GetCurrentUser");
+        group.MapGet("/me", GetCurrentUser).WithName("GetCurrentUser").RequireAuthorization();
 
         // --- Tags ---
         group.MapGet("/{discordId}/tags", GetUserTags).WithName("GetUserTags");
@@ -180,28 +180,52 @@ public static class UserEndpoints
         }
     }
 
-        private static async Task<IResult> GetCurrentUser(ClaimsPrincipal principal, [FromHeader(Name = "X-Discord-ID")] string? discordIdHeader)
-{
-    var discordId = principal.FindFirst("sub")?.Value ?? discordIdHeader;
+    // Who is calling? The answer comes from the validated Auth0 token, never from the request.
+    // "sub" = Auth0 identity. "discord_id" = custom claim added by our Auth0 Action.
+    private const string ClaimNamespace = "https://kodeklubb.no/";
 
+    private static async Task<IResult> GetCurrentUser(ClaimsPrincipal principal)
+    {
+        var auth0UserId = principal.FindFirst("sub")?.Value;
+        var discordId = principal.FindFirst(ClaimNamespace + "discord_id")?.Value;
+
+        if (string.IsNullOrWhiteSpace(auth0UserId))
+            return Results.Unauthorized();
         if (string.IsNullOrWhiteSpace(discordId))
-            return Results.BadRequest(new { message = "Discord ID not found in request" });
+            return Results.BadRequest(new { message = "The token has no discord_id claim" });
 
         await using var connection = await AppConfig.OpenConnectionAsync();
 
+        // 1. Normal case: we already know this Auth0 identity
         var user = await connection.QueryOneOrDefaultAsync<UserEntity>(
-            UserSql.GetByDiscordIdOrUsername(),
-            new { DiscordId = discordId });
+            UserSql.GetByAuth0UserId(), new { Auth0UserId = auth0UserId });
 
+        // 2. First login for an existing user: find by DiscordId and save the Auth0 id
         if (user == null)
-            return Results.NotFound(new { message = "User not found" });
+        {
+            user = await connection.QueryOneOrDefaultAsync<UserEntity>(
+                UserSql.GetByDiscordId(), new { DiscordId = discordId });
+            if (user != null)
+                user = await connection.QuerySingleAsync<UserEntity>(
+                    UserSql.SetAuth0UserId(), new { Id = user.Id, Auth0UserId = auth0UserId });
+        }
 
-        return Results.Ok(new {
+        // 3. Brand new user: create with both identities
+        if (user == null)
+        {
+            var username = principal.FindFirst(ClaimNamespace + "username")?.Value;
+            user = await connection.QuerySingleAsync<UserEntity>(
+                UserSql.InsertFromAuth0(),
+                new { DiscordId = discordId, Auth0UserId = auth0UserId, Username = string.IsNullOrWhiteSpace(username) ? discordId : username });
+        }
+
+        return Results.Ok(new
+        {
             userId = user.Id,
             username = user.Username,
             email = user.Email,
             discordId = user.DiscordId,
-            isLinked = !string.IsNullOrWhiteSpace(user.DiscordId)
+            auth0UserId = user.Auth0UserId
         });
     }
 
