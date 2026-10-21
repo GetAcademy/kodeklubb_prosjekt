@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -629,10 +629,11 @@ public static class TeamEndpoints
         await using var connection = await AppConfig.OpenConnectionAsync();
         var teams = await connection.QueryManyAsync<TeamEntity>(TeamSql.GetAvailable, new { DiscordId = discordId });
         var tagsByTeam = await LoadTeamTagsLookupAsync(connection);
-        var results = teams.Select(team => new TeamListItem(
+                       var results = teams.Select(team => new TeamListItem(
             team.Id, team.Name, team.Description,
             team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt,
-            tagsByTeam.GetValueOrDefault(team.Id, Array.Empty<TeamTagSummary>())));
+            tagsByTeam.GetValueOrDefault(team.Id, Array.Empty<TeamTagSummary>()),
+            team.PendingRequestSentAt));
         return Results.Ok(results);
     }
 
@@ -647,7 +648,8 @@ public static class TeamEndpoints
         var results = teams.Select(team => new TeamListItem(
             team.Id, team.Name, team.Description,
             team.IsOpenToJoinRequests, team.CreatedBy, team.CreatedAt,
-            tagsByTeam.GetValueOrDefault(team.Id, Array.Empty<TeamTagSummary>())));
+            tagsByTeam.GetValueOrDefault(team.Id, Array.Empty<TeamTagSummary>()),
+            null));
         return Results.Ok(results);
     }
 
@@ -826,7 +828,7 @@ public static class TeamEndpoints
     }
 }
 
-public record TeamListItem(Guid Id, string Name, string? Description, bool IsOpenToJoinRequests, Guid CreatedBy, DateTime CreatedAt, TeamTagSummary[] Tags);
+public record TeamListItem(Guid Id, string Name, string? Description, bool IsOpenToJoinRequests, Guid CreatedBy, DateTime CreatedAt, TeamTagSummary[] Tags, DateTime? PendingRequestSentAt);
 public record TeamTagRow(Guid TeamId, Guid TagId, string TagName);
 public record TeamTagSummary(Guid Id, string Name);
 public record TeamTagInsertResult(bool TagExists, bool WasInserted);

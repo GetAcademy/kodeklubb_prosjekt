@@ -114,7 +114,8 @@ public static class TeamEventHandler
         }
 
         await discordService.AddRoleToMemberAsync(team.DiscordServerId, newMemberDiscordId, roleId!);
-        await discordService.SendChannelMessageAsync(textChannelId!, $"<@&{roleId}> -- a new member just joined the team!");
+                var leaderMention = string.IsNullOrWhiteSpace(team.AdminDiscordId) ? "" : $" Team lead: <@{team.AdminDiscordId}>.";
+        await discordService.SendChannelMessageAsync(textChannelId!, $"<@&{roleId}> -- a new member just joined the team! Check out <#{textChannelId}> and <#{voiceChannelId}>.{leaderMention}");
     }
 
     private static async Task HandleEvent(UserRequestedToJoinTeam evt, DbSession db, Core.Logic.IEmailService emailService)

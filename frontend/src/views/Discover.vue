@@ -8,12 +8,10 @@
             Her er teamene du kan bli med i.
         </p>
 
+        <p v-if="error" class="error-banner">{{ error }}</p>
+
         <section v-if="loading" class="teams-placeholder">
             <p>Laster teams…</p>
-        </section>
-
-        <section v-else-if="error" class="teams-placeholder">
-            <p>{{ error }}</p>
         </section>
 
         <section v-else-if="teams.length === 0" class="teams-placeholder">
@@ -29,19 +27,22 @@
             <li v-for="tag in otherTags(team)" :key="tag.id">{{ tag.name }}</li>
         </ul>
 
-        <div v-if="geografiTags(team).length" class="geo-section">
+        <div v-if="geografiTags(team).length"class="geo-section">
             <h4 class="geo-heading">Geografi</h4>
             <ul class="team-tags">
-                <li v-for="tag in geografiTags(team)" :key="tag.id" class="team-tag-geo">{{ tag.name }}</li>
+                <li v-for="tag in geografiTags(team)" :key="tag.id" class="team-tag-geo">{{tag.name }}</li>
             </ul>
         </div>
 
         <button
-            v-if="team.isOpenToJoinRequests"
+            v-if="team.isOpenToJoinRequests && !team.pendingRequestSentAt"
             @click="joinTeam(team.id)"
             :disabled="joiningTeamId === team.id">
             {{ joiningTeamId === team.id ? 'Blir med...' : 'Bli med' }}
         </button>
+        <p v-else-if="team.pendingRequestSentAt" class="pending-request">
+            Forespørsel sendt {{ formatSentAt(team.pendingRequestSentAt) }}
+        </p>
         <p v-else class="closed-team">Dette teamet er stengt for nye medlemmer</p>
     </li>
 </ul>
@@ -67,6 +68,7 @@
         createdBy: string;
         createdAt: string;
         tags: TeamTag[];
+        pendingRequestSentAt?: string | null;
     };
 
     const authStore = useAuthStore();
@@ -95,6 +97,14 @@
         return team.tags.filter(t => !isGeografiTag(t.id));
     }
 
+    function formatSentAt(iso: string): string {
+        try {
+            return new Date(iso).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' });
+        } catch {
+            return '';
+        }
+    }
+
     const teams = ref<TeamListItem[]>([]);
     const loading = ref<boolean>(true);
     const error = ref<string | null>(null);
@@ -114,8 +124,7 @@
         const response = await fetch(`${baseApi}/api/discover/available${query}`);
         if (!response.ok) throw new Error('Kunne ikke hente teams.');
 
-        const payload = await response.json();
-        const rows = payload.map((team: any) => ({
+        const payload = await response.json();        const rows = payload.map((team: any) => ({
             id: team.Id ?? team.id,
             name: team.Name ?? team.name,
             description: team.Description ?? team.description,
@@ -126,6 +135,7 @@
                 id: t.Id ?? t.id,
                 name: t.Name ?? t.name,
             })),
+            pendingRequestSentAt: team.PendingRequestSentAt ?? team.pendingRequestSentAt ?? null,
         }));
 
         teams.value = rows;
@@ -165,7 +175,6 @@
             }
 
             await fetchTeams();
-            error.value = 'Forespørsel sendt til team!';
         } catch (err) {
             error.value = err instanceof Error ? err.message : 'Ukjent feil.';
         } finally {
@@ -268,6 +277,17 @@
     .closed-team {
         color: #999;
         font-size: 0.9rem;
+    }
+
+    .pending-request {
+        color: #0f5ed8;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .error-banner {
+        color: #b3261e;
+        font-weight: 500;
     }
 
     .teams-placeholder {

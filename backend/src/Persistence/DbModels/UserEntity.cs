@@ -18,4 +18,5 @@ public record TeamDiscordSetupInfo(
     string? DiscordServerId,
     string? DiscordTeamRoleId,
     string? DiscordTextChannelId,
-    string? DiscordVoiceChannelId);
+    string? DiscordVoiceChannelId,
+    string? AdminDiscordId);

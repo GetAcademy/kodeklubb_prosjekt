@@ -16,5 +16,6 @@ public class TeamEntity
     public Guid TeamAdminId { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
-    public int Version { get; init; }
+       public int Version { get; init; }
+    public DateTime? PendingRequestSentAt { get; init; }
 }
