@@ -1,59 +1,68 @@
 import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
-
+import { auth0 } from '@/auth0';
 import type { User } from '@/types/stores/userAuth';
 
-
 export const useAuthStore = defineStore('auth', () => {
-
-    // --- STATE
     const loading = ref<boolean>(false);
-    
-    // Initialize user from localStorage
-    const storedUserData = localStorage.getItem('user_data');
-    const token = ref<string | null>(localStorage.getItem('user_token'));
-    const user = ref<User | null>(storedUserData ? JSON.parse(storedUserData) : null);
+    const user = ref<User | null>(null);
 
-
-    // --- GETTERS
     const userName = computed(() => user.value?.username || '??');
-    const isAuthenticated = computed(() => !!token.value && !!user.value);
+    const isAuthenticated = computed(() => auth0.isAuthenticated.value && !!user.value);
 
-
-    
-    // --- ACTIONS
-    async function setToken (key: string) {
-        token.value = key;
-        localStorage.setItem('user_token', key);
+    function login() {
+        // connection: 'discord' skips the Auth0 login box and goes straight to Discord
+        return auth0.loginWithRedirect({ authorizationParams: { connection: 'discord' } });
     }
 
-    async function setUser(data: User) {
-        user.value = data;
-        localStorage.setItem('user_data', JSON.stringify(data));
-    }
-
-    async function logout()
-    {
+    async function logout() {
         user.value = null;
-        token.value = null;
-        localStorage.removeItem('user_data');
-        localStorage.removeItem('user_token');
+        await auth0.logout({ logoutParams: { returnTo: window.location.origin } });
     }
 
-    async function fetchCurrentUser()
-    {
+    async function getToken() {
+        return auth0.getAccessTokenSilently();
+    }
+
+    // Gets the Kodeklubb user from the API, identified by the validated token.
+    async function fetchCurrentUser() {
+        if (!auth0.isAuthenticated.value) return;
         loading.value = true;
         try {
-        // Her ville du vanligvis hatt et API-kall
-        // const res = await axios.get('/api/user/me');
-        // user.value = res.data;
+            const token = await auth0.getAccessTokenSilently();
+            const baseApi = import.meta.env.VITE_BASE_API || '';
+            const res = await fetch(`${baseApi}/api/users/me`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error(`/api/users/me failed: ${res.status}`);
+            const body = await res.json();
+            const me = body.data ?? body;
+            // id = Discord ID, so pages that still send ?discordId= keep working for now
+            user.value = { ...me, id: me.discordId } as unknown as User;
+        } catch (e) {
+            console.error(e);
+            user.value = null;
         } finally {
-        loading.value = false;
+            loading.value = false;
         }
     }
 
-    return { 
-        user, userName, loading,  isAuthenticated, 
-        setUser, setToken, logout, fetchCurrentUser 
+    // Resolves when Auth0 has finished loading and the user is fetched.
+    let readyPromise: Promise<void> | null = null;
+    function whenReady() {
+        if (!readyPromise) {
+            readyPromise = (async () => {
+                while (auth0.isLoading.value) {
+                    await new Promise((r) => setTimeout(r, 25));
+                }
+                if (auth0.isAuthenticated.value) await fetchCurrentUser();
+            })();
+        }
+        return readyPromise;
+    }
+
+    return {
+        user, userName, loading, isAuthenticated,
+        login, logout, getToken, fetchCurrentUser, whenReady,
     };
 });

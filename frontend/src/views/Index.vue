@@ -29,10 +29,8 @@
     const lastFetchedDiscordId = ref<string | null>(null);
 
     function loginWithDiscord() {
-        const loginApi = import.meta.env.VITE_LOGIN_API || '/auth/discord/login';
-        const baseApi = import.meta.env.VITE_BASE_API || '';
-        window.location.href = `${baseApi}${loginApi}`;
-    }
+    authStore.login();
+}
 
     const fetchUserTeams = async () => {
         userTeamsLoading.value = true;

@@ -1,4 +1,4 @@
-import axios from 'axios';
+
 import { useAuthStore } from '../stores/authStore.ts';
 import { createRouter, createWebHistory } from 'vue-router';
 
@@ -37,34 +37,16 @@ const router = createRouter({
     ...requiredAuthorization
   ]});
 
-router.beforeEach((to, from, next) =>
-{
+router.beforeEach(async (to) => {
   const authStore = useAuthStore();
-  const token = (to.query as any).token as string | undefined;
-  const userEncoded = (to.query as any).user as string | undefined;
 
-  if (token && userEncoded)
-  {
-    try {
-      const user = JSON.parse(decodeURIComponent(userEncoded));
+  // Wait until Auth0 has finished loading (and handled ?code=&state= after login),
+  // and the Kodeklubb user is fetched. Otherwise every reload looks "logged out".
+  await authStore.whenReady();
 
-      authStore.setUser(user);
-      authStore.setToken(token);
-      const targetPath = to.path === '/' ? '/profile' : to.path;
-      return next({ path: targetPath, query: {}, hash: to.hash });
-    }
-    catch (err) {
-      console.error('Failed to parse user from query', err);
-    }
-  }
-
-  next();
-});
-
-router.afterEach((to) => {
-  const hasAuthQuery = Boolean((to.query as any).token || (to.query as any).user);
-  if (hasAuthQuery) {
-    router.replace({ path: to.path, query: {}, hash: to.hash });
+  if (to.meta?.requiresAuth && !authStore.isAuthenticated) {
+    return { path: '/' };
   }
 });
+
 export default router;
