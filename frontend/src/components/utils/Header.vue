@@ -23,8 +23,7 @@
     import { useAuthStore } from '@/stores/authStore';
     //  --- Endpoint Logic
     const meta = import.meta.env;
-    const BASE_API = meta.VITE_BASE_API;
-    const discordAPI = `${BASE_API}${meta.VITE_LOGIN_API}`;
+   
     // ---  State Logic
     const authStore = useAuthStore();
     const { isAuthenticated } = storeToRefs(authStore);
@@ -58,7 +57,7 @@
                 return { 
                     type: 'button', 
                     label: `<img src="https://cdn.jsdelivr.net/gh/edent/SuperTinyIcons/images/svg/discord.svg" alt="Discord" class="discord-icon-nav" /> Discord`, 
-                    action: () => {window.location.href = discordAPI;}, 
+                    action: () => { authStore.login(); },
                     cls:"discord-btn-new"
                 }
             }
