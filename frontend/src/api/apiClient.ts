@@ -3,7 +3,7 @@ import { auth0 } from '@/auth0';
 const baseApi = import.meta.env.VITE_BASE_API || '';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public body: string = '') {
     super(message);
   }
 }
@@ -22,7 +22,9 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   });
 
   if (!response.ok) {
-    throw new ApiError(response.status, `API request failed: ${response.status}`);
+    let body = '';
+    try { body = await response.text(); } catch { /* ignore */ }
+    throw new ApiError(response.status, `API request failed: ${response.status}`, body);
   }
 
   if (response.status === 204) return undefined as T;

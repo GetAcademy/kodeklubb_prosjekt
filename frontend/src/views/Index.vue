@@ -16,6 +16,7 @@
 </template>
 
 <script lang="ts" setup>
+    import { getMyTeams } from '@/api/teamsApi';
     import { storeToRefs } from 'pinia';
     import { onMounted, ref, watch } from 'vue';
     import { useAuthStore } from '@/stores/authStore';
@@ -29,19 +30,14 @@
     const lastFetchedDiscordId = ref<string | null>(null);
 
     function loginWithDiscord() {
-    authStore.login();
-}
+         authStore.login();
+    }
 
     const fetchUserTeams = async () => {
         userTeamsLoading.value = true;
         userTeamsError.value = '';
         try {
-            const baseApi = import.meta.env.VITE_BASE_API || '';
-            const response = await fetch(`${baseApi}/api/discover/my-teams?discordId=${user.value?.id}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch user teams');
-            }
-            const payload = await response.json();
+            const payload = await getMyTeams(String(user.value?.id));
             const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
             userTeams.value = rows.map((team: any) => ({
                 id: team.Id ?? team.id,
