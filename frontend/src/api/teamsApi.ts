@@ -64,3 +64,7 @@ export function declineJoinRequest(teamId: string, requestId: string, discordId:
     body: JSON.stringify({ discordId }),
   });
 }
+
+export function getTeamMembers(teamId: string) {
+  return apiRequest<any[]>(`/api/discover/${teamId}/members`);
+}
