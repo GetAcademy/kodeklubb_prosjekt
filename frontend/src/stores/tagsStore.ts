@@ -1,4 +1,5 @@
-﻿import { defineStore } from 'pinia';
+﻿import { getTags } from '@/api/tagsApi';
+import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
 export interface Tag {
@@ -35,13 +36,8 @@ export const useTagsStore = defineStore('tags', () => {
     async function load() {
         loading.value = true;
         error.value = '';
-        try {
-            const baseApi = import.meta.env.VITE_BASE_API || '';
-            const response = await fetch(`${baseApi}/api/tags`);
-            if (!response.ok) {
-                throw new Error('Kunne ikke hente tags.');
-            }
-            const payload: RawTag[] = await response.json();
+                try {
+            const payload: RawTag[] = await getTags();
             tags.value = Array.isArray(payload) ? payload.map(normalize) : [];
             loaded = true;
         } catch (err) {

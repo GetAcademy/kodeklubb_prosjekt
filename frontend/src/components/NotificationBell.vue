@@ -96,11 +96,11 @@ async function fetchNotifications() {
   loading.value = true;
   error.value = null;
 
-  try {
+     try {
     const payload = await getNotifications(String(discordId));
-    const payload = await response.json();
 
     pendingApprovals.value = (payload.pendingApprovals ?? []).map((row: any) => ({
+      
       id: row.Id ?? row.id,
       teamId: row.TeamId ?? row.teamId ?? row.teamid,
       teamName: row.TeamName ?? row.teamName ?? row.teamname,
