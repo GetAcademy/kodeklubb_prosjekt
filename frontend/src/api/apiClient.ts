@@ -27,6 +27,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     throw new ApiError(response.status, `API request failed: ${response.status}`, body);
   }
 
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+    if (response.status === 204) return undefined as T;
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }

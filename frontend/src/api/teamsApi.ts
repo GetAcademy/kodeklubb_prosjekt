@@ -37,3 +37,30 @@ export function cancelJoinRequest(teamId: string, requestId: string, discordId: 
     { method: 'DELETE' }
   );
 }
+
+// TEMPORARY: discordId in the query string.
+export function getTeam(teamId: string, discordId?: string) {
+  const query = discordId ? `?discordId=${encodeURIComponent(discordId)}` : '';
+  return apiRequest<any>(`/api/discover/${teamId}${query}`);
+}
+
+export function getTeamRequests(teamId: string) {
+  return apiRequest<any>(`/api/discover/${teamId}/requests`);
+}
+
+// TEMPORARY: the body sends the actor's discordId. The backend must read the
+// admin from the token and check that the user is admin of the team.
+export function approveJoinRequest(teamId: string, requestId: string, discordId: string) {
+  return apiRequest<any>(`/api/discover/${teamId}/requests/${requestId}/approve`, {
+    method: 'PATCH',
+    body: JSON.stringify({ discordId }),
+  });
+}
+
+// TEMPORARY: same as approveJoinRequest.
+export function declineJoinRequest(teamId: string, requestId: string, discordId: string) {
+  return apiRequest<any>(`/api/discover/${teamId}/requests/${requestId}/decline`, {
+    method: 'PATCH',
+    body: JSON.stringify({ discordId }),
+  });
+}
