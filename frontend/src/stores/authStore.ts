@@ -21,10 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
         await auth0.logout({ logoutParams: { returnTo: window.location.origin } });
     }
 
-    async function getToken() {
-        return auth0.getAccessTokenSilently();
-    }
-
+    
     // Gets the Kodeklubb user from the API, identified by the validated token.
     async function fetchCurrentUser() {
     if (!auth0.isAuthenticated.value) return;
@@ -57,6 +54,6 @@ export const useAuthStore = defineStore('auth', () => {
 
     return {
         user, userName, loading, isAuthenticated,
-        login, logout, getToken, fetchCurrentUser, whenReady,
+        login, logout, fetchCurrentUser, whenReady,
     };
 });
