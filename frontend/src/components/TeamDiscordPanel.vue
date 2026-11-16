@@ -7,7 +7,7 @@ import {
   updateTeamDiscordConfig,
   removeTeamDiscordConfig,
   syncTeamWithDiscord
-} from "@/services/discordApi";
+} from "@/api/discordApi";
 
 const props = defineProps<{
   isAdmin: boolean;
@@ -45,7 +45,7 @@ async function load() {
     discordRoleId.value = data.discord_role_id ?? null;
     discordLink.value = data.discord_link ?? null;
   } catch (e: any) {
-    if (e?.response?.status !== 404) {
+      if ((e?.status ?? e?.response?.status) !== 404) 
       error.value = "Kunne ikke hente Discord-informasjon.";
     }
   }

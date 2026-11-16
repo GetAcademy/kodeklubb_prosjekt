@@ -54,17 +54,13 @@
     import { useAuthStore } from '@/stores/authStore';
     import type { User } from '@/types/stores/userAuth';
     import DiscordLinking from '@/components/profile/DiscordLinking.vue';
+    import { getUserTags } from '@/api/usersApi';
 
-    // Pico's classless stylesheet. Using the `?url` suffix gets Vite to
-    // hand back just the built file's URL as a plain string, WITHOUT
-    // automatically injecting it into the page — unlike a plain side-
-    // effect import, which only ever runs once per session (ES modules
-    // are cached after their first evaluation), meaning it would never
-    // re-fire on a second visit to this page within the same session.
-    // Managing the actual <link> tag ourselves, explicitly, in
-    // onMounted/onUnmounted below, means it's correctly added and
-    // removed every single time this page is entered and left — not
-    // just the first time.
+    // Pico's classless stylesheet. The ?url suffix gives us just the built
+    // file's URL as a string, without Vite injecting it into the page. We
+    // add and remove the <link> tag ourselves in onMounted/onUnmounted, so
+    // it is correctly added and removed every time this page is entered
+    // and left, not just the first time.
     import picoHref from '@picocss/pico/css/pico.classless.min.css?url';
 
     let picoLinkEl: HTMLLinkElement | null = null;
@@ -84,7 +80,7 @@
 
     const authStore = useAuthStore();
     const { user } = storeToRefs(authStore);
-    const userInfo = computed<User | null>(() => user.value)
+    const userInfo = computed<User | null>(() => user.value);
 
     interface UserTag {
         id: string;
@@ -105,13 +101,11 @@
         tagsLoading.value = true;
         tagsError.value = '';
         try {
-            const baseApi = import.meta.env.VITE_BASE_API || '';
-            const response = await fetch(`${baseApi}/api/users/${user.value.id}/tags`);
-            if (!response.ok) throw new Error('Kunne ikke hente interesser.');
-            const payload = await response.json();
+            // TEMPORARY: discordId in the URL
+            const payload = await getUserTags(String(user.value.id));
             userTags.value = Array.isArray(payload) ? payload : (payload?.tags ?? []);
-        } catch (error) {
-            tagsError.value = error instanceof Error ? error.message : 'Ukjent feil.';
+        } catch {
+            tagsError.value = 'Kunne ikke hente interesser.';
         } finally {
             tagsLoading.value = false;
         }
@@ -128,7 +122,6 @@
         if (user.value?.id) await fetchUserTags();
     });
 </script>
-
 <style scoped>
 .tags-list {
     list-style: none;

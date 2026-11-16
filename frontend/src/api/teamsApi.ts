@@ -68,3 +68,25 @@ export function declineJoinRequest(teamId: string, requestId: string, discordId:
 export function getTeamMembers(teamId: string) {
   return apiRequest<any[]>(`/api/discover/${teamId}/members`);
 }
+
+export function getTeamTags(teamId: string) {
+  return apiRequest<any>(`/api/discover/${teamId}/tags`);
+}
+
+// TEMPORARY: the body still sends the actor's discordId.
+export function addTeamTag(
+  teamId: string,
+  selections: { tagId: string; levelTagId: string | null }[],
+  discordId: string | null
+) {
+  return apiRequest<any>(`/api/discover/${teamId}/tags`, {
+    method: 'POST',
+    body: JSON.stringify({ selections, discordId }),
+  });
+}
+
+export function removeTeamTag(teamId: string, tagId: string) {
+  return apiRequest<any>(`/api/discover/${teamId}/tags/${encodeURIComponent(tagId)}`, {
+    method: 'DELETE',
+  });
+}
