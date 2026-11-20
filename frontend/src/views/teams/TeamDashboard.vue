@@ -12,7 +12,7 @@
                 </div>
 
                 <p v-if="teamLoading" class="status-line muted">
-                    <span class="dot pulse"></span>Laster teamdetaljerÔÇª
+                    <span class="dot pulse"></span>Laster teamdetaljer…
                 </p>
                 <p v-else-if="teamError" class="status-line error">
                     <span class="dot error-dot"></span>{{ teamError }}
@@ -21,29 +21,29 @@
             </header>
 
             <section v-if="teamDetails?.discordLink" class="discord-section">
-                <div class="discord-icon">Ôùå</div>
+                <div class="discord-icon">◆</div>
                 <div class="discord-copy">
                     <h3>Discord Community</h3>
-                    <p>Bli med i v├Ñr Discord-server for ├Ñ chatte og samarbeide med teamet</p>
+                    <p>Bli med i vår Discord-server for å chatte og samarbeide med teamet</p>
                 </div>
                 <a :href="teamDetails.discordLink" target="_blank" rel="noopener noreferrer" class="btn-discord">
-                    ├àpne Discord ÔåÆ
+                    Åpne Discord →
                 </a>
             </section>
 
             <section class="requests">
                 <div class="requests-heading">
-                    <h3>Foresp├©rsler for {{ teamDetails?.name ?? 'teamet' }}</h3>
+                    <h3>Forespørsler for {{ teamDetails?.name ?? 'teamet' }}</h3>
                     <span v-if="requests.length" class="requests-count">{{ requests.length }}</span>
                 </div>
 
                 <p v-if="requestsLoading" class="status-line muted">
-                    <span class="dot pulse"></span>Laster foresp├©rslerÔÇª
+                    <span class="dot pulse"></span>Laster forespørsler…
                 </p>
                 <p v-else-if="requestsError" class="status-line error">{{ requestsError }}</p>
                 <p v-else-if="requestsSuccess" class="status-line success">{{ requestsSuccess }}</p>
                 <p v-else-if="requests.length === 0" class="empty-state">
-                    Ingen ventende foresp├©rsler akkurat n├Ñ.
+                    Ingen ventende forespørsler akkurat nå.
                 </p>
 
                 <ul v-else class="requests-list">
@@ -53,7 +53,7 @@
                         </div>
                         <div class="request-info">
                             <strong>{{ request.invitedUser?.username ?? 'Ukjent bruker' }}</strong>
-                            <span class="request-meta">Discord ID ┬À {{ request.invitedUser?.discordId }}</span>
+                            <span class="request-meta">Discord ID · {{ request.invitedUser?.discordId }}</span>
                         </div>
                         <div class="request-actions">
                             <button
@@ -61,14 +61,14 @@
                                 @click="approveRequest(request.id)"
                                 :disabled="actionRequestId === request.id"
                             >
-                                {{ actionRequestId === request.id ? 'GodkjennerÔÇª' : 'Godkjenn' }}
+                                {{ actionRequestId === request.id ? 'Godkjenner…' : 'Godkjenn' }}
                             </button>
                             <button
                                 class="btn-decline"
                                 @click="declineRequest(request.id)"
                                 :disabled="actionRequestId === request.id"
                             >
-                                {{ actionRequestId === request.id ? 'Avsl├ÑrÔÇª' : 'Avsl├Ñ' }}
+                                {{ actionRequestId === request.id ? 'Avslår…' : 'Avslå' }}
                             </button>
                         </div>
                     </li>
