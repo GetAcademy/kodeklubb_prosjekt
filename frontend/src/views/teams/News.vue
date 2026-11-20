@@ -44,6 +44,14 @@ import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import TeamNewsItem from '@/components/teams/TeamNewsItem.vue';
 import type { TeamAnnouncement } from '@/types/teams/announcement';
+import { ApiError } from '@/api/apiClient';
+import { getTeam } from '@/api/teamsApi';
+import {
+  getAnnouncements,
+  createAnnouncement as createAnnouncementApi,
+  updateAnnouncement,
+  deleteAnnouncement,
+} from '@/api/announcementsApi';
 
 const route = useRoute();
 const authStore = useAuthStore();
@@ -58,32 +66,25 @@ const isPosting = ref(false);
 
 const isAdmin = ref(false);
 
+// Keep the server's text if it sent one
+function apiMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiError && err.body) return err.body;
+  return fallback;
+}
+
 async function fetchTeamDetails() {
   const currentTeamId = teamId.value;
   if (!currentTeamId) return;
 
   try {
+    // TEMPORARY: discordId in the query string
     const discordId = authStore.user?.id;
-    const url = discordId
-      ? `${baseApi}/api/discover/${currentTeamId}?discordId=${encodeURIComponent(discordId)}`
-      : `${baseApi}/api/discover/${currentTeamId}`;
-
-    const res = await fetch(url);
-    if (!res.ok) return;
-    const payload = await res.json();
-    if (payload?.isAdmin !== undefined) {
-      isAdmin.value = Boolean(payload.isAdmin);
-    } else if (payload?.team && authStore.user?.id) {
-      isAdmin.value = false;
-    } else {
-      isAdmin.value = false;
-    }
+    const payload = await getTeam(currentTeamId, discordId ? String(discordId) : undefined);
+    isAdmin.value = Boolean(payload?.isAdmin);
   } catch {
     isAdmin.value = false;
   }
 }
-
-const baseApi = import.meta.env.VITE_BASE_API || '';
 
 function normalizeAnnouncement(item: any): TeamAnnouncement {
   return {
@@ -104,15 +105,10 @@ async function fetchAnnouncements() {
   loading.value = true;
   error.value = null;
   try {
-    const response = await fetch(`${baseApi}/api/discover/${currentTeamId}/announcements`);
-    if (!response.ok) {
-      const payload = await response.text();
-      throw new Error(payload || 'Kunne ikke hente annonseringer.');
-    }
-    const payload = await response.json();
+    const payload = await getAnnouncements(currentTeamId);
     announcements.value = Array.isArray(payload) ? payload.map(normalizeAnnouncement) : [];
-  } catch (err: any) {
-    error.value = err.message || 'Ukjent feil.';
+  } catch (err) {
+    error.value = apiMessage(err, 'Kunne ikke hente annonseringer.');
   } finally {
     loading.value = false;
   }
@@ -132,21 +128,11 @@ async function createAnnouncement() {
       throw new Error('Ingen team valgt.');
     }
 
-    const response = await fetch(`${baseApi}/api/discover/${currentTeamId}/announcements`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        createdBy: authStore.user.id,
-        title: title.value,
-        body: body.value
-      })
-    });
-
-    if (!response.ok) {
-      const payload = await response.text();
-      throw new Error(payload || 'Kunne ikke publisere annonseringen.');
+    try {
+      // TEMPORARY: createdBy is sent until the backend uses the token
+      await createAnnouncementApi(currentTeamId, String(authStore.user.id), title.value, body.value);
+    } catch (err) {
+      throw new Error(apiMessage(err, 'Kunne ikke publisere annonseringen.'));
     }
 
     title.value = '';
@@ -167,15 +153,13 @@ async function handleUpdate(payload: { id: string; title: string; body: string }
     const announcement = announcements.value.find(a => a.id === payload.id);
     if (!announcement) throw new Error('Announcement not found');
 
-    const res = await fetch(`${baseApi}/api/discover/${currentTeamId}/announcements/${payload.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ updatedBy: announcement.createdBy, title: payload.title, body: payload.body })
-    });
-
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error(txt || 'Kunne ikke oppdatere annonseringen.');
+    try {
+      // TEMPORARY: updatedBy is sent until the backend uses the token
+      await updateAnnouncement(
+        currentTeamId, payload.id, announcement.createdBy, payload.title, payload.body
+      );
+    } catch (err) {
+      throw new Error(apiMessage(err, 'Kunne ikke oppdatere annonseringen.'));
     }
 
     await fetchAnnouncements();
@@ -189,10 +173,10 @@ async function handleDelete(id: string) {
     const currentTeamId = teamId.value;
     if (!currentTeamId) throw new Error('Ingen team valgt.');
 
-    const res = await fetch(`${baseApi}/api/discover/${currentTeamId}/announcements/${id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error(txt || 'Kunne ikke slette annonseringen.');
+    try {
+      await deleteAnnouncement(currentTeamId, id);
+    } catch (err) {
+      throw new Error(apiMessage(err, 'Kunne ikke slette annonseringen.'));
     }
 
     await fetchAnnouncements();

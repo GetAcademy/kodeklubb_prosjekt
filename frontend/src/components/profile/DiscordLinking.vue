@@ -36,7 +36,7 @@ import {
   getDiscordAccountStatus,
   linkDiscordAccount,
   unlinkDiscordAccount,
-} from '@/services/discordLinkingApi';
+} from '@/api/discordLinkingApi';
 
 const authStore = useAuthStore();
 const { user } = storeToRefs(authStore);

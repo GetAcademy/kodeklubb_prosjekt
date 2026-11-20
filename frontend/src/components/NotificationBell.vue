@@ -58,6 +58,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/stores/authStore';
+import { getNotifications } from '@/api/notificationsApi';
 
 interface PendingApproval {
   id: string;
@@ -95,17 +96,11 @@ async function fetchNotifications() {
   loading.value = true;
   error.value = null;
 
-  try {
-    const baseApi = import.meta.env.VITE_BASE_API || '';
-    const response = await fetch(
-      `${baseApi}/api/discover/notifications?discordId=${encodeURIComponent(discordId)}`
-    );
-
-    if (!response.ok) throw new Error('Kunne ikke hente varsler.');
-
-    const payload = await response.json();
+     try {
+    const payload = await getNotifications(String(discordId));
 
     pendingApprovals.value = (payload.pendingApprovals ?? []).map((row: any) => ({
+      
       id: row.Id ?? row.id,
       teamId: row.TeamId ?? row.teamId ?? row.teamid,
       teamName: row.TeamName ?? row.teamName ?? row.teamname,

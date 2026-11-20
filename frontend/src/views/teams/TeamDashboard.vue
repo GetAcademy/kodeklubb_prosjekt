@@ -78,231 +78,224 @@
     </div>
 </template>
 <script setup lang="ts">
-
     // --- Importing Dependencies & Types
     import { storeToRefs } from 'pinia';
     import { useRoute, useRouter } from 'vue-router';
     import { computed, onMounted, ref } from 'vue';
     import { useAuthStore } from '@/stores/authStore';
+    import { ApiError } from '@/api/apiClient';
+    import {
+        getTeam,
+        getTeamRequests,
+        approveJoinRequest,
+        declineJoinRequest,
+    } from '@/api/teamsApi';
 
-    // --- Router Logic
-    const router = useRouter()
-    const route = useRoute()
+    // --- Types
+    type TeamRequest = {
+        id: string;
+        teamId: string;
+        invitedUserId: string;
+        status: string;
+        invitedAt: string;
+        invitedUser?: {
+            id: string;
+            username?: string | null;
+            discordId?: string | null;
+        } | null;
+    };
 
+    // --- State
+    const authStore = useAuthStore();
+    const { user } = storeToRefs(authStore);
+
+    const router = useRouter();
+    const route = useRoute();
+    const teamId = computed(() => route.params.teamId as string);
+
+    const requests = ref<TeamRequest[]>([]);
+    const requestsLoading = ref(false);
+    const requestsError = ref<string | null>(null);
+    const requestsSuccess = ref<string | null>(null);
+    const actionRequestId = ref<string | null>(null);
+
+    const teamDetails = ref<any | null>(null);
+    const teamLoading = ref(false);
+    const teamError = ref<string | null>(null);
+
+    // --- Team menu
     const teamLinkOrder: Record<string, number> = {
         '/teams/:teamId': 0,
         '/teams/:teamId/members': 1,
-        '/teams/:teamId/news': 2
+        '/teams/:teamId/news': 2,
     };
 
     const teamMenuCls = [
         ['nav-bar'],
         ['nav-list', 'flex-wrap-row-align-content-start-justify-space-between'],
         ['nav-item'],
-        ['nav-link']
+        ['nav-link'],
     ];
 
     const menu = computed(() => {
         return router.getRoutes()
-            .filter(route => route.meta?.isTeam)
-            .sort((a, b) => (teamLinkOrder[a.path] ?? Number.MAX_SAFE_INTEGER) - (teamLinkOrder[b.path] ?? Number.MAX_SAFE_INTEGER))
-            .map(route => {
-                const routeName = route.name?.toString() || 'Unknown';
-                // Replace :teamId in path with actual teamId
-                let path = route.path;
-                if (teamId.value) {
-                    path = path.replace(':teamId', teamId.value);
-                }
+            .filter(r => r.meta?.isTeam)
+            .sort((a, b) =>
+                (teamLinkOrder[a.path] ?? Number.MAX_SAFE_INTEGER) -
+                (teamLinkOrder[b.path] ?? Number.MAX_SAFE_INTEGER))
+            .map(r => {
+                const routeName = r.name?.toString() || 'Unknown';
+                // Replace :teamId in the path with the actual teamId
+                const path = teamId.value ? r.path.replace(':teamId', teamId.value) : r.path;
                 return { type: 'router', path, label: toTitleCase(routeName), cls: 'router-btn' };
             });
     });
 
-    function toTitleCase(str: string) { return str.replace(/\w\S*/g, (txt) => { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(); } );}
-
-    type TeamRequest = {
-    id: string;
-    teamId: string;
-    invitedUserId: string;
-    status: string;
-    invitedAt: string;
-    invitedUser?: {
-        id: string;
-        username?: string | null;
-        discordId?: string | null;
-    } | null;
-    };
-  
-    // console.log(route)
-    const authStore = useAuthStore();
-    const { user } = storeToRefs(authStore);
-    const teamId = computed(() => route.params.teamId as string);
-
-    const requests = ref<TeamRequest[]>([]);
-    const requestsLoading = ref(false);
-    const requestsError = ref<string | null>(null);
-    const actionRequestId = ref<string | null>(null);
-    const requestsSuccess = ref<string | null>(null);
-    const teamDetails = ref<any | null>(null);
-    const teamLoading = ref(false);
-    const teamError = ref<string | null>(null);
-
-    async function fetchRequests() {
-    requestsLoading.value = true;
-    requestsError.value = null;
-    requestsSuccess.value = null;
-
-    try {
-        const baseApi = import.meta.env.VITE_BASE_API || '';
-        const url = `${baseApi}/api/discover/${teamId.value}/requests`;
-
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error('Kunne ikke hente foresp├©rsler.');
-        }
-
-        const payload = await response.json();
-
-        const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
-
-        requests.value = rows.map((row: any) => ({
-            id: row.id,
-            teamId: row.team_id ?? row.teamId,
-            invitedUserId: row.invited_user_id ?? row.invitedUserId,
-            status: row.status,
-            invitedAt: row.invited_at ?? row.invitedAt,
-            invitedUser: {
-                id: row.invited_user_id ?? row.invitedUserId,
-                username: row.username ?? row.invitedUser?.username ?? null,
-                discordId: row.discord_id ?? row.invitedUser?.discordId ?? null
-            }
-        }));
-    } catch (err) {
-        requestsError.value = err instanceof Error ? err.message : 'Ukjent feil.';
-    } finally {
-        requestsLoading.value = false;
+    function toTitleCase(str: string) {
+        return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
     }
-}
+
+    // --- Helper: keep the server's message if it sent one
+    function apiMessage(err: unknown, fallback: string): string {
+        if (err instanceof ApiError) {
+            try {
+                const body = JSON.parse(err.body);
+                if (body?.message) return body.message;
+            } catch { /* response wasn't JSON, keep generic message */ }
+        }
+        return fallback;
+    }
+
+    // --- Join requests
+    async function fetchRequests() {
+        requestsLoading.value = true;
+        requestsError.value = null;
+        requestsSuccess.value = null;
+
+        try {
+            let payload: any;
+            try {
+                payload = await getTeamRequests(String(teamId.value));
+            } catch {
+                throw new Error('Kunne ikke hente forespørsler.');
+            }
+
+            const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
+
+            requests.value = rows.map((row: any) => ({
+                id: row.id,
+                teamId: row.team_id ?? row.teamId,
+                invitedUserId: row.invited_user_id ?? row.invitedUserId,
+                status: row.status,
+                invitedAt: row.invited_at ?? row.invitedAt,
+                invitedUser: {
+                    id: row.invited_user_id ?? row.invitedUserId,
+                    username: row.username ?? row.invitedUser?.username ?? null,
+                    discordId: row.discord_id ?? row.invitedUser?.discordId ?? null,
+                },
+            }));
+        } catch (err) {
+            requestsError.value = err instanceof Error ? err.message : 'Ukjent feil.';
+        } finally {
+            requestsLoading.value = false;
+        }
+    }
 
     async function approveRequest(requestId: string) {
-    if (!user.value?.id) {
-        requestsError.value = 'Du må være logget inn som admin.';
-        return;
-    }
-
-    actionRequestId.value = requestId;
-    requestsError.value = null;
-    requestsSuccess.value = null;
-    try {
-        const baseApi = import.meta.env.VITE_BASE_API || '';
-        const response = await fetch(
-        `${baseApi}/api/discover/${teamId.value}/requests/${requestId}/approve`,
-        {
-            method: 'PATCH',
-            headers: {
-            'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ discordId: user.value.id }),
+        if (!user.value?.id) {
+            requestsError.value = 'Du må være logget inn som admin.';
+            return;
         }
-        );
 
-        if (!response.ok) {
-        let message = 'Kunne ikke godkjenne forespørsel.';
+        actionRequestId.value = requestId;
+        requestsError.value = null;
+        requestsSuccess.value = null;
+
         try {
-            const errorBody = await response.json();
-            if (errorBody?.message) message = errorBody.message;
-        } catch { /* response wasn't JSON, keep generic message */ }
-        throw new Error(message);
-        }
+            try {
+                // TEMPORARY: the backend still takes the admin's discordId from the request
+                await approveJoinRequest(String(teamId.value), requestId, String(user.value.id));
+            } catch (err) {
+                throw new Error(apiMessage(err, 'Kunne ikke godkjenne forespørsel.'));
+            }
 
-        await fetchRequests();
-        requestsSuccess.value = 'Foresporsel godkjent.';
-    } catch (err) {
-        requestsError.value = err instanceof Error ? err.message : 'Ukjent feil.';
-    } finally {
-        actionRequestId.value = null;
-    }
+            await fetchRequests();
+            requestsSuccess.value = 'Foresporsel godkjent.';
+        } catch (err) {
+            requestsError.value = err instanceof Error ? err.message : 'Ukjent feil.';
+        } finally {
+            actionRequestId.value = null;
+        }
     }
 
     async function declineRequest(requestId: string) {
-    if (!user.value?.id) {
-        requestsError.value = 'Du må være logget inn som admin.';
-        return;
-    }
-
-    actionRequestId.value = requestId;
-    requestsError.value = null;
-    requestsSuccess.value = null;
-    try {
-        const baseApi = import.meta.env.VITE_BASE_API || '';
-        const response = await fetch(
-        `${baseApi}/api/discover/${teamId.value}/requests/${requestId}/decline`,
-        {
-            method: 'PATCH',
-            headers: {
-            'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ discordId: user.value.id }),
-        }
-        );
-
-        if (!response.ok) {
-        let message = 'Kunne ikke avslå forespørsel.';
-        try {
-            const errorBody = await response.json();
-            if (errorBody?.message) message = errorBody.message;
-        } catch { /* response wasn't JSON, keep generic message */ }
-        throw new Error(message);
-        }
-
-        await fetchRequests();
-        requestsSuccess.value = 'Foresporsel avslatt.';
-    } catch (err) {
-        requestsError.value = err instanceof Error ? err.message : 'Ukjent feil.';
-    } finally {
-        actionRequestId.value = null;
-    }
-    }
-
-    async function fetchTeamDetails() {
-    teamLoading.value = true;
-    teamError.value = null;
-    try {
-        const baseApi = import.meta.env.VITE_BASE_API || '';
-        const discordId = user.value?.id;
-        const url = `${baseApi}/api/discover/${teamId.value}` + (discordId ? `?discordId=${discordId}` : '');
-        const res = await fetch(url);
-        if (!res.ok) {
-        if (res.status === 404) {
-            teamError.value = 'Team ikke funnet.';
+        if (!user.value?.id) {
+            requestsError.value = 'Du må være logget inn som admin.';
             return;
         }
-        throw new Error('Kunne ikke hente teamdetaljer.');
+
+        actionRequestId.value = requestId;
+        requestsError.value = null;
+        requestsSuccess.value = null;
+
+        try {
+            try {
+                // TEMPORARY: the backend still takes the admin's discordId from the request
+                await declineJoinRequest(String(teamId.value), requestId, String(user.value.id));
+            } catch (err) {
+                throw new Error(apiMessage(err, 'Kunne ikke avslå forespørsel.'));
+            }
+
+            await fetchRequests();
+            requestsSuccess.value = 'Foresporsel avslatt.';
+        } catch (err) {
+            requestsError.value = err instanceof Error ? err.message : 'Ukjent feil.';
+        } finally {
+            actionRequestId.value = null;
         }
-        const payload = await res.json();
-        // payload may contain { team: {...}, isMember: bool } or just team
-        const rawTeam = payload.team ?? payload;
-        // Backend returns PascalCase field names (Name, Description, etc.) —
-        // normalize to lowercase here so the template's teamDetails?.name
-        // actually matches instead of silently falling back to a default.
-        teamDetails.value = rawTeam ? {
-            id: rawTeam.id ?? rawTeam.Id,
-            name: rawTeam.name ?? rawTeam.Name,
-            description: rawTeam.description ?? rawTeam.Description,
-            discordLink: rawTeam.discordLink ?? rawTeam.DiscordLink,
-            isOpenToJoinRequests: rawTeam.isOpenToJoinRequests ?? rawTeam.IsOpenToJoinRequests,
-        } : null;
-    } catch (err) {
-        teamError.value = err instanceof Error ? err.message : 'Ukjent feil.';
-    } finally {
-        teamLoading.value = false;
-    }
     }
 
-   onMounted(async () => {
-    await fetchTeamDetails();
-    await fetchRequests();
-});
+    // --- Team details
+    async function fetchTeamDetails() {
+        teamLoading.value = true;
+        teamError.value = null;
+
+        try {
+            const discordId = user.value?.id;
+            let payload: any;
+            try {
+                // TEMPORARY: discordId in the query string
+                payload = await getTeam(String(teamId.value), discordId ? String(discordId) : undefined);
+            } catch (err) {
+                if (err instanceof ApiError && err.status === 404) {
+                    teamError.value = 'Team ikke funnet.';
+                    return;
+                }
+                throw new Error('Kunne ikke hente teamdetaljer.');
+            }
+
+            // payload may contain { team: {...}, isMember: bool } or just team
+            const rawTeam = payload.team ?? payload;
+            // The backend returns PascalCase field names (Name, Description, ...),
+            // so normalize them to lowercase for the template.
+            teamDetails.value = rawTeam ? {
+                id: rawTeam.id ?? rawTeam.Id,
+                name: rawTeam.name ?? rawTeam.Name,
+                description: rawTeam.description ?? rawTeam.Description,
+                discordLink: rawTeam.discordLink ?? rawTeam.DiscordLink,
+                isOpenToJoinRequests: rawTeam.isOpenToJoinRequests ?? rawTeam.IsOpenToJoinRequests,
+            } : null;
+        } catch (err) {
+            teamError.value = err instanceof Error ? err.message : 'Ukjent feil.';
+        } finally {
+            teamLoading.value = false;
+        }
+    }
+
+    onMounted(async () => {
+        await fetchTeamDetails();
+        await fetchRequests();
+    });
 </script>
 
 <style scoped>

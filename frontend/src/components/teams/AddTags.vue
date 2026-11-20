@@ -33,11 +33,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import axios from 'axios';
 import TagTree from './TagTree.vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useTagsStore } from '@/stores/tagsStore';
 import { storeToRefs } from 'pinia';
+import { getUserTags, addUserTag, removeUserTag } from '@/api/usersApi';
+import { getTeamTags, addTeamTag, removeTeamTag } from '@/api/teamsApi';
 
 // Optional: when set, tags are saved against this team instead of the
 // logged-in user. AddTagsPage.vue supplies this from the route param
@@ -67,14 +68,17 @@ function tagName(tagId: string): string {
 async function fetchExistingTags() {
   loading.value = true;
   try {
-    const baseApi = import.meta.env.VITE_BASE_API || '';
-    const url = props.teamId
-      ? `${baseApi}/api/discover/${props.teamId}/tags`
-      : (user.value?.id ? `${baseApi}/api/users/${user.value.id}/tags` : null);
-    if (!url) return;
+    let data: any;
+    if (props.teamId) {
+      data = await getTeamTags(props.teamId);
+    } else if (user.value?.id) {
+      // TEMPORARY: discordId in the URL
+      data = await getUserTags(String(user.value.id));
+    } else {
+      return;
+    }
 
-    const response = await axios.get(url);
-    savedTags.value = (response.data ?? []).map((t: any) => ({
+    savedTags.value = (data ?? []).map((t: any) => ({
       id: t.id ?? t.Id,
       name: t.name ?? t.Name,
     }));
@@ -85,40 +89,37 @@ async function fetchExistingTags() {
   }
 }
 
-// Every node in the tree behaves identically — there is no special
+// Every node in the tree behaves identically. There is no special
 // handling for any particular tag, category, or subtree. Clicking a tag
 // saves it immediately; there is no pending/staging step.
 async function addTag(tagId: string) {
   if (savedTagIds.value.includes(tagId)) return;
 
   // Mark as saved immediately (before the API call resolves) so a second
-  // rapid click on the same tag — a real double-click, or a stray double
-  // emit — sees it as already taken and bails out via the guard above,
-  // instead of both calls racing past the check before either finishes.
+  // rapid click on the same tag sees it as already taken and bails out
+  // via the guard above, instead of both calls racing past the check.
   const optimisticTag = { id: tagId, name: tagName(tagId) };
   savedTags.value.push(optimisticTag);
 
   statusMessage.value = '';
   try {
-    const baseApi = import.meta.env.VITE_BASE_API || '';
-    const payload = { selections: [{ tagId, levelTagId: null }] };
+    const selections = [{ tagId, levelTagId: null }];
 
     if (props.teamId) {
-      await axios.post(`${baseApi}/api/discover/${props.teamId}/tags`, {
-        ...payload,
-        discordId: user.value?.id ?? null,
-      });
+      // TEMPORARY: the body still sends the actor's discordId
+      await addTeamTag(props.teamId, selections, user.value?.id ? String(user.value.id) : null);
     } else {
       const discordId = user.value?.id;
       if (!discordId) throw new Error('Not logged in');
-      await axios.post(`${baseApi}/api/users/${discordId}/tags`, payload);
+      // TEMPORARY: discordId in the URL
+      await addUserTag(String(discordId), selections);
     }
 
     statusType.value = 'success';
     statusMessage.value = 'Tag lagret!';
   } catch (err) {
     console.error('Failed to save tag', err);
-    // Roll back the optimistic add — it was never actually saved.
+    // Roll back the optimistic add. It was never actually saved.
     savedTags.value = savedTags.value.filter(t => t.id !== tagId);
     statusType.value = 'error';
     statusMessage.value = 'Kunne ikke lagre tag.';
@@ -128,13 +129,13 @@ async function addTag(tagId: string) {
 async function removeTag(tagId: string) {
   statusMessage.value = '';
   try {
-    const baseApi = import.meta.env.VITE_BASE_API || '';
     if (props.teamId) {
-      await axios.delete(`${baseApi}/api/discover/${props.teamId}/tags/${tagId}`);
+      await removeTeamTag(props.teamId, tagId);
     } else {
       const discordId = user.value?.id;
       if (!discordId) throw new Error('Not logged in');
-      await axios.delete(`${baseApi}/api/users/${discordId}/tags/${tagId}`);
+      // TEMPORARY: discordId in the URL
+      await removeUserTag(String(discordId), tagId);
     }
     savedTags.value = savedTags.value.filter(t => t.id !== tagId);
   } catch (err) {

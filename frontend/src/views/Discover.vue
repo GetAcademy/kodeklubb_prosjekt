@@ -54,6 +54,8 @@
     import { storeToRefs } from 'pinia';
     import { useAuthStore } from '@/stores/authStore';
     import { useTagsStore } from '@/stores/tagsStore';
+    import { getAvailableTeams, requestToJoinTeam } from '@/api/teamsApi';
+    import { ApiError } from '@/api/apiClient';
 
     interface TeamTag {
         id: string;
@@ -117,14 +119,16 @@
     try {
         await tagsStore.ensureLoaded();
 
-        const baseApi = import.meta.env.VITE_BASE_API;
-        const discordId = user.value?.id;
-        const query = discordId ? `?discordId=${encodeURIComponent(discordId)}` : '';
+               const discordId = user.value?.id;
 
-        const response = await fetch(`${baseApi}/api/discover/available${query}`);
-        if (!response.ok) throw new Error('Kunne ikke hente teams.');
+        let payload: any;
+        try {
+            payload = await getAvailableTeams(discordId ? String(discordId) : undefined);
+        } catch {
+            throw new Error('Kunne ikke hente teams.');
+        }
 
-        const payload = await response.json();        const rows = payload.map((team: any) => ({
+        const rows = payload.map((team: any) => ({
             id: team.Id ?? team.id,
             name: team.Name ?? team.name,
             description: team.Description ?? team.description,
@@ -146,7 +150,7 @@
     }
 }
 
-    async function joinTeam(teamId: string) {
+       async function joinTeam(teamId: string) {
         if (!user.value?.id) {
             error.value = 'Du må være logget inn for å bli med i et team.';
             return;
@@ -156,21 +160,17 @@
         error.value = null;
 
         try {
-            const baseApi = import.meta.env.VITE_BASE_API;
-            const response = await fetch(`${baseApi}/api/discover/${teamId}/request`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ discordId: user.value.id }),
-            });
-
-            if (!response.ok) {
+            try {
+                await requestToJoinTeam(teamId, String(user.value.id));
+            } catch (apiErr) {
+                // Keep the message from the server if it sent one
                 let message = 'Kunne ikke sende forespørsel til team.';
-                try {
-                    const errorBody = await response.json();
-                    if (errorBody?.message) message = errorBody.message;
-                } catch { /* response wasn't JSON, keep generic message */ }
+                if (apiErr instanceof ApiError) {
+                    try {
+                        const errorBody = JSON.parse(apiErr.body);
+                        if (errorBody?.message) message = errorBody.message;
+                    } catch { /* response wasn't JSON, keep generic message */ }
+                }
                 throw new Error(message);
             }
 

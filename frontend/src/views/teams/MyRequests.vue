@@ -49,6 +49,7 @@
 import { onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/stores/authStore';
+import { getMyRequests, cancelJoinRequest } from '@/api/teamsApi';
 
 interface JoinRequest {
   id: string;
@@ -80,14 +81,7 @@ async function fetchMyRequests() {
       return;
     }
 
-    const historyParam = showFullHistory.value ? '&history=true' : '';
-    const response = await fetch(
-      `${baseApi}/api/discover/my-requests?discordId=${encodeURIComponent(discordId)}${historyParam}`
-    );
-
-    if (!response.ok) throw new Error('Could not load your requests.');
-
-    const payload = await response.json();
+    const payload = await getMyRequests(String(discordId), showFullHistory.value);
     const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
 
    requests.value = rows.map((row: any) => ({
@@ -109,15 +103,8 @@ async function cancelRequest(teamId: string, requestId: string) {
   error.value = null;
 
   try {
-    const baseApi = import.meta.env.VITE_BASE_API || '';
-    const discordId = user.value?.id;
-
-    const response = await fetch(
-      `${baseApi}/api/discover/${teamId}/requests/${requestId}?discordId=${encodeURIComponent(discordId!)}`,
-      { method: 'DELETE' }
-    );
-
-    if (!response.ok) throw new Error('Could not cancel request.');
+        const discordId = user.value?.id;
+    await cancelJoinRequest(teamId, requestId, String(discordId));
 
     requests.value = requests.value.filter(r => r.id !== requestId);
   } catch (err) {
