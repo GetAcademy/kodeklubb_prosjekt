@@ -15,7 +15,7 @@ public static class TagsEndpoints
 
     public static void MapTagsEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/tags", GetAllTags).WithName("GetAllTags");
+        app.MapGet("/api/tags", GetAllTags).WithName("GetAllTags").RequireAuthorization();
     }
 
     private static async Task<IResult> GetAllTags()
