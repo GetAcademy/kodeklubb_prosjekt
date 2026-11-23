@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,7 +25,7 @@ public static class TeamEndpoints
         // --- Team discovery & management ---
         group.MapGet("/available", GetAvailableTeams).WithName("GetAvailableTeams");
         group.MapPost("/", CreateTeam).WithName("CreateTeam");
-        group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams");
+        group.MapGet("/my-teams", GetUserTeams).WithName("GetUserTeams").RequireAuthorization();
         group.MapGet("/{teamId:guid}", GetTeamDetails).WithName("GetTeamDetails");
         group.MapGet("/{teamId:guid}/members", GetTeamMembers).WithName("GetTeamMembers");
         group.MapGet("/{teamId:guid}/content", GetTeamContent).WithName("GetTeamContent");
@@ -40,8 +41,8 @@ public static class TeamEndpoints
         group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/approve", ApproveJoinRequest).WithName("ApproveJoinRequest");       
         group.MapPatch("/{teamId:guid}/requests/{requestId:guid}/decline", DeclineJoinRequest).WithName("DeclineTeamRequest");
         group.MapDelete("/{teamId:guid}/requests/{requestId:guid}", CancelJoinRequest).WithName("CancelJoinRequest");
-        group.MapGet("/my-requests", GetMyRequests).WithName("GetMyRequests");
-        group.MapGet("/notifications", GetNotifications).WithName("GetNotifications");
+        group.MapGet("/my-requests", GetMyRequests).WithName("GetMyRequests").RequireAuthorization();
+        group.MapGet("/notifications", GetNotifications).WithName("GetNotifications").RequireAuthorization();
 
         // --- Announcements ---
         group.MapGet("/{teamId:guid}/announcements", GetTeamAnnouncements).WithName("GetTeamAnnouncements");
@@ -493,41 +494,33 @@ public static class TeamEndpoints
 
     // ========== Join Requests & Invitations ==========
 
-    private static async Task<IResult> GetMyRequests(string? discordId, bool history = false)
+    private static async Task<IResult> GetMyRequests(ClaimsPrincipal principal, bool history = false)
     {
-        if (string.IsNullOrWhiteSpace(discordId))
-            return Results.BadRequest(new { message = "Discord ID is required" });
+        var me = await CurrentUserService.GetAsync(principal);
+        if (me is null)
+            return Results.Unauthorized();
 
         await using var db = await DbSession.OpenAsync();
 
-        var user = await db.QueryOneOrDefaultAsync<UserEntity>(
-            TeamSql.GetUserByDiscordId(), new { DiscordId = discordId });
-        if (user == null)
-            return Results.NotFound(new { message = "User not found" });
-
         var query = history ? TeamSql.GetAllRequestsForUser() : TeamSql.GetPendingRequestsForUser();
-        var requests = await db.QueryManyAsync<JoinRequestDto>(query, new { UserId = user.Id });
+        var requests = await db.QueryManyAsync<JoinRequestDto>(query, new { UserId = me.Id });
 
         return Results.Ok(requests);
     }
 
-    private static async Task<IResult> GetNotifications(string? discordId)
+    private static async Task<IResult> GetNotifications(ClaimsPrincipal principal)
     {
-        if (string.IsNullOrWhiteSpace(discordId))
-            return Results.BadRequest(new { message = "Discord ID is required" });
+        var me = await CurrentUserService.GetAsync(principal);
+        if (me is null)
+            return Results.Unauthorized();
 
         await using var connection = await AppConfig.OpenConnectionAsync();
 
-        var user = await connection.QueryOneOrDefaultAsync<UserEntity>(
-            TeamSql.GetUserByDiscordId(), new { DiscordId = discordId });
-        if (user == null)
-            return Results.NotFound(new { message = "User not found" });
-
         var pendingApprovals = await connection.QueryManyAsync<dynamic>(
-            TeamSql.GetPendingApprovalsForAdmin(), new { UserId = user.Id });
+            TeamSql.GetPendingApprovalsForAdmin(), new { UserId = me.Id });
 
         var myUpdates = await connection.QueryManyAsync<dynamic>(
-            TeamSql.GetRecentUpdatesForUser(), new { UserId = user.Id });
+            TeamSql.GetRecentUpdatesForUser(), new { UserId = me.Id });
 
         return Results.Ok(new { pendingApprovals, myUpdates });
     }
@@ -637,10 +630,12 @@ public static class TeamEndpoints
         return Results.Ok(results);
     }
 
-    private static async Task<IResult> GetUserTeams(string? discordId)
+    private static async Task<IResult> GetUserTeams(ClaimsPrincipal principal)
     {
-        if (string.IsNullOrWhiteSpace(discordId))
-            return Results.BadRequest(new { message = "Discord ID is required" });
+        var me = await CurrentUserService.GetAsync(principal);
+        if (me is null)
+            return Results.Unauthorized();
+        var discordId = me.DiscordId;
 
         await using var connection = await AppConfig.OpenConnectionAsync();
         var teams = await connection.QueryManyAsync<TeamEntity>(TeamSql.GetUserTeams, new { DiscordId = discordId });
@@ -731,12 +726,15 @@ public static class TeamEndpoints
 
         return Results.Ok(new { teamId, status = "pending", message = "Join request submitted successfully" });
     }
+
     private static async Task<IResult> GetTeamRequests(Guid teamId)
     {
         await using var connection = await AppConfig.OpenConnectionAsync();
         var requests = await connection.QueryManyAsync(InvitationSql.GetPendingByTeam, new { TeamId = teamId });
         return Results.Ok(requests);
-    }    private static async Task<IResult> ApproveJoinRequest(Guid teamId, Guid requestId, IEmailService emailService, IDiscordNotificationService discordService)
+    }
+
+    private static async Task<IResult> ApproveJoinRequest(Guid teamId, Guid requestId, IEmailService emailService, IDiscordNotificationService discordService)
     {
         await using var db = await DbSession.OpenAsync();
         try
@@ -803,6 +801,7 @@ public static class TeamEndpoints
         return Results.BadRequest(new { ex.Message });
     }
 }
+
         private static async Task<IResult> GetTeamDetails(Guid teamId, string? discordId)
     {
         await using var connection = await AppConfig.OpenConnectionAsync();
@@ -844,4 +843,3 @@ public record UpdateDiscordConfigRequest(string? DiscordServerId, string? Discor
 public record TeamAnnouncementDto(Guid Id, Guid TeamId, Guid CreatedBy, string Title, string Body, DateTime CreatedAt, DateTime UpdatedAt);
 public record CreateTeamAnnouncementRequest(string CreatedBy, string Title, string Body);
 public record UpdateTeamAnnouncementRequest(Guid UpdatedBy, string Title, string Body);
-
