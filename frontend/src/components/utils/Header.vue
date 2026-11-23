@@ -1,18 +1,12 @@
 <template>
-  <header>
-    <nav>
-      <ul>
-        <li><router-link to="/"><strong>GET Academy</strong></router-link></li>
-      </ul>
-      <ul>
-        <li>
-          <NavigationMenu v-if="isAuthenticated" :data="authMenu" />
-          <NavigationMenu v-else :data="menu" />
-        </li>
-      </ul>
+  <div class="site-header">
+    <nav class="site-header__bar">
+      <router-link to="/" class="site-header__brand"><strong>GET Academy</strong></router-link>
+      <NavigationMenu v-if="isAuthenticated" :data="authMenu" />
+      <NavigationMenu v-else :data="menu" />
     </nav>
     <h1>GET - Kode Klubb</h1>
-  </header>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -50,19 +44,14 @@
         });
     });
     const menu = computed(() =>
-    {
-        return router.getRoutes().filter(route => !route.meta?.requiresAuth).map(route => {
-            const routeName = route.name?.toString() || 'Unknown';
-            if (route.path === '/') { 
-                return { 
-                    type: 'button', 
-                    label: `<img src="https://cdn.jsdelivr.net/gh/edent/SuperTinyIcons/images/svg/discord.svg" alt="Discord" class="discord-icon-nav" /> Discord`, 
-                    action: () => { authStore.login(); },
-                    cls:"discord-btn-new"
-                }
-            }
-            return { type: 'router', path: route.path, cls: "router-btn", label: toTitleCase(routeName)};
-        });
-    });
+    router.getRoutes()
+        .filter(route => !route.meta?.requiresAuth && route.path !== '/' && !route.meta?.isHidden)
+        .map(route => ({
+            type: 'router',
+            path: route.path,
+            cls: 'router-btn',
+            label: toTitleCase(route.name?.toString() || 'Unknown'),
+        }))
+);
     function toTitleCase(str: string) { return str.replace(/\w\S*/g, (txt) => { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(); } );}
 </script>
