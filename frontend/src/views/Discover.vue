@@ -18,108 +18,103 @@
             <p>Ingen teams å vise enda.</p>
         </section>
 
-       <ul v-else class="teams-list">
-    <li v-for="team in teams" :key="team.id" class="team-card">
-        <h3>{{ team.name }}</h3>
-        <p v-if="team.description">{{ team.description }}</p>
+        <ul v-else class="teams-list">
+            <li v-for="team in teams" :key="team.id" class="team-card">
+                <h3>{{ team.name }}</h3>
+                <p v-if="team.description">{{ team.description }}</p>
 
-        <ul v-if="otherTags(team).length" class="team-tags">
-            <li v-for="tag in otherTags(team)" :key="tag.id">{{ tag.name }}</li>
+                <TeamTagGroups :groups="getTeamTagGroups(team)" />
+
+                <button v-if="team.isOpenToJoinRequests && !team.pendingRequestSentAt" @click="joinTeam(team.id)"
+                    :disabled="joiningTeamId === team.id">
+                    {{ joiningTeamId === team.id ? 'Blir med...' : 'Bli med' }}
+                </button>
+                <p v-else-if="team.pendingRequestSentAt" class="pending-request">
+                    Forespørsel sendt {{ formatSentAt(team.pendingRequestSentAt) }}
+                </p>
+                <p v-else class="closed-team">Dette teamet er stengt for nye medlemmer</p>
+            </li>
         </ul>
-
-        <div v-if="geografiTags(team).length"class="geo-section">
-            <h4 class="geo-heading">Geografi</h4>
-            <ul class="team-tags">
-                <li v-for="tag in geografiTags(team)" :key="tag.id" class="team-tag-geo">{{tag.name }}</li>
-            </ul>
-        </div>
-
-        <button
-            v-if="team.isOpenToJoinRequests && !team.pendingRequestSentAt"
-            @click="joinTeam(team.id)"
-            :disabled="joiningTeamId === team.id">
-            {{ joiningTeamId === team.id ? 'Blir med...' : 'Bli med' }}
-        </button>
-        <p v-else-if="team.pendingRequestSentAt" class="pending-request">
-            Forespørsel sendt {{ formatSentAt(team.pendingRequestSentAt) }}
-        </p>
-        <p v-else class="closed-team">Dette teamet er stengt for nye medlemmer</p>
-    </li>
-</ul>
     </section>
 </template>
 
 <script lang="ts" setup>
-    import { onMounted, ref } from 'vue';
-    import { storeToRefs } from 'pinia';
-    import { useAuthStore } from '@/stores/authStore';
-    import { useTagsStore } from '@/stores/tagsStore';
-    import { getAvailableTeams, requestToJoinTeam } from '@/api/teamsApi';
-    import { ApiError } from '@/api/apiClient';
+import { onMounted, ref } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useAuthStore } from '@/stores/authStore';
+import { useTagsStore } from '@/stores/tagsStore';
+import { getAvailableTeams, requestToJoinTeam } from '@/api/teamsApi';
+import { ApiError } from '@/api/apiClient';
+import TeamTagGroups from '@/components/teams/TeamTagGroups.vue';
 
-    interface TeamTag {
-        id: string;
-        name: string;
+interface TeamTag {
+    id: string;
+    name: string;
+}
+
+interface TeamListItem {
+    id: string;
+    name: string;
+    description?: string | null;
+    isOpenToJoinRequests: boolean;
+    createdBy: string;
+    createdAt: string;
+    tags: TeamTag[];
+    pendingRequestSentAt?: string | null;
+};
+
+const authStore = useAuthStore();
+const { userName, user } = storeToRefs(authStore);
+const tagsStore = useTagsStore();
+
+const tagGroups = [
+    { rootName: 'Programmeringssprak', label: 'Programmeringsspråk', kind: 'language' },
+    { rootName: 'Anvendelsesomrade', label: 'Anvendelse', kind: 'application' },
+    { rootName: 'Faglig niva', label: 'Nivå', kind: 'level' },
+    { rootName: 'Geografi', label: 'Geografi', kind: 'geography' },
+];
+
+function getTeamTagGroups(team: TeamListItem) {
+    const tagsByRoot = new Map<string, TeamTag[]>();
+
+    for (const tag of team.tags) {
+        const root = tagsStore.getRootTag(tag.id);
+        if (!root) continue;
+
+        const groupTags = tagsByRoot.get(root.name) ?? [];
+        groupTags.push(tag);
+        tagsByRoot.set(root.name, groupTags);
     }
 
-    interface TeamListItem {
-        id: string;
-        name: string;
-        description?: string | null;
-        isOpenToJoinRequests: boolean;
-        createdBy: string;
-        createdAt: string;
-        tags: TeamTag[];
-        pendingRequestSentAt?: string | null;
-    };
+    return tagGroups
+        .map(group => ({
+            ...group,
+            tags: tagsByRoot.get(group.rootName) ?? [],
+        }))
+        .filter(group => group.tags.length > 0);
+}
 
-    const authStore = useAuthStore();
-    const { userName, user } = storeToRefs(authStore);
-    const tagsStore = useTagsStore();
-
-    // Geografi tags are shown in their own separate section with a
-    // heading, at Swati's explicit request, overriding Terje's "no
-    // special code for any category" instruction from the 25.08 review.
-    // Worth confirming with Terje directly if this divergence is meant
-    // to stick.
-
-    function isGeografiTag(tagId: string): boolean {
-        let current = tagsStore.getById(tagId);
-        while (current?.parentId) {
-            current = tagsStore.getById(current.parentId);
-        }
-        return current?.name === 'Geografi';
+function formatSentAt(iso: string): string {
+    try {
+        return new Date(iso).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' });
+    } catch {
+        return '';
     }
+}
 
-    function geografiTags(team: TeamListItem): TeamTag[] {
-        return team.tags.filter(t => isGeografiTag(t.id));
-    }
+const teams = ref<TeamListItem[]>([]);
+const loading = ref<boolean>(true);
+const error = ref<string | null>(null);
+const joiningTeamId = ref<string | null>(null);
 
-    function otherTags(team: TeamListItem): TeamTag[] {
-        return team.tags.filter(t => !isGeografiTag(t.id));
-    }
-
-    function formatSentAt(iso: string): string {
-        try {
-            return new Date(iso).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' });
-        } catch {
-            return '';
-        }
-    }
-
-    const teams = ref<TeamListItem[]>([]);
-    const loading = ref<boolean>(true);
-    const error = ref<string | null>(null);
-    const joiningTeamId = ref<string | null>(null);
-
-    async function fetchTeams() {
+async function fetchTeams() {
     loading.value = true;
     error.value = null;
 
     try {
         await tagsStore.ensureLoaded();
 
-               const discordId = user.value?.id;
+        const discordId = user.value?.id;
 
         let payload: any;
         try {
@@ -150,148 +145,112 @@
     }
 }
 
-       async function joinTeam(teamId: string) {
-        if (!user.value?.id) {
-            error.value = 'Du må være logget inn for å bli med i et team.';
-            return;
-        }
-
-        joiningTeamId.value = teamId;
-        error.value = null;
-
-        try {
-            try {
-                await requestToJoinTeam(teamId, String(user.value.id));
-            } catch (apiErr) {
-                // Keep the message from the server if it sent one
-                let message = 'Kunne ikke sende forespørsel til team.';
-                if (apiErr instanceof ApiError) {
-                    try {
-                        const errorBody = JSON.parse(apiErr.body);
-                        if (errorBody?.message) message = errorBody.message;
-                    } catch { /* response wasn't JSON, keep generic message */ }
-                }
-                throw new Error(message);
-            }
-
-            await fetchTeams();
-        } catch (err) {
-            error.value = err instanceof Error ? err.message : 'Ukjent feil.';
-        } finally {
-            joiningTeamId.value = null;
-        }
+async function joinTeam(teamId: string) {
+    if (!user.value?.id) {
+        error.value = 'Du må være logget inn for å bli med i et team.';
+        return;
     }
 
-    onMounted(fetchTeams);
+    joiningTeamId.value = teamId;
+    error.value = null;
+
+    try {
+        try {
+            await requestToJoinTeam(teamId, String(user.value.id));
+        } catch (apiErr) {
+            // Keep the message from the server if it sent one
+            let message = 'Kunne ikke sende forespørsel til team.';
+            if (apiErr instanceof ApiError) {
+                try {
+                    const errorBody = JSON.parse(apiErr.body);
+                    if (errorBody?.message) message = errorBody.message;
+                } catch { /* response wasn't JSON, keep generic message */ }
+            }
+            throw new Error(message);
+        }
+
+        await fetchTeams();
+    } catch (err) {
+        error.value = err instanceof Error ? err.message : 'Ukjent feil.';
+    } finally {
+        joiningTeamId.value = null;
+    }
+}
+
+onMounted(fetchTeams);
 </script>
 
 <style scoped>
-    .teams-container {
-        padding: 1rem 0;
-    }
+.teams-container {
+    padding: 1rem 0;
+}
 
-    .teams-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 1rem;
-        margin-top: 1rem;
-        list-style: none;
-        padding: 0;
-    }
+.teams-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+    list-style: none;
+    padding: 0;
+}
 
-    .team-card {
-        border: 1px solid #ddd;
-        border-radius: 10px;
-        padding: 1rem;
-        background: #fff;
-        transition: box-shadow 0.2s ease;
-    }
+.team-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 1rem;
+    background: #fff;
+    transition: box-shadow 0.2s ease;
+}
 
-    .team-card:hover {
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
-    }
+.team-card:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
 
-    .team-card h3 {
-        margin: 0 0 0.5rem 0;
-    }
+.team-card h3 {
+    margin: 0 0 0.5rem 0;
+}
 
-    .team-card p {
-        margin: 0 0 0.5rem 0;
-        font-size: 0.95rem;
-        color: #666;
-    }
+.team-card p {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.95rem;
+    color: #666;
+}
 
-    .team-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        padding: 0;
-        list-style: none;
-        margin: 0 0 0.75rem 0;
-    }
+.team-card button {
+    margin-top: auto;
+    align-self: flex-start;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #0f5ed8;
+    background: #0f5ed8;
+    color: #fff;
+}
 
-    .team-tags li {
-        background-color: #eef1f5;
-        color: #33475b;
-        padding: 0.3rem 0.65rem;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 500;
-        border: 1px solid #dde3ea;
-    }
+.team-card button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 
-    .geo-section {
-        margin-bottom: 0.75rem;
-        padding-top: 0.6rem;
-        border-top: 1px dashed #dde3ea;
-    }
+.closed-team {
+    color: #999;
+    font-size: 0.9rem;
+}
 
-    .geo-heading {
-        margin: 0 0 0.4rem 0;
-        font-size: 0.75rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #0c6b52;
-    }
+.pending-request {
+    color: #0f5ed8;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
 
-    .team-tag-geo {
-        background-color: #dcf5ec;
-        color: #0c6b52;
-        border-color: #b8e6d4;
-    }
+.error-banner {
+    color: #b3261e;
+    font-weight: 500;
+}
 
-    .team-card button {
-        padding: 0.4rem 0.75rem;
-        border-radius: 6px;
-        border: 1px solid #0f5ed8;
-        background: #0f5ed8;
-        color: #fff;
-    }
-
-    .team-card button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .closed-team {
-        color: #999;
-        font-size: 0.9rem;
-    }
-
-    .pending-request {
-        color: #0f5ed8;
-        font-size: 0.9rem;
-        font-weight: 500;
-    }
-
-    .error-banner {
-        color: #b3261e;
-        font-weight: 500;
-    }
-
-    .teams-placeholder {
-        padding: 1rem 0;
-        color: #666;
-    }
+.teams-placeholder {
+    padding: 1rem 0;
+    color: #666;
+}
 </style>

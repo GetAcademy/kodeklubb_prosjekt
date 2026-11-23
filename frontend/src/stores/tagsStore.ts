@@ -69,9 +69,19 @@ export const useTagsStore = defineStore('tags', () => {
         return tags.value.find(tag => tag.id === id);
     }
 
+    function getRootTag(tagId: string): Tag | undefined {
+        let current = getById(tagId);
+
+        while (current?.parentId) {
+            current = getById(current.parentId);
+        }
+
+        return current;
+    }
+
     function hasChildren(tagId: string): boolean {
         return tags.value.some(tag => tag.parentId === tagId);
     }
 
-    return { tags, loading, error, ensureLoaded, getChildren, getById, hasChildren };
+    return { tags, loading, error, ensureLoaded, getChildren, getById, getRootTag, hasChildren };
 });
