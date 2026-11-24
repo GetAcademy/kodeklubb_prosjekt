@@ -69,7 +69,13 @@ builder.Services
         options.Audience = auth0Audience;
         options.MapInboundClaims = false; // keep claim names like "sub" as they are
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Login is required by default. A public route must say AllowAnonymous().
+    options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -144,7 +150,7 @@ app.MapUserEndpoints();
 app.MapTeamEndpoints();
 app.MapTagsEndpoints();
 app.MapDiscordEndpoints();
-app.MapGet("/", () => "API is online!");
+app.MapGet("/", () => "API is online!").AllowAnonymous();
 
 app.Run();
 
