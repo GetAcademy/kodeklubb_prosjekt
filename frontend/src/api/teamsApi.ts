@@ -1,10 +1,8 @@
 import { apiRequest } from './apiClient';
 
-// TEMPORARY: the backend still expects ?discordId= here.
-// It is removed when the backend reads the user from the token.
-export function getMyTeams(discordId: string) {
+export function getMyTeams() {
   return apiRequest<any>(
-    `/api/discover/my-teams?discordId=${encodeURIComponent(discordId)}`
+    `/api/discover/my-teams`
   );
 }
 
@@ -22,12 +20,9 @@ export function requestToJoinTeam(teamId: string, discordId: string) {
   });
 }
 
-// TEMPORARY: discordId in the query string.
-export function getMyRequests(discordId: string, history = false) {
-  const historyParam = history ? '&history=true' : '';
-  return apiRequest<any>(
-    `/api/discover/my-requests?discordId=${encodeURIComponent(discordId)}${historyParam}`
-  );
+export function getMyRequests(history = false) {
+  const query = history ? '?history=true' : '';
+  return apiRequest<any>(`/api/discover/my-requests${query}`);
 }
 
 // TEMPORARY: discordId in the query string.

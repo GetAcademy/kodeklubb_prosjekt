@@ -60,7 +60,7 @@ interface JoinRequest {
 }
 
 const authStore = useAuthStore();
-const { user } = storeToRefs(authStore);
+const { user, isAuthenticated } = storeToRefs(authStore);
 
 const requests = ref<JoinRequest[]>([]);
 const loading = ref(true);
@@ -73,15 +73,12 @@ async function fetchMyRequests() {
   error.value = null;
 
   try {
-    const baseApi = import.meta.env.VITE_BASE_API || '';
-    const discordId = user.value?.id;
-
-    if (!discordId) {
+    if (!isAuthenticated.value) {
       error.value = 'You must be logged in to view your requests.';
       return;
     }
 
-    const payload = await getMyRequests(String(discordId), showFullHistory.value);
+    const payload = await getMyRequests(showFullHistory.value);
     const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
 
    requests.value = rows.map((row: any) => ({

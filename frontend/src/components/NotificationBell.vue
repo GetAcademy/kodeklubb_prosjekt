@@ -77,7 +77,7 @@ interface MyUpdate {
 }
 
 const authStore = useAuthStore();
-const { user } = storeToRefs(authStore);
+const { isAuthenticated } = storeToRefs(authStore);
 
 const isOpen = ref(false);
 const loading = ref(false);
@@ -90,14 +90,13 @@ const totalCount = computed(() => pendingApprovals.value.length + myUpdates.valu
 let pollHandle: ReturnType<typeof setInterval> | null = null;
 
 async function fetchNotifications() {
-  const discordId = user.value?.id;
-  if (!discordId) return;
+  if (!isAuthenticated.value) return;
 
   loading.value = true;
   error.value = null;
 
      try {
-    const payload = await getNotifications(String(discordId));
+      const payload = await getNotifications();
 
     pendingApprovals.value = (payload.pendingApprovals ?? []).map((row: any) => ({
       

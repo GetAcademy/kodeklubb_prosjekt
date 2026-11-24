@@ -37,7 +37,7 @@
         userTeamsLoading.value = true;
         userTeamsError.value = '';
         try {
-            const payload = await getMyTeams(String(user.value?.id));
+            const payload = await getMyTeams();
             const rows = Array.isArray(payload) ? payload : (payload?.value ?? []);
             userTeams.value = rows.map((team: any) => ({
                 id: team.Id ?? team.id,
