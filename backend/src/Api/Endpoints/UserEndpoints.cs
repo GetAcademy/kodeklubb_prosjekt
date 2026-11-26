@@ -13,12 +13,9 @@ public static class UserEndpoints
 {
     public static void MapUserEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/users").WithName("Users");
+               var group = app.MapGroup("/api/users").WithName("Users");
 
-              // --- User CRUD ---
-        group.MapGet("/", GetAllUsers).WithName("GetAllUsers");
-        group.MapGet("/{id}", GetUserById).WithName("GetUserById");
-        group.MapPost("/", CreateUser).WithName("CreateUser");
+        // --- Current user ---
         group.MapGet("/me", GetCurrentUser).WithName("GetCurrentUser").RequireAuthorization();
 
         // --- Tags ---
@@ -30,43 +27,11 @@ public static class UserEndpoints
         group.MapPost("/{discordId}/discord/link", LinkDiscordAccount).WithName("LinkDiscordAccount");
         group.MapDelete("/{discordId}/discord/unlink", UnlinkDiscordAccount).WithName("UnlinkDiscordAccount");
         group.MapGet("/{discordId}/discord/status", GetDiscordAccountStatus).WithName("GetDiscordAccountStatus");
-        // --- Misc / dev utilities ---
-        group.MapPost("/send-test-email", async (Core.Logic.IEmailService emailService, string toEmail) =>
-        {
-            await emailService.SendEmailAsync(toEmail, "Test Email from Kodeklubb", "<h1>This is a test email sent via Resend!</h1>");
-            return Results.Ok(new { message = $"Test email sent to {toEmail}" });
-        }).WithName("SendTestEmail");
-        
     }
-
-
     // ========== User CRUD ==========
 
-    private static async Task<IResult> GetAllUsers()
-    {
-        await using var db = await Handlers.DbSession.OpenAsync();
-        return Results.Ok(await db.QueryAsync<UserEntity>(UserSql.GetAll()));
-    }
-
-
-    private static async Task<IResult> GetUserById(Guid id)
-    {
-        await using var db = await Handlers.DbSession.OpenAsync();
-        var user = await db.QueryOneOrDefaultAsync<UserEntity>(UserSql.GetById(), new { Id = id });
-        return user is null ? Results.NotFound() : Results.Ok(user);
-    }
-
-
-    private static async Task<IResult> CreateUser(CreateUserRequest request)
-    {
-        await using var db = await Handlers.DbSession.OpenAsync();
-        var createdUser = await db.QueryOneAsync<UserEntity>(UserSql.Insert(), new { DiscordId = request.DiscordId ?? string.Empty, Username = request.Username ?? string.Empty, Email = request.Email, AvatarUrl = request.AvatarUrl, PreferencesJson = request.PreferencesJson });
-        await db.CommitAsync();
-        return Results.Created($"/api/users/{createdUser.Id}", createdUser);
-    }
-
-
-    // ========== Tags ==========
+   
+        // ========== Tags ==========
     // SQL lives in Persistence (UserSql, TagsSql) rather than inline here.
 
     private static async Task<IResult> GetUserTags(string discordId)
@@ -256,6 +221,4 @@ public static class UserEndpoints
         });
     }
 }
-
-public record CreateUserRequest(string? DiscordId, string? Email, string? Username, string? AvatarUrl, string? PreferencesJson);
 public record UpdateUserTagsRequest(TagSelection[] Selections);
