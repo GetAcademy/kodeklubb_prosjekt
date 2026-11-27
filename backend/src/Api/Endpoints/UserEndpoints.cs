@@ -34,16 +34,20 @@ public static class UserEndpoints
         // ========== Tags ==========
     // SQL lives in Persistence (UserSql, TagsSql) rather than inline here.
 
-    private static async Task<IResult> GetUserTags(string discordId)
+        private static async Task<IResult> GetUserTags(string discordId, ClaimsPrincipal principal)
     {
+        var denied = await CheckOwnerAsync(principal, discordId);
+        if (denied != null) return denied;
         if (string.IsNullOrWhiteSpace(discordId)) return Results.BadRequest(new { message = "Discord ID is required" });
         await using var db = await Handlers.DbSession.OpenAsync();
         return Results.Ok(await db.QueryAsync<dynamic>(UserSql.GetUserPredefinedTagsByDiscordId(), new { DiscordId = discordId }));
     }
 
 
-    private static async Task<IResult> AddUserTags(string discordId, UpdateUserTagsRequest request)
+    private static async Task<IResult>AddUserTags(string discordId, UpdateUserTagsRequest request, ClaimsPrincipal principal)
     {
+        var denied = await CheckOwnerAsync(principal, discordId);
+        if (denied != null) return denied;
         if (string.IsNullOrWhiteSpace(discordId)) return Results.BadRequest(new { message = "Discord ID is required" });
         if (request.Selections == null || request.Selections.Length == 0)
             return Results.BadRequest(new { message = "At least one tag selection is required" });
@@ -74,8 +78,10 @@ public static class UserEndpoints
         catch (Exception) { await db.RollbackAsync(); throw; }
     }
 
-    private static async Task<IResult> RemoveUserTag(string discordId, Guid tagId)
+    private static async Task<IResult> RemoveUserTag(string discordId, Guid tagId, ClaimsPrincipal principal)
     {
+            var denied = await CheckOwnerAsync(principal, discordId);
+    if (denied != null) return denied;
         if (string.IsNullOrWhiteSpace(discordId)) return Results.BadRequest(new { message = "Discord ID is required" });
 
         await using var db = await Handlers.DbSession.OpenAsync();
@@ -94,8 +100,10 @@ public static class UserEndpoints
 
     // ========== Discord Account Linking ==========
 
-    private static async Task<IResult> LinkDiscordAccount(string discordId)
+    private static async Task<IResult> LinkDiscordAccount(string discordId, ClaimsPrincipal principal)
     {
+            var denied = await CheckOwnerAsync(principal, discordId);
+    if (denied != null) return denied;
         if (string.IsNullOrWhiteSpace(discordId))
             return Results.BadRequest(new { message = "Discord ID is required" });
 
@@ -115,8 +123,10 @@ public static class UserEndpoints
         }
     }
 
-    private static async Task<IResult> UnlinkDiscordAccount(string discordId)
+    private static async Task<IResult>UnlinkDiscordAccount(string discordId, ClaimsPrincipal principal)
     {
+            var denied = await CheckOwnerAsync(principal, discordId);
+    if (denied != null) return denied;
         if (string.IsNullOrWhiteSpace(discordId))
             return Results.BadRequest(new { message = "Discord ID is required" });
 
@@ -194,8 +204,19 @@ public static class UserEndpoints
         });
     }
 
-    private static async Task<IResult> GetDiscordAccountStatus(string discordId)
+    private static async Task<IResult?> CheckOwnerAsync(ClaimsPrincipal principal, string discordId)
+{
+    var caller = await CurrentUserService.GetAsync(principal);
+    if (caller is null) return Results.Unauthorized();
+    if (caller.DiscordId != discordId)
+        return Results.Json(new { message = "You can only change your own account" }, statusCode: 403);
+    return null;
+}
+
+    private static async Task<IResult> GetDiscordAccountStatus(string discordId, ClaimsPrincipal principal)
     {
+            var denied = await CheckOwnerAsync(principal, discordId);
+    if (denied != null) return denied;
         if (string.IsNullOrWhiteSpace(discordId))
             return Results.BadRequest(new { message = "Discord ID is required" });
 
