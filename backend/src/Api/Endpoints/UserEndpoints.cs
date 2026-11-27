@@ -200,7 +200,8 @@ public static class UserEndpoints
             username = user.Username,
             email = user.Email,
             discordId = user.DiscordId,
-            auth0UserId = user.Auth0UserId
+            auth0UserId = user.Auth0UserId,
+            avatarUrl = principal.FindFirst(ClaimNamespace + "picture")?.Value ?? user.AvatarUrl
         });
     }
 
